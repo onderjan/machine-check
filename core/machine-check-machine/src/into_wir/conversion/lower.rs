@@ -3,14 +3,13 @@ use indexmap::IndexMap;
 use crate::{
     into_wir::Errors,
     wir::{
-        WBlock, WDescription, WExpr, WExprHighCall, WExprLowCall, WExprStruct, WIdent,
-        WImplItemType, WIndexedExpr, WIndexedIdent, WInferredContext, WItemFn, WItemImpl,
-        WItemStruct, WLowContext, WMacroableStmt, WPartialPath, WPartialSegment, WProperty,
-        WSignature, WStmt, WStmtAssign, WStmtIf, WSubproperty, WSubpropertyFunc, WTypeId, YLowered,
-        YTac, ZLowered, ZTac,
+        WDescription, WIdent, WImplItemType, WInferredContext, WItemFn, WItemImpl, WItemStruct,
+        WLowContext, WPartialPath, WPartialSegment, WProperty, WSignature, WSubproperty,
+        WSubpropertyFunc, WTypeId, YLowered, YTac,
     },
 };
 
+mod lower_block;
 mod lower_call;
 
 pub fn lower_description(
@@ -142,65 +141,6 @@ fn lower_item_fn(
 struct FnLowerer<'a> {
     ctx: &'a mut WInferredContext,
     local_types: IndexMap<WIdent, WTypeId>,
-}
-
-impl FnLowerer<'_> {
-    fn lower_block(&self, block: WBlock<ZTac>) -> Result<WBlock<ZLowered>, Errors> {
-        let mut stmts = Vec::new();
-        let mut errors = Vec::new();
-
-        for stmt in block.stmts {
-            match stmt {
-                WMacroableStmt::Assign(stmt) => {
-                    let WIndexedIdent::NonIndexed(left) = stmt.left else {
-                        todo!("Indexed expr");
-                    };
-                    let WIndexedExpr::NonIndexed(right) = stmt.right else {
-                        todo!("Indexed expr");
-                    };
-                    match self.lower_expr(right) {
-                        Ok(right) => stmts.push(WStmt::Assign(WStmtAssign { left, right })),
-                        Err(err) => errors.push(err),
-                    }
-                }
-                WMacroableStmt::If(stmt) => {
-                    let then_block = self
-                        .lower_block(stmt.then_block)
-                        .map_err(|err| errors.push(err));
-                    let else_block = self
-                        .lower_block(stmt.else_block)
-                        .map_err(|err| errors.push(err));
-
-                    if let (Ok(then_block), Ok(else_block)) = (then_block, else_block) {
-                        stmts.push(WStmt::If(WStmtIf {
-                            condition: stmt.condition,
-                            then_block,
-                            else_block,
-                        }))
-                    }
-                }
-                WMacroableStmt::PanicMacro(panic_macro) => todo!("Lower panic macro"),
-            };
-        }
-
-        Errors::errors_vec_to_result(errors)?;
-
-        Ok(WBlock { stmts })
-    }
-
-    fn lower_expr(&self, expr: WExpr<WExprHighCall>) -> Result<WExpr<WExprLowCall>, Errors> {
-        match expr {
-            WExpr::Move(ident) => Ok(WExpr::Move(ident)),
-            WExpr::Call(expr_call) => Ok(self.lower_call(expr_call)?),
-            WExpr::Field(expr_field) => Ok(WExpr::Field(expr_field)),
-            WExpr::Struct(expr_struct) => Ok(WExpr::Struct(WExprStruct {
-                type_path: lower_basic_path(expr_struct.type_path),
-                fields: expr_struct.fields,
-            })),
-            WExpr::Reference(expr_reference) => Ok(WExpr::Reference(expr_reference)),
-            WExpr::Lit(lit, neg) => Ok(WExpr::Lit(lit, neg)),
-        }
-    }
 }
 
 fn lower_basic_path(path: WPartialPath) -> WPartialPath {
