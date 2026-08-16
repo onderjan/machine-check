@@ -16,8 +16,8 @@ use crate::{
     },
     support::ident_creator::IdentCreator,
     wir::{
-        WFnArg, WIdent, WInferenceContext, WItemFn, WSignature, WSpan, WSpanned, WTacLocal,
-        WTypeId, YTac,
+        WFnArg, WFnSignature, WIdent, WInferenceContext, WItemFn, WSignature, WSpan, WSpanned,
+        WTacLocal, WTypeId, YTac,
     },
 };
 
@@ -150,7 +150,7 @@ impl FunctionFolder<'_> {
         &mut self,
         scope_id: u32,
         signature: Signature,
-    ) -> Result<WSignature, Errors> {
+    ) -> Result<WFnSignature, Errors> {
         if signature.constness.is_some() {
             return Err(Errors::single(Error::unsupported_syn_construct(
                 "Constness",
@@ -216,7 +216,7 @@ impl FunctionFolder<'_> {
             )));
         };*/
 
-        Ok(WSignature {
+        Ok(WFnSignature {
             ident: WIdent::from_syn_ident(signature.ident),
             inputs,
             output,

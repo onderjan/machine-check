@@ -27,6 +27,15 @@ impl Hash for WSpan {
     }
 }
 
+impl PartialEq for WSpan {
+    fn eq(&self, other: &Self) -> bool {
+        // always return true, the spans are just for information
+        true
+    }
+}
+
+impl Eq for WSpan {}
+
 impl WSpan {
     pub(crate) fn from_syn(to_tokens: &impl ToTokens) -> Self {
         let mut iter = to_tokens.into_token_stream().into_iter();

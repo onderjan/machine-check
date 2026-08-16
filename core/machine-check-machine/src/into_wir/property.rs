@@ -5,6 +5,7 @@ use std::{
     hash::Hash,
 };
 
+use indexmap::IndexMap;
 use machine_check_common::PropertyMacros;
 use proc_macro2::Span;
 use quote::ToTokens;
@@ -20,12 +21,14 @@ use syn_path::path;
 use crate::{
     into_wir::{
         conversion::{convert_to_ssa, convert_total, expand_macros, lower, resolve_use},
+        description::generate_signatures,
         from_syn, Errors,
     },
     util::{create_type_path, path_matches_global_names},
     wir::{
-        WIdent, WInferenceContext, WInferredContext, WLowContext, WProperty, WSubproperty,
-        WSubpropertyFixedPoint, WSubpropertyFunc, WSubpropertyNext, WTypeId, YLowered, YSsa, YTac,
+        WIdent, WInferenceContext, WInferredContext, WLowContext, WProperty, WSignatures,
+        WSubproperty, WSubpropertyFixedPoint, WSubpropertyFunc, WSubpropertyNext, WTypeId,
+        YLowered, YSsa, YTac,
     },
 };
 
@@ -216,7 +219,9 @@ fn property_from_exprs(
         subproperties.push(subproperty);
     }
 
-    ctx.resolve_subproperties_types(globals, subproperties.as_slice())?;
+    let signatures = &WSignatures::new(IndexMap::new());
+
+    ctx.resolve_subproperties_types(signatures, globals, subproperties.as_slice())?;
 
     Ok((ctx, WProperty { subproperties }))
 }

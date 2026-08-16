@@ -14,7 +14,8 @@ use crate::{
         bitvector_type, bool_type,
         context::typedef::{WContextTypeDef, WTypeDefs},
         WIdent, WInferredContext, WItemImpl, WItemStruct, WPartialArgument, WPartialGenerics,
-        WPartialPath, WPartialSegment, WPartialType, WSpan, WSubproperty, WTypeId, YTac,
+        WPartialPath, WPartialSegment, WPartialType, WSignatures, WSpan, WSubproperty, WTypeId,
+        YTac,
     },
 };
 
@@ -83,7 +84,11 @@ impl WInferenceContext {
         self.eq_constraints.union(a.0, b.0);
     }
 
-    pub fn resolve_impls_types(&mut self, impls: &[WItemImpl<YTac>]) -> Result<(), Error> {
+    pub fn resolve_impls_types(
+        &mut self,
+        signatures: &WSignatures,
+        impls: &[WItemImpl<YTac>],
+    ) -> Result<(), Error> {
         for item_impl in impls.iter() {
             for item_fn in &item_impl.impl_item_fns {
                 let mut types = BTreeMap::new();
@@ -98,7 +103,7 @@ impl WInferenceContext {
                         .map(|local| (local.ident.clone(), local.ty.clone())),
                 );
 
-                self.add_block_constraints(&types, &item_fn.block, false)?;
+                self.add_block_constraints(signatures, &types, &item_fn.block, false)?;
             }
         }
 
@@ -107,6 +112,7 @@ impl WInferenceContext {
 
     pub fn resolve_subproperties_types(
         &mut self,
+        signatures: &WSignatures,
         globals: &BTreeMap<WIdent, WTypeId>,
         subproperties: &[WSubproperty<YTac>],
     ) -> Result<(), Error> {
@@ -135,7 +141,7 @@ impl WInferenceContext {
                             .map(|local| (local.ident.clone(), local.ty.clone())),
                     );
 
-                    self.add_block_constraints(&types, &func.block, true)?;
+                    self.add_block_constraints(signatures, &types, &func.block, true)?;
                 }
                 WSubproperty::FixedPoint(_) => {}
                 WSubproperty::Next(_) => {}

@@ -11,6 +11,7 @@ mod ty;
 
 mod description;
 mod property;
+mod signature;
 mod stage;
 
 mod context;
@@ -28,6 +29,7 @@ pub use ty::*;
 
 pub use description::*;
 pub use property::*;
+pub use signature::*;
 pub use stage::*;
 
 pub use context::*;

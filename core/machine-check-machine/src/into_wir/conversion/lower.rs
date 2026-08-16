@@ -4,9 +4,9 @@ use crate::{
     into_wir::Errors,
     support::ident_creator::IdentCreator,
     wir::{
-        WDescription, WExpr, WExprLowCall, WIdent, WImplItemType, WInferredContext, WItemFn,
-        WItemImpl, WItemStruct, WLowContext, WMckNew, WPartialPath, WPartialSegment, WProperty,
-        WSignature, WStmt, WStmtAssign, WSubproperty, WSubpropertyFunc, WTacLocal, WTypeId,
+        WDescription, WExpr, WExprLowCall, WFnSignature, WIdent, WImplItemType, WInferredContext,
+        WItemFn, WItemImpl, WItemStruct, WLowContext, WMckNew, WPartialPath, WPartialSegment,
+        WProperty, WStmt, WStmtAssign, WSubproperty, WSubpropertyFunc, WTacLocal, WTypeId,
         YLowered, YTac,
     },
 };
@@ -118,7 +118,7 @@ fn lower_item_fn(
     ctx: &mut WInferredContext,
     impl_item: WItemFn<YTac>,
 ) -> Result<WItemFn<YLowered>, Errors> {
-    let signature = WSignature {
+    let signature = WFnSignature {
         ident: impl_item.signature.ident,
         inputs: impl_item.signature.inputs,
         output: impl_item.signature.output,

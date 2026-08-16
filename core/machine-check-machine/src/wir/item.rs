@@ -10,14 +10,14 @@ use syn::{
 };
 use syn_path::path;
 
-use crate::wir::{WBlock, WPartialPath, WPath, WSignature, WSpan, WSpanned, WTypeId};
+use crate::wir::{WBlock, WFnSignature, WPartialPath, WPath, WSpan, WSpanned, WTypeId};
 
 use super::{IntoSyn, WIdent, WImplItemType, YStage};
 
 #[derive(Clone, Debug, Hash)]
 pub struct WItemFn<Y: YStage> {
     pub visibility: WVisibility,
-    pub signature: WSignature,
+    pub signature: WFnSignature,
     pub locals: Vec<Y::Local>,
     pub block: WBlock<Y::AssignTypes>,
     pub result: Y::FnResult,

@@ -6,8 +6,8 @@ use proc_macro2::Span;
 use crate::{
     support::ident_creator::IdentCreator,
     wir::{
-        WBlock, WDescription, WIdent, WInferredContext, WItemFn, WItemImpl, WMacroableStmt,
-        WProperty, WSignature, WStmt, WStmtAssign, WStmtIf, WSubproperty, WSubpropertyFunc,
+        WBlock, WDescription, WFnSignature, WIdent, WInferredContext, WItemFn, WItemImpl,
+        WMacroableStmt, WProperty, WStmt, WStmtAssign, WStmtIf, WSubproperty, WSubpropertyFunc,
         WTacLocal, WTypeId, YTac, YTotal, ZTac, ZTotal,
     },
 };
@@ -135,7 +135,7 @@ impl FnConverter<'_> {
         }
 
         // TODO: convert output types to return PanicResult<OriginalResultType>
-        let signature = WSignature {
+        let signature = WFnSignature {
             ident: impl_item_fn.signature.ident,
             inputs: impl_item_fn.signature.inputs,
             output: impl_item_fn.signature.output,

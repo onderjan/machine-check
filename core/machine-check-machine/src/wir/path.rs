@@ -12,7 +12,7 @@ mod partial;
 
 pub use partial::{WPartialArgument, WPartialGenerics, WPartialPath, WPartialSegment};
 
-#[derive(Clone, Hash)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub enum WPathArgument {
     Type(WType),
     Uint(u32, WSpan),
@@ -30,19 +30,19 @@ impl From<WPathArgument> for GenericArgument {
     }
 }
 
-#[derive(Clone, Hash)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct WPathGenerics {
     pub turbofish: Option<WSpan>,
     pub arguments: Vec<WPathArgument>,
 }
 
-#[derive(Clone, Hash)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct WPathSegment {
     pub ident: WIdent,
     pub generics: Option<WPathGenerics>,
 }
 
-#[derive(Clone, Hash)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct WPath {
     pub leading_colon: Option<WSpan>,
     pub segments: Vec<WPathSegment>,

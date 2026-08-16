@@ -31,7 +31,7 @@ impl Debug for WImplItemType {
 }
 
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct WSignature {
+pub struct WFnSignature {
     pub ident: WIdent,
     pub inputs: Vec<WFnArg>,
     pub output: WTypeId,
@@ -43,7 +43,7 @@ pub struct WFnArg {
     pub ty: WTypeId,
 }
 
-impl Debug for WSignature {
+impl Debug for WFnSignature {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?}(", self.ident)?;
         let mut first = true;

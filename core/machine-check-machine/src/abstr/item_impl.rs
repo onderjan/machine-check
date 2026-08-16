@@ -6,8 +6,8 @@ use proc_macro2::Span;
 use crate::{
     abstr::{WAbstrItemImplTrait, YAbstr, ZAbstr, ZAbstrIfPolarity},
     wir::{
-        WBlock, WExpr, WExprLowCall, WExprReference, WFnArg, WIdent, WIfCondition, WItemFn,
-        WItemImpl, WItemImplTrait, WPath, WPathSegment, WSignature, WSsaLocal, WStmt, WStmtAssign,
+        WBlock, WExpr, WExprLowCall, WExprReference, WFnArg, WFnSignature, WIdent, WIfCondition,
+        WItemFn, WItemImpl, WItemImplTrait, WPath, WPathSegment, WSsaLocal, WStmt, WStmtAssign,
         WStmtIf, WType, WTypeId, YSsa, ZSsa,
     },
 };
@@ -65,7 +65,7 @@ pub fn process_item_impl(
 }
 
 pub fn fold_impl_item_fn(mut impl_item_fn: WItemFn<YSsa>) -> WItemFn<YAbstr> {
-    let signature = WSignature {
+    let signature = WFnSignature {
         ident: impl_item_fn.signature.ident,
         inputs: impl_item_fn.signature.inputs,
         output: impl_item_fn.signature.output,

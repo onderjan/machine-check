@@ -11,13 +11,15 @@ use crate::{
             types::{bitvector_type, bool_type},
         },
         signed_type, unsigned_type, WBlock, WCallArg, WExpr, WExprHighCall, WIdent, WIndexedExpr,
-        WIndexedIdent, WMacroableStmt, WPartialArgument, WPartialType, WSpanned, WTypeId, ZTac,
+        WIndexedIdent, WMacroableStmt, WPartialArgument, WPartialType, WSignatures, WSpanned,
+        WTypeId, ZTac,
     },
 };
 
 impl super::WInferenceContext {
     pub(super) fn add_block_constraints(
         &mut self,
+        signatures: &WSignatures,
         types: &BTreeMap<WIdent, WTypeId>,
         block: &WBlock<ZTac>,
         _is_property: bool,
@@ -52,7 +54,7 @@ impl super::WInferenceContext {
                             self.add_eq_constraint(left_ty, right_ty);
                         }
                         WExpr::Call(call) => {
-                            self.add_call_constraint(types, left_ty, call)?;
+                            self.add_call_constraint(signatures, types, left_ty, call)?;
                         }
                         WExpr::Field(expr_field) => {
                             let base_ty = get_type(types, &expr_field.base)?;
@@ -110,8 +112,18 @@ impl super::WInferenceContext {
                 }
                 WMacroableStmt::If(stmt_if) => {
                     eprintln!("Should add constraints for if {:#?}", stmt_if);
-                    self.add_block_constraints(types, &stmt_if.then_block, _is_property)?;
-                    self.add_block_constraints(types, &stmt_if.else_block, _is_property)?;
+                    self.add_block_constraints(
+                        signatures,
+                        types,
+                        &stmt_if.then_block,
+                        _is_property,
+                    )?;
+                    self.add_block_constraints(
+                        signatures,
+                        types,
+                        &stmt_if.else_block,
+                        _is_property,
+                    )?;
                 }
                 WMacroableStmt::PanicMacro(_stmt_panic_macro) => {
                     // panic macro returns a never type
@@ -124,6 +136,7 @@ impl super::WInferenceContext {
 
     fn add_call_constraint(
         &mut self,
+        signatures: &WSignatures,
         types: &BTreeMap<WIdent, WTypeId>,
         left_ty: WTypeId,
         call: &WExprHighCall,
@@ -276,7 +289,7 @@ impl super::WInferenceContext {
                     }
                 }
                 if !found {
-                    todo!("Call constraint {:?}", call)
+                    todo!("Call constraint {:?}, signatures: {:#?}", call, signatures)
                 }
             }
             WExprHighCall::StdUnary(unary) => todo!("Std unary"),

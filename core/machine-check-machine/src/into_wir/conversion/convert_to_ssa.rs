@@ -3,9 +3,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use crate::into_wir::{Error, ErrorType, Errors};
 use crate::wir::{
-    WBlock, WCallArg, WExpr, WExprLowCall, WFnArg, WIdent, WLowContext, WMckNew, WPhi, WPhiTaken,
-    WProperty, WSignature, WSpan, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf, WSubproperty,
-    WSubpropertyFunc, WTypeId, YLowered, ZLowered, ZSsa,
+    WBlock, WCallArg, WExpr, WExprLowCall, WFnArg, WFnSignature, WIdent, WLowContext, WMckNew,
+    WPhi, WPhiTaken, WProperty, WSpan, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf,
+    WSubproperty, WSubpropertyFunc, WTypeId, YLowered, ZLowered, ZSsa,
 };
 use crate::wir::{WDescription, WItemFn, WItemImpl, YSsa};
 
@@ -231,7 +231,7 @@ struct Counter {
 
 impl LocalVisitor<'_> {
     pub fn process(&mut self, mut item_fn: WItemFn<YLowered>) -> Result<WItemFn<YSsa>, Errors> {
-        let signature = WSignature {
+        let signature = WFnSignature {
             ident: item_fn.signature.ident,
             inputs: item_fn.signature.inputs,
             output: item_fn.signature.output,

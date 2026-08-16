@@ -108,7 +108,7 @@ impl Debug for WPartialType {
     }
 }
 
-#[derive(Clone, Hash)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub enum WType {
     Path(WPath),
     Reference(Box<WType>),
