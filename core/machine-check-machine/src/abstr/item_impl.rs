@@ -245,9 +245,9 @@ impl AbstractConverter<'_> {
         added_start_stmts: &mut Vec<WStmt<ZSsa>>,
         used_open_ident: WIdent,
     ) {
-        let Some(local) = self.get_from_locals_and_idents(&used_open_ident) else {
+        /*let Some(local) = self.get_from_locals_and_idents(&used_open_ident) else {
             panic!("Not found open used {:?} in locals", used_open_ident);
-        };
+        };*/
 
         // TODO: cloning non-copy types
 
