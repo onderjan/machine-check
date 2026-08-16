@@ -98,11 +98,12 @@ impl super::WInferenceContext {
                         }
                         WExpr::Reference(wexpr_reference) => todo!("Reference"),
                         WExpr::Lit(lit, _) => {
-                            if is_property {
+                            // TODO: process literals
+                            /*if is_property {
                                 // ignore
                             } else {
                                 todo!("Literal")
-                            }
+                            }*/
                         }
                     }
                 }
@@ -111,8 +112,9 @@ impl super::WInferenceContext {
                     self.add_block_constraints(types, &stmt_if.then_block, is_property)?;
                     self.add_block_constraints(types, &stmt_if.else_block, is_property)?;
                 }
-                WMacroableStmt::PanicMacro(wstmt_panic_macro) => {
-                    todo!("Constraints for panic macro")
+                WMacroableStmt::PanicMacro(_stmt_panic_macro) => {
+                    // panic macro returns a never type
+                    // TODO: never type
                 }
             }
         }
