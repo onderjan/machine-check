@@ -11,8 +11,8 @@ use crate::{
             types::{bitvector_type, bool_type},
         },
         signed_type, unsigned_type, WBlock, WCallArg, WExpr, WExprHighCall, WIdent, WIndexedExpr,
-        WIndexedIdent, WMacroableStmt, WPartialArgument, WPartialType, WSignatures, WSpanned,
-        WTypeId, ZTac,
+        WIndexedIdent, WMacroableStmt, WPartialArgument, WPartialType, WPath, WSignatures,
+        WSpanned, WTypeId, ZTac,
     },
 };
 
@@ -22,7 +22,7 @@ impl super::WInferenceContext {
         signatures: &WSignatures,
         types: &BTreeMap<WIdent, WTypeId>,
         block: &WBlock<ZTac>,
-        _is_property: bool,
+        self_path: Option<&WPath>,
     ) -> Result<(), Error> {
         eprintln!("Adding constraints for block {:?}", block);
         for stmt in &block.stmts {
@@ -54,7 +54,7 @@ impl super::WInferenceContext {
                             self.add_eq_constraint(left_ty, right_ty);
                         }
                         WExpr::Call(call) => {
-                            self.add_call_constraint(signatures, types, left_ty, call)?;
+                            self.add_call_constraint(signatures, types, left_ty, call, self_path)?;
                         }
                         WExpr::Field(expr_field) => {
                             let base_ty = get_type(types, &expr_field.base)?;
@@ -112,18 +112,8 @@ impl super::WInferenceContext {
                 }
                 WMacroableStmt::If(stmt_if) => {
                     eprintln!("Should add constraints for if {:#?}", stmt_if);
-                    self.add_block_constraints(
-                        signatures,
-                        types,
-                        &stmt_if.then_block,
-                        _is_property,
-                    )?;
-                    self.add_block_constraints(
-                        signatures,
-                        types,
-                        &stmt_if.else_block,
-                        _is_property,
-                    )?;
+                    self.add_block_constraints(signatures, types, &stmt_if.then_block, self_path)?;
+                    self.add_block_constraints(signatures, types, &stmt_if.else_block, self_path)?;
                 }
                 WMacroableStmt::PanicMacro(_stmt_panic_macro) => {
                     // panic macro returns a never type
@@ -140,6 +130,7 @@ impl super::WInferenceContext {
         types: &BTreeMap<WIdent, WTypeId>,
         left_ty: WTypeId,
         call: &WExprHighCall,
+        self_path: Option<&WPath>,
     ) -> Result<(), Error> {
         eprintln!("Call");
         match call {
@@ -289,7 +280,18 @@ impl super::WInferenceContext {
                     }
                 }
                 if !found {
-                    todo!("Call constraint {:?}, signatures: {:#?}", call, signatures)
+                    let call_path = if let Some(self_path) = self_path.as_ref() {
+                        call.fn_path.clone().resolve_self(self_path)
+                    } else {
+                        call.fn_path.clone()
+                    };
+
+                    todo!(
+                        "Call constraint for path {:?}, args {:?}, signatures: {:#?}",
+                        call_path,
+                        call.args,
+                        signatures
+                    )
                 }
             }
             WExprHighCall::StdUnary(unary) => todo!("Std unary"),

@@ -7,7 +7,7 @@ use syn::{
 };
 
 use crate::wir::{
-    ident::WIdent, WPartialType, WPath, WPathArgument, WPathGenerics, WPathSegment, WSpan,
+    ident::WIdent, WPartialType, WPath, WPathArgument, WPathGenerics, WPathSegment, WSpan, WSpanned,
 };
 
 #[derive(Clone, Hash)]
@@ -40,6 +40,16 @@ impl WPartialArgument {
             WPartialArgument::Infer(_) => Err(()),
         }
     }
+
+    pub fn set_span(&mut self, new_span: WSpan) {
+        match self {
+            WPartialArgument::Type(ty) => {
+                ty.set_span(new_span);
+            }
+            WPartialArgument::Uint(_value, span) => *span = new_span,
+            WPartialArgument::Infer(span) => *span = new_span,
+        }
+    }
 }
 
 #[derive(Clone, Hash)]
@@ -59,6 +69,13 @@ impl WPartialGenerics {
             turbofish: self.turbofish,
             arguments,
         })
+    }
+
+    pub fn set_span(&mut self, span: WSpan) {
+        self.turbofish.map(|_| span);
+        for arg in &mut self.arguments {
+            arg.set_span(span);
+        }
     }
 }
 
@@ -171,6 +188,37 @@ impl Debug for WPartialPath {
 }
 
 impl WPartialPath {
+    pub fn resolve_self(self, self_path: &WPath) -> Self {
+        if self.leading_colon.is_some() {
+            return self;
+        }
+
+        let Some(first_segment) = self.segments.first() else {
+            return self;
+        };
+
+        if first_segment.ident.name() == "Self" && first_segment.generics.is_none() {
+            let span = first_segment.ident.wir_span();
+            let mut result = self_path.clone().into_partial();
+            result.set_span(span);
+            result.segments.extend(self.segments.into_iter().skip(1));
+
+            result
+        } else {
+            self
+        }
+    }
+
+    pub fn set_span(&mut self, span: WSpan) {
+        self.leading_colon.map(|_| span);
+        for segment in &mut self.segments {
+            segment.ident.set_span(span.first());
+            if let Some(generics) = &mut segment.generics {
+                generics.set_span(span);
+            }
+        }
+    }
+
     pub fn into_total(self) -> Result<WPath, ()> {
         let mut segments = Vec::new();
         for segment in self.segments {

@@ -43,6 +43,14 @@ impl WPartialType {
         }
     }
 
+    pub fn set_span(&mut self, new_span: WSpan) {
+        match self {
+            WPartialType::Path(path) => path.set_span(new_span),
+            WPartialType::Reference(inner) => inner.set_span(new_span),
+            WPartialType::Infer(span) => *span = new_span,
+        }
+    }
+
     pub fn is_fully_inferred(&self) -> bool {
         match self {
             WPartialType::Path(path) => {
@@ -125,6 +133,13 @@ impl WType {
                 }
             }
             WType::Reference(inner) => inner.wir_span(),
+        }
+    }
+
+    pub fn into_partial(self) -> WPartialType {
+        match self {
+            WType::Path(path) => WPartialType::Path(path.into_partial()),
+            WType::Reference(ty) => WPartialType::Reference(Box::new(ty.into_partial())),
         }
     }
 }

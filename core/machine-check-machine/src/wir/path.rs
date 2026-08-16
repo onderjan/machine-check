@@ -30,16 +30,47 @@ impl From<WPathArgument> for GenericArgument {
     }
 }
 
+impl WPathArgument {
+    pub fn into_partial(self) -> WPartialArgument {
+        match self {
+            WPathArgument::Type(ty) => WPartialArgument::Type(ty.into_partial()),
+            WPathArgument::Uint(value, span) => WPartialArgument::Uint(value, span),
+        }
+    }
+}
+
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct WPathGenerics {
     pub turbofish: Option<WSpan>,
     pub arguments: Vec<WPathArgument>,
 }
 
+impl WPathGenerics {
+    pub fn into_partial(self) -> WPartialGenerics {
+        WPartialGenerics {
+            turbofish: self.turbofish,
+            arguments: self
+                .arguments
+                .into_iter()
+                .map(|arg| arg.into_partial())
+                .collect(),
+        }
+    }
+}
+
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub struct WPathSegment {
     pub ident: WIdent,
     pub generics: Option<WPathGenerics>,
+}
+
+impl WPathSegment {
+    pub fn into_partial(self) -> WPartialSegment {
+        WPartialSegment {
+            ident: self.ident,
+            generics: self.generics.map(|generics| generics.into_partial()),
+        }
+    }
 }
 
 #[derive(Clone, Hash, PartialEq, Eq)]
@@ -134,6 +165,17 @@ impl WPath {
             Some(&self.segments[0].ident)
         } else {
             None
+        }
+    }
+
+    pub fn into_partial(self) -> WPartialPath {
+        WPartialPath {
+            leading_colon: self.leading_colon,
+            segments: self
+                .segments
+                .into_iter()
+                .map(|segment| segment.into_partial())
+                .collect(),
         }
     }
 }
