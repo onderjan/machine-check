@@ -164,7 +164,7 @@ impl super::WInferenceContext {
 
                         // constrain the output to be a bitvector of the given width
                         let bitvector_ty = self.partial_type_id(ty);
-                        self.add_eq_constraint(left_ty, bitvector_ty);
+                        self.add_eq_constraint(left_ty.clone(), bitvector_ty);
                         found = true
                     }
 
@@ -201,6 +201,44 @@ impl super::WInferenceContext {
                         };
                         let right_ty = get_type(types, ident)?;
                         // todo: add constraint
+
+                        found = true;
+                    }
+                }
+
+                if call.fn_path.leading_colon.is_some() && call.fn_path.segments.len() == 4 {
+                    let segments = &call.fn_path.segments;
+                    if segments[0].ident.name() == "std"
+                        && segments[1].ident.name() == "convert"
+                        && segments[2].ident.name() == "Into"
+                        && segments[3].ident.name() == "into"
+                    {
+                        eprintln!("Processing Into");
+                        let span = call.fn_path.wir_span();
+                        let WCallArg::Ident(ident) = &call.args[0] else {
+                            return Err(Error::new(
+                                ErrorType::IllegalConstruct(String::from(
+                                    "Expected ident in argument",
+                                )),
+                                span,
+                            ));
+                        };
+                        let right_ty = get_type(types, ident)?;
+                        // TODO: check whether the Into conversion is permitted
+
+                        if let Some(generics) = &segments[2].generics {
+                            if generics.arguments.len() == 1 {
+                                if let WPartialArgument::Type(into_ty) = &generics.arguments[0] {
+                                    // add constraint for the left type
+                                    let into_ty = self.partial_type_id(into_ty.clone());
+                                    eprintln!(
+                                        "Adding Into constraint: {:?} == {:?}",
+                                        left_ty, into_ty
+                                    );
+                                    self.add_eq_constraint(left_ty, into_ty);
+                                }
+                            }
+                        }
 
                         found = true;
                     }

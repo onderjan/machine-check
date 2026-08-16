@@ -1,7 +1,7 @@
 use syn::{AngleBracketedGenericArguments, Expr, GenericArgument, Lit, Path, PathArguments, Type};
 
 use crate::{
-    into_wir::Error,
+    into_wir::{fold_type, Error},
     wir::{WIdent, WPartialArgument, WPartialGenerics, WPartialPath, WPartialSegment, WSpan},
 };
 
@@ -50,8 +50,7 @@ fn fold_partial_path_arguments(
     let mut arguments: Vec<WPartialArgument> = Vec::new();
     for argument in generics.args {
         let arg_span = WSpan::from_syn(&argument);
-        let mut arg_result = None;
-        match argument {
+        let arg_result = match argument {
             GenericArgument::Const(expr) => match expr {
                 Expr::Lit(expr_lit) => match expr_lit.lit {
                     Lit::Int(lit_int) => {
@@ -61,7 +60,7 @@ fn fold_partial_path_arguments(
                                 arg_span,
                             ));
                         };
-                        arg_result = Some(WPartialArgument::Uint(num, WSpan::from_syn(&lit_int)));
+                        WPartialArgument::Uint(num, WSpan::from_syn(&lit_int))
                     }
                     _ => {
                         return Err(Error::unsupported_construct(
@@ -70,9 +69,7 @@ fn fold_partial_path_arguments(
                         ))
                     }
                 },
-                Expr::Infer(infer) => {
-                    arg_result = Some(WPartialArgument::Infer(WSpan::from_syn(&infer)));
-                }
+                Expr::Infer(infer) => WPartialArgument::Infer(WSpan::from_syn(&infer)),
                 _ => {
                     return Err(Error::unsupported_construct(
                         "Non-literal const generic argument",
@@ -81,19 +78,21 @@ fn fold_partial_path_arguments(
                 }
             },
             GenericArgument::Type(Type::Infer(infer)) => {
-                arg_result = Some(WPartialArgument::Infer(WSpan::from_syn(&infer)));
+                WPartialArgument::Infer(WSpan::from_syn(&infer))
             }
-            _ => {}
-        }
+            GenericArgument::Type(ty) => {
+                let ty = fold_type(ty)?;
+                WPartialArgument::Type(ty)
+            }
+            _ => {
+                return Err(Error::unsupported_construct(
+                    "Type of generic argument",
+                    arg_span,
+                ))
+            }
+        };
 
-        if let Some(arg_result) = arg_result {
-            arguments.push(arg_result);
-        } else {
-            return Err(Error::unsupported_construct(
-                "Generic argument that is not const or wildcard",
-                arg_span,
-            ));
-        }
+        arguments.push(arg_result);
     }
     Ok(WPartialGenerics {
         turbofish,
