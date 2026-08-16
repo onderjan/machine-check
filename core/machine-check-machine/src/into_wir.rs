@@ -47,6 +47,12 @@ pub(super) enum ErrorType {
     InferenceFailure,
     #[error("{0}")]
     CallConversionError(&'static str),
+    #[error("Unknown call function '{0}'")]
+    UnknownCallFunction(String),
+    #[error("Type cannot be called")]
+    NotCallable,
+    #[error("Expected {0} arguments, got {1}")]
+    WrongNumberOfArguments(usize, usize),
 }
 
 impl From<Error> for crate::Error {

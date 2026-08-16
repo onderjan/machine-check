@@ -239,6 +239,20 @@ impl WPartialPath {
         })
     }
 
+    pub fn without_generics(self) -> WPath {
+        WPath {
+            leading_colon: self.leading_colon,
+            segments: self
+                .segments
+                .into_iter()
+                .map(|segment| WPathSegment {
+                    ident: segment.ident,
+                    generics: None,
+                })
+                .collect(),
+        }
+    }
+
     pub fn wir_span(&self) -> WSpan {
         let first = if let Some(leading_colon) = self.leading_colon {
             leading_colon.first()
