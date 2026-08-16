@@ -9,9 +9,9 @@ use crate::{
         from_syn, Error, Errors,
     },
     wir::{
-        WDescription, WImplFnSignature, WImplTypeSignature, WInferenceContext, WItemImpl,
-        WItemStruct, WLowContext, WPath, WPathSegment, WSignature, WSignatures, WStructSignature,
-        YSsa, YTac,
+        WDescription, WImplFnSignature, WImplTypeSignature, WInferenceContext, WInferredContext,
+        WItemImpl, WItemStruct, WLowContext, WPath, WPathSegment, WSignature, WSignatures,
+        WStructSignature, YSsa, YTac,
     },
 };
 
@@ -30,21 +30,20 @@ pub fn description_from_syn(
     resolve_use::remove_use(&mut items)?;
 
     let mut ctx = WInferenceContext::new();
-    let w_description = tac_from_items(&mut ctx, items.into_iter())?;
+    let (ctx, description) = tac_from_items(ctx, items.into_iter())?;
     //let w_description = convert_indexing::convert_description(w_description);
-    let ctx = ctx.into_total()?;
     /*let (w_description, panic_messages) =
     convert_total::convert_description(&mut ctx, w_description);*/
     let panic_messages = Vec::new();
-    let (mut ctx, w_description) = lower::lower_description(ctx, w_description)?;
-    let w_description = convert_to_ssa::convert_description(&mut ctx, w_description)?;
-    Ok((ctx, w_description, panic_messages))
+    let (mut ctx, description) = lower::lower_description(ctx, description)?;
+    let description = convert_to_ssa::convert_description(&mut ctx, description)?;
+    Ok((ctx, description, panic_messages))
 }
 
 fn tac_from_items(
-    ctx: &mut WInferenceContext,
+    mut ctx: WInferenceContext,
     item_iter: impl Iterator<Item = Item>,
-) -> Result<WDescription<YTac>, Errors> {
+) -> Result<(WInferredContext, WDescription<YTac>), Errors> {
     let mut structs = Vec::new();
     let mut impls = Vec::new();
     let mut errors = Vec::new();
@@ -56,13 +55,13 @@ fn tac_from_items(
                     qself: None,
                     path: Path::from(item.ident.clone()),
                 });
-                let struct_def = from_syn::fold_item_struct(ctx, item);
+                let struct_def = from_syn::fold_item_struct(&mut ctx, item);
                 if let Ok(struct_def) = &struct_def {
                     ctx.add_struct_def(ty, struct_def);
                 }
                 structs.push(struct_def);
             }
-            Item::Impl(item) => impls.push(from_syn::fold_item_impl(ctx, item)),
+            Item::Impl(item) => impls.push(from_syn::fold_item_impl(&mut ctx, item)),
             _ => errors.push(Error::unsupported_syn_construct("Item kind", &item)),
         }
     }
@@ -71,9 +70,10 @@ fn tac_from_items(
     let (structs, impls) = Errors::combine_and_vec(structs, impls, errors)?;
 
     let signatures = generate_signatures(&structs, &impls);
-    ctx.resolve_impls_types(&signatures, impls.as_slice())?;
+    let ctx = ctx.infer_impls(&signatures, impls.as_slice())?;
+    let description = WDescription { structs, impls };
 
-    Ok(WDescription { structs, impls })
+    Ok((ctx, description))
 }
 
 pub fn generate_signatures(structs: &[WItemStruct], impls: &[WItemImpl<YTac>]) -> WSignatures {

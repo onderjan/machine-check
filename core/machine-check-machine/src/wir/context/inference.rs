@@ -84,11 +84,11 @@ impl WInferenceContext {
         self.eq_constraints.union(a.0, b.0);
     }
 
-    pub fn resolve_impls_types(
-        &mut self,
+    pub fn infer_impls(
+        mut self,
         signatures: &WSignatures,
         impls: &[WItemImpl<YTac>],
-    ) -> Result<(), Error> {
+    ) -> Result<WInferredContext, Error> {
         for item_impl in impls.iter() {
             let self_path = &item_impl.self_ty;
             for item_fn in &item_impl.impl_item_fns {
@@ -111,12 +111,12 @@ impl WInferenceContext {
         self.unify()
     }
 
-    pub fn resolve_subproperties_types(
-        &mut self,
+    pub fn infer_subproperties(
+        mut self,
         signatures: &WSignatures,
         globals: &BTreeMap<WIdent, WTypeId>,
         subproperties: &[WSubproperty<YTac>],
-    ) -> Result<(), Error> {
+    ) -> Result<WInferredContext, Error> {
         let mut globals_with_results = globals.clone();
         for (index, _) in subproperties.iter().enumerate() {
             globals_with_results.insert(
@@ -152,7 +152,7 @@ impl WInferenceContext {
         self.unify()
     }
 
-    fn unify(&mut self) -> Result<(), Error> {
+    fn unify(mut self) -> Result<WInferredContext, Error> {
         eprintln!("Unifying {:?}", self);
         let mut united = IndexMap::new();
 
@@ -192,7 +192,7 @@ impl WInferenceContext {
             );
         }
 
-        Ok(())
+        self.into_total()
     }
 
     pub fn into_total(mut self) -> Result<WInferredContext, Error> {

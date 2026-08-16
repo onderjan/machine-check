@@ -149,9 +149,6 @@ pub fn create_from_syn<D>(
 
     let (ctx, property) = property_from_exprs(ctx, globals, property)?;
     eprintln!("Property from exprs: {:#?}", property);
-    eprintln!("Inference context: {:#?}", ctx);
-    //let w_description = convert_indexing::convert_description(w_description);
-    let ctx = ctx.into_total()?;
     eprintln!("Inferred context: {:#?}", ctx);
     //let (property, panic_messages) = convert_total::convert_property(&mut ctx, property);
     let panic_messages = Vec::new();
@@ -165,7 +162,7 @@ fn property_from_exprs(
     mut ctx: WInferenceContext,
     globals: &BTreeMap<WIdent, WTypeId>,
     property: ExprProperty,
-) -> Result<(WInferenceContext, WProperty<YTac>), Errors> {
+) -> Result<(WInferredContext, WProperty<YTac>), Errors> {
     let mut subproperties = Vec::new();
 
     for (index, subproperty) in property.subproperties.into_iter().enumerate() {
@@ -221,7 +218,7 @@ fn property_from_exprs(
 
     let signatures = &WSignatures::new(IndexMap::new());
 
-    ctx.resolve_subproperties_types(signatures, globals, subproperties.as_slice())?;
+    let ctx = ctx.infer_subproperties(signatures, globals, subproperties.as_slice())?;
 
     Ok((ctx, WProperty { subproperties }))
 }
