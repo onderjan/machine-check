@@ -18,7 +18,7 @@ use syn_path::path;
 use util::error_list::ErrorList;
 use wir::IntoSyn;
 
-use crate::context::{bitvector_type, bool_type, WInferenceContext};
+use crate::context::{bitvector_type, bool_type, WContextBuilder, WInferenceContext};
 use crate::util::{create_item_mod, path_matches_global_names};
 use crate::wir::{WIdent, WSpan};
 
@@ -104,7 +104,7 @@ pub fn process_property<M: FullMachine, D>(
 
     let mut global_basic_types = BTreeMap::new();
 
-    let mut ctx = WInferenceContext::new();
+    let mut builder = WContextBuilder::new();
 
     // TODO: add global basic types
     for (global_ident, elementary_type) in &global_ident_types {
@@ -117,7 +117,7 @@ pub fn process_property<M: FullMachine, D>(
             }
         };
         let ty: Type = ty.into();
-        let type_id = ctx
+        let type_id = builder
             .type_id(&ty)
             .expect("Global ident type id should be put into context");
         global_basic_types.insert(
@@ -128,7 +128,7 @@ pub fn process_property<M: FullMachine, D>(
 
     // TODO: do something with the panic messages
     let (ctx, property, _panic_messages) =
-        into_wir::create_property_description(ctx, expr, &global_basic_types, property_macros)?;
+        into_wir::create_property_description(builder, expr, &global_basic_types, property_macros)?;
 
     let property = property.into_iir(&ctx);
 

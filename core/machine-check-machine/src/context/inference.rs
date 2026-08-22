@@ -28,10 +28,10 @@ pub struct WInferenceContext {
 }
 
 impl WInferenceContext {
-    pub fn new() -> Self {
+    pub fn new(definitions: WDefinitions<YTac>, types: Vec<WPartialType>) -> Self {
         Self {
-            definitions: WDefinitions::new(),
-            types: Vec::new(),
+            definitions,
+            types,
             eq_constraints: QuickUnionUf::new(0),
         }
     }

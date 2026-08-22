@@ -18,7 +18,7 @@ use syn::{
 use syn_path::path;
 
 use crate::{
-    context::{WInferenceContext, WInferredContext, WLowContext},
+    context::{WContextBuilder, WInferenceContext, WInferredContext, WLowContext},
     into_wir::{
         conversion::{convert_to_ssa, expand_macros, lower, resolve_use},
         from_syn, Errors,
@@ -72,7 +72,7 @@ impl ExprProperty {
 }
 
 pub fn create_from_syn<D>(
-    ctx: WInferenceContext,
+    ctx: WContextBuilder,
     expr: syn::Expr,
     globals: &BTreeMap<WIdent, WTypeId>,
     property_macros: &PropertyMacros<D>,
@@ -145,6 +145,9 @@ pub fn create_from_syn<D>(
 
     eprintln!("Property exprs: {:#?}", property);
 
+    todo!("Build property");
+
+    /*
     let (ctx, property) = property_from_exprs(ctx, globals, property)?;
     eprintln!("Property from exprs: {:#?}", property);
     eprintln!("Inferred context: {:#?}", ctx);
@@ -154,6 +157,7 @@ pub fn create_from_syn<D>(
     let property = convert_to_ssa::convert_property(&mut ctx, property, globals)?;
 
     Ok((ctx, property, panic_messages))
+    */
 }
 
 fn property_from_exprs(
@@ -196,14 +200,15 @@ fn property_from_exprs(
                     }),
                 };
 
-                let func = from_syn::fold_item_fn(&mut ctx, func)?;
+                todo!("Fold subproperty func");
+                /*let func = from_syn::fold_item_fn(&mut ctx, func)?;
 
                 WSubproperty::Func(WSubpropertyFunc {
                     parent: subproperty_func.parent,
                     func,
                     children: subproperty_func.dependencies,
                     display: subproperty_func.display,
-                })
+                })*/
             }
             ExprSubproperty::Next(next_operator) => WSubproperty::Next(next_operator),
             ExprSubproperty::FixedPoint(fixed_point_operator) => {

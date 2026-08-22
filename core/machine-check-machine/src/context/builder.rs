@@ -1,13 +1,19 @@
 use std::fmt::Debug;
 
+use indexmap::IndexMap;
 use syn::Type;
+
+mod expr;
+mod func;
+mod stmt;
 
 use crate::{
     context::WInferenceContext,
-    into_wir::{fold_type, Error},
+    into_wir::{fold_type, Error, Errors},
+    util::ident_creator::IdentCreator,
     wir::{
-        WDefinitions, WItemImpl, WItemStruct, WPartialType, WSpan, WTypeId, WUniquePath, YBuild,
-        YTac,
+        WDefinition, WDefinitions, WIdent, WItemFn, WItemImpl, WItemStruct, WPartialType, WPath,
+        WSpan, WTypeId, WUniquePath, YBuild, YTac,
     },
 };
 
@@ -20,7 +26,7 @@ pub struct WContextBuilder {
 impl WContextBuilder {
     pub fn new() -> Self {
         Self {
-            definitions: WDefinitions::new(),
+            definitions: WDefinitions::empty(),
             types: Vec::new(),
         }
     }
@@ -63,7 +69,55 @@ impl WContextBuilder {
         id
     }
 
-    pub fn build(self) -> WInferenceContext {
-        todo!("Build context")
+    pub fn type_id(&mut self, ty: &Type) -> Result<WTypeId, Error> {
+        let ty = fold_type(ty.clone())?;
+        Ok(self.partial_type_id(ty))
     }
+
+    pub fn build(mut self) -> Result<WInferenceContext, Errors> {
+        let mut definitions = Vec::new();
+        for (path, def) in self.definitions.clone().into_inner() {
+            let def = match def {
+                WDefinition::Struct(item_struct) => Ok(WDefinition::Struct(item_struct)),
+                WDefinition::Fn(item_fn) => self.build_function(item_fn).map(WDefinition::Fn),
+                WDefinition::Type(item_type) => Ok(WDefinition::Type(item_type)),
+            };
+            definitions.push(def.map(|def| (path, def)));
+        }
+        let definitions = Errors::flat_result(definitions)?;
+        let definitions = IndexMap::from_iter(definitions);
+
+        Ok(WInferenceContext::new(
+            WDefinitions::new(definitions),
+            self.types,
+        ))
+    }
+
+    fn build_function(&mut self, item_fn: WItemFn<YBuild>) -> Result<WItemFn<YTac>, Errors> {
+        FunctionFolder {
+            ctx: self,
+            self_ty: None,
+            ident_creator: IdentCreator::new(String::from("")),
+            scopes: Vec::new(),
+            local_types: IndexMap::new(),
+            next_scope_id: 0,
+        }
+        .fold(item_fn)
+    }
+    fn wildcard_id(&mut self, span: WSpan) -> WTypeId {
+        self.partial_type_id(WPartialType::Infer(span))
+    }
+}
+
+struct FunctionScope {
+    local_map: IndexMap<WIdent, WIdent>,
+}
+
+struct FunctionFolder<'a> {
+    ctx: &'a mut WContextBuilder,
+    self_ty: Option<(&'a Type, &'a WPath)>,
+    ident_creator: IdentCreator<()>,
+    local_types: IndexMap<WIdent, WTypeId>,
+    scopes: Vec<FunctionScope>,
+    next_scope_id: u32,
 }

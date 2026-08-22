@@ -1,12 +1,12 @@
-use std::collections::HashMap;
-
+use indexmap::IndexMap;
 use syn::{
     punctuated::Punctuated, spanned::Spanned, Block, Expr, ExprAssign, ExprIf, ExprLit, ExprMacro,
     Lit, Pat, Stmt, Token,
 };
 
 use crate::{
-    into_wir::{from_syn::item_fn::FunctionScope, Error, ErrorType, Errors},
+    context::builder::FunctionScope,
+    into_wir::{Error, ErrorType, Errors},
     util::{create_expr_ident, path_matches_global_names},
     wir::{
         WBlock, WIdent, WIfCondition, WIndexedIdent, WMacroableStmt, WNoIfPolarity,
@@ -23,7 +23,7 @@ impl<'a> super::FunctionFolder<'a> {
             .checked_add(1)
             .expect("Scope id should not overflow");
         self.scopes.push(FunctionScope {
-            local_map: HashMap::new(),
+            local_map: IndexMap::new(),
         });
 
         let mut orig_stmts = block.stmts;

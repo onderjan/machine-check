@@ -9,10 +9,10 @@ use machine_check_common::PropertyMacros;
 use quote::ToTokens;
 use syn::Item;
 
-pub use from_syn::fold_type;
+pub use from_syn::{fold_partial_path, fold_type};
 
 use crate::{
-    context::{WInferenceContext, WLowContext},
+    context::{WContextBuilder, WInferenceContext, WLowContext},
     util::error_list::ErrorList,
     wir::{WDescription, WIdent, WProperty, WSpan, WTypeId, YSsa},
 };
@@ -24,7 +24,7 @@ pub fn create_description(
 }
 
 pub fn create_property_description<D>(
-    ctx: WInferenceContext,
+    ctx: WContextBuilder,
     expr: syn::Expr,
     globals: &BTreeMap<WIdent, WTypeId>,
     property_macros: &PropertyMacros<D>,

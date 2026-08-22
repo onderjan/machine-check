@@ -1,41 +1,29 @@
 use indexmap::IndexMap;
 
-use crate::wir::{WIdent, WImplItemType, WItemFn, WItemStruct, WTypeId, WUniquePath, YStage};
+use crate::wir::{WImplItemType, WItemFn, WItemStruct, WUniquePath, YStage};
 
-#[derive(Debug)]
-pub struct WStructSig {
-    pub fields: IndexMap<WIdent, WTypeId>,
-}
-
-#[derive(Debug)]
-pub struct WTypeSig {
-    pub inside_impl: bool,
-}
-
-#[derive(Debug)]
-pub struct WFnSig {
-    pub inputs: Vec<WTypeId>,
-    pub output: WTypeId,
-    pub inside_impl: bool,
-}
-
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum WDefinition<Y: YStage> {
     Struct(WItemStruct),
     Fn(WItemFn<Y>),
     Type(WImplItemType),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WDefinitions<Y: YStage> {
     inner: IndexMap<WUniquePath, WDefinition<Y>>,
 }
 
 impl<Y: YStage> WDefinitions<Y> {
-    pub fn new() -> Self {
-        Self {
-            inner: IndexMap::new(),
-        }
+    pub fn new(inner: IndexMap<WUniquePath, WDefinition<Y>>) -> Self {
+        Self { inner }
+    }
+    pub fn empty() -> Self {
+        Self::new(IndexMap::new())
+    }
+
+    pub fn into_inner(self) -> IndexMap<WUniquePath, WDefinition<Y>> {
+        self.inner
     }
 
     pub fn add_struct(&mut self, path: WUniquePath, def: WItemStruct) {
