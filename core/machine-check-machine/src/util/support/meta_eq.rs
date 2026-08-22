@@ -18,11 +18,11 @@ pub fn meta_eq_impl(item_struct: &WItemStruct) -> ItemImpl {
 
     let mut result_expr = None;
 
-    for field in &item_struct.fields {
-        let left = create_expr_field_named(create_self(), field.ident.clone().into());
+    for (field_name, _field) in item_struct.fields.iter() {
+        let left = create_expr_field_named(create_self(), field_name.clone().into());
         let right = create_expr_field_named(
             create_expr_ident(other_ident.clone()),
-            field.ident.clone().into(),
+            field_name.clone().into(),
         );
         let eq_expr = create_expr_call(
             create_expr_path(path!(::mck::misc::MetaEq::meta_eq)),

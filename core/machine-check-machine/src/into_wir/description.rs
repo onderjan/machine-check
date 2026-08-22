@@ -51,7 +51,7 @@ fn tac_from_items(item_iter: Vec<Item>) -> Result<(WInferredContext, WDescriptio
                 WPath::from_ident(WIdent::from_syn_ident(item.ident.clone())).without_generics();
             let struct_def = from_syn::fold_item_struct(&mut ctx, item.clone());
             if let Ok(struct_def) = &struct_def {
-                ctx.add_struct_sig(path, struct_def);
+                ctx.add_struct_sig(path, struct_def.clone());
             }
             structs.push(struct_def);
         }
@@ -74,7 +74,7 @@ fn tac_from_items(item_iter: Vec<Item>) -> Result<(WInferredContext, WDescriptio
 
                 let impl_def = from_syn::fold_item_impl(&mut ctx, item);
                 if let Ok(impl_def) = &impl_def {
-                    ctx.add_impl_sig(path, impl_def);
+                    ctx.add_impl_sig(path, impl_def.clone());
                 }
                 impls.push(impl_def)
             }

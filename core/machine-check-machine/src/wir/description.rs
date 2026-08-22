@@ -2,7 +2,7 @@ use syn::{File, Item, ItemImpl, Type};
 
 use crate::wir::{IntoSyn, WItemImpl, WItemStruct, WTypeId, YStage};
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug)]
 pub struct WDescription<Y: YStage> {
     pub structs: Vec<WItemStruct>,
     pub impls: Vec<WItemImpl<Y>>,

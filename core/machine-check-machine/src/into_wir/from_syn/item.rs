@@ -1,3 +1,4 @@
+use indexmap::IndexMap;
 use proc_macro2::Span;
 use syn::{
     parse::Parser, punctuated::Punctuated, visit::Visit, Fields, Generics, Ident, ImplItem,
@@ -123,17 +124,16 @@ pub fn fold_item_struct(
         };
 
         let visibility = fold_visibility(field.vis)?;
-        let ident = WIdent::from_syn_ident(field_ident);
-        let field = ctx.noninferred_id(&field.ty).map(|ty| WField {
-            visibility,
-            ident,
-            ty,
-        });
+        let field_ident = WIdent::from_syn_ident(field_ident);
+        let field = ctx
+            .noninferred_id(&field.ty)
+            .map(|ty| (field_ident, WField { visibility, ty }));
 
         fields.push(field);
     }
 
     let fields = Errors::vec_result(fields)?;
+    let fields = IndexMap::from_iter(fields);
 
     Ok(WItemStruct {
         visibility,

@@ -1,12 +1,12 @@
 use std::fmt::Debug;
 
-use crate::wir::{WSignatures, WType, WTypeId};
+use crate::wir::{WDefinitions, WType, WTypeId};
 
 mod lower;
 
 #[derive(Debug)]
 pub struct WInferredContext {
-    signatures: WSignatures,
+    signatures: WDefinitions,
     types: Vec<WType>,
     boolean_type_id: WTypeId,
     panic_type_id: WTypeId,
@@ -14,7 +14,7 @@ pub struct WInferredContext {
 
 impl WInferredContext {
     pub(super) fn new(
-        signatures: WSignatures,
+        signatures: WDefinitions,
         types: Vec<WType>,
         boolean_type_id: WTypeId,
         panic_type_id: WTypeId,
@@ -45,7 +45,7 @@ impl WInferredContext {
         self.types[id.0].clone()
     }
 
-    pub fn signatures(&self) -> &WSignatures {
+    pub fn signatures(&self) -> &WDefinitions {
         &self.signatures
     }
 

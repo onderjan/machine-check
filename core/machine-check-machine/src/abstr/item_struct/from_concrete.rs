@@ -27,12 +27,12 @@ pub fn from_concrete_fn(
     let mut assign_stmts = Vec::new();
     let mut struct_field_values = Vec::new();
 
-    for (index, field) in item_struct.fields.iter().enumerate() {
+    for (index, (field_name, field)) in item_struct.fields.iter().enumerate() {
         let concr_field_expr = Expr::Field(ExprField {
             attrs: Vec::new(),
             base: Box::new(create_expr_ident(concr_ident.clone())),
             dot_token: Token![.](span),
-            member: syn::Member::Named(field.ident.to_syn_ident()),
+            member: syn::Member::Named(field_name.to_syn_ident()),
         });
 
         let Type::Path(TypePath {
@@ -91,7 +91,7 @@ pub fn from_concrete_fn(
 
         struct_field_values.push(FieldValue {
             attrs: Vec::new(),
-            member: syn::Member::Named(field.ident.to_syn_ident()),
+            member: syn::Member::Named(field_name.to_syn_ident()),
             colon_token: Some(Token![:](span)),
             expr: create_expr_ident(abstr_field_temp_ident),
         });

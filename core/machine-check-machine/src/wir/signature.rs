@@ -1,6 +1,6 @@
 use indexmap::IndexMap;
 
-use crate::wir::{WFnSignature, WIdent, WPath, WTypeId, WUniquePath};
+use crate::wir::{WIdent, WImplItemType, WItemFn, WItemStruct, WTypeId, WUniquePath, YTac};
 
 #[derive(Debug)]
 pub struct WStructSig {
@@ -20,41 +20,41 @@ pub struct WFnSig {
 }
 
 #[derive(Debug)]
-pub enum WSignature {
-    Struct(WStructSig),
-    Fn(WFnSig),
-    Type(WTypeSig),
+pub enum WDefinition {
+    Struct(WItemStruct),
+    Fn(WItemFn<YTac>),
+    Type(WImplItemType),
 }
 
 #[derive(Debug)]
-pub struct WSignatures {
-    inner: IndexMap<WUniquePath, WSignature>,
+pub struct WDefinitions {
+    inner: IndexMap<WUniquePath, WDefinition>,
 }
 
-impl WSignatures {
+impl WDefinitions {
     pub fn new() -> Self {
         Self {
             inner: IndexMap::new(),
         }
     }
 
-    pub fn add_struct(&mut self, path: WUniquePath, signature: WStructSig) {
-        self.inner.insert(path, WSignature::Struct(signature));
+    pub fn add_struct(&mut self, path: WUniquePath, def: WItemStruct) {
+        self.inner.insert(path, WDefinition::Struct(def));
     }
 
-    pub fn add_fn(&mut self, path: WUniquePath, signature: WFnSig) {
-        self.inner.insert(path, WSignature::Fn(signature));
+    pub fn add_fn(&mut self, path: WUniquePath, def: WItemFn<YTac>) {
+        self.inner.insert(path, WDefinition::Fn(def));
     }
 
-    pub fn add_type(&mut self, path: WUniquePath, signature: WTypeSig) {
-        self.inner.insert(path, WSignature::Type(signature));
+    pub fn add_type(&mut self, path: WUniquePath, def: WImplItemType) {
+        self.inner.insert(path, WDefinition::Type(def));
     }
 
-    pub fn get(&self, path: &WUniquePath) -> Option<&WSignature> {
+    pub fn get(&self, path: &WUniquePath) -> Option<&WDefinition> {
         self.inner.get(path)
     }
 
-    pub fn get_index(&self, index: usize) -> Option<(&WUniquePath, &WSignature)> {
+    pub fn get_index(&self, index: usize) -> Option<(&WUniquePath, &WDefinition)> {
         self.inner.get_index(index)
     }
 

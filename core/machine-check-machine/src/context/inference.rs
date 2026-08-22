@@ -12,9 +12,9 @@ use crate::{
     context::{bitvector_type, bool_type, WInferredContext},
     into_wir::{fold_type, Error, ErrorType},
     wir::{
-        WFnSig, WIdent, WItemImpl, WPartialArgument, WPartialGenerics, WPartialPath,
-        WPartialSegment, WPartialType, WSignatures, WSpan, WStructSig, WSubproperty, WTypeId,
-        WTypeSig, WUniquePath, YTac,
+        WDefinitions, WIdent, WItemImpl, WItemStruct, WPartialArgument, WPartialGenerics,
+        WPartialPath, WPartialSegment, WPartialType, WSpan, WSubproperty, WTypeId, WUniquePath,
+        YTac,
     },
 };
 
@@ -22,7 +22,7 @@ mod constraints;
 
 #[derive(Debug)]
 pub struct WInferenceContext {
-    signatures: WSignatures,
+    definitions: WDefinitions,
     types: Vec<WPartialType>,
     eq_constraints: QuickUnionUf<UnionBySize>,
 }
@@ -30,7 +30,7 @@ pub struct WInferenceContext {
 impl WInferenceContext {
     pub fn new() -> Self {
         Self {
-            signatures: WSignatures::new(),
+            definitions: WDefinitions::new(),
             types: Vec::new(),
             eq_constraints: QuickUnionUf::new(0),
         }
@@ -202,46 +202,28 @@ impl WInferenceContext {
         }
 
         Ok(WInferredContext::new(
-            self.signatures,
+            self.definitions,
             types,
             boolean_type_id,
             panic_type_id,
         ))
     }
 
-    pub fn add_struct_sig(&mut self, path: WUniquePath, item_struct: &crate::wir::WItemStruct) {
-        let fields = IndexMap::from_iter(
-            item_struct
-                .fields
-                .iter()
-                .map(|a| (a.ident.clone(), a.ty.clone())),
-        );
-
-        self.signatures.add_struct(path, WStructSig { fields });
+    pub fn add_struct_sig(&mut self, path: WUniquePath, item_struct: WItemStruct) {
+        self.definitions.add_struct(path, item_struct);
     }
 
-    pub fn add_impl_sig(&mut self, path: WUniquePath, item_impl: &WItemImpl<YTac>) {
-        for impl_type in &item_impl.impl_item_types {
+    pub fn add_impl_sig(&mut self, path: WUniquePath, item_impl: WItemImpl<YTac>) {
+        for impl_type in item_impl.impl_item_types {
             let mut type_path = path.clone();
             type_path.segments.push(impl_type.left_ident.clone());
-            let signature = WTypeSig { inside_impl: true };
-            self.signatures.add_type(type_path, signature);
+            self.definitions.add_type(type_path, impl_type);
         }
 
-        for impl_fn in &item_impl.impl_item_fns {
+        for impl_fn in item_impl.impl_item_fns {
             let mut fn_path = path.clone();
             fn_path.segments.push(impl_fn.signature.ident.clone());
-            let signature = WFnSig {
-                inputs: impl_fn
-                    .signature
-                    .inputs
-                    .iter()
-                    .map(|input| input.ty.clone())
-                    .collect(),
-                output: impl_fn.signature.output.clone(),
-                inside_impl: true,
-            };
-            self.signatures.add_fn(fn_path, signature);
+            self.definitions.add_fn(fn_path, impl_fn);
         }
     }
 }

@@ -29,8 +29,8 @@ impl WDescription<YSsa> {
         // second pass: add fields
         for (index, item_struct) in self.structs.into_iter().enumerate() {
             let mut fields = IndexMap::new();
-            for field in item_struct.fields {
-                fields.insert(field.ident.into_iir(), ctx.id_elementary_type(field.ty));
+            for (field_name, field) in item_struct.fields {
+                fields.insert(field_name.into_iir(), ctx.id_elementary_type(field.ty));
             }
 
             struct_declarations[index].fields = fields;

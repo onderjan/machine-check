@@ -1,5 +1,6 @@
 use std::hash::Hash;
 
+use indexmap::IndexMap;
 use proc_macro2::Span;
 use quote::ToTokens;
 use syn::{
@@ -23,12 +24,12 @@ pub struct WItemFn<Y: YStage> {
     pub result: Y::FnResult,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug)]
 pub struct WItemStruct {
     pub visibility: WVisibility,
     pub derives: Vec<WPartialPath>,
     pub ident: WIdent,
-    pub fields: Vec<WField>,
+    pub fields: IndexMap<WIdent, WField>,
 }
 
 #[derive(Clone, Debug)]
@@ -46,7 +47,6 @@ impl Hash for WVisibility {
 #[derive(Clone, Debug, Hash)]
 pub struct WField {
     pub visibility: WVisibility,
-    pub ident: WIdent,
     pub ty: WTypeId,
 }
 
@@ -91,11 +91,11 @@ impl IntoSyn<ItemStruct> for WItemStruct {
     fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> ItemStruct {
         let span = Span::call_site();
 
-        let named = Punctuated::from_iter(self.fields.into_iter().map(|field| Field {
+        let named = Punctuated::from_iter(self.fields.into_iter().map(|(name, field)| Field {
             attrs: Vec::new(),
             vis: field.visibility.into_syn(type_fn),
             mutability: syn::FieldMutability::None,
-            ident: Some(field.ident.into()),
+            ident: Some(name.into()),
             colon_token: Some(Token![:](span)),
             ty: field.ty.into_syn(type_fn),
         }));

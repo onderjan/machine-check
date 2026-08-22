@@ -7,8 +7,8 @@ use crate::{
     context::{bitvector_type, bool_type, signed_type, unsigned_type},
     into_wir::{Error, ErrorType},
     wir::{
-        WBlock, WCall, WCallArg, WExpr, WExprHighCall, WIdent, WIndexedExpr, WIndexedIdent,
-        WMacroableStmt, WPartialArgument, WPartialGenerics, WPartialType, WSignature, WSpanned,
+        WBlock, WCall, WCallArg, WDefinition, WExpr, WExprHighCall, WIdent, WIndexedExpr,
+        WIndexedIdent, WMacroableStmt, WPartialArgument, WPartialGenerics, WPartialType, WSpanned,
         WTypeId, ZTac,
     },
 };
@@ -65,13 +65,13 @@ impl super::WInferenceContext {
                             if let WPartialType::Path(base_path) = base_ty {
                                 eprintln!("Field {:?}: base path {:?}", expr_field, base_path);
                                 let base_path = base_path.clone().without_generics();
-                                let base_def = self.signatures.get(&base_path);
+                                let base_def = self.definitions.get(&base_path);
                                 eprintln!("Base def: {:?}", base_def);
-                                if let Some(WSignature::Struct(struct_sig)) = base_def {
+                                if let Some(WDefinition::Struct(struct_sig)) = base_def {
                                     if let Some(field) = struct_sig.fields.get(&expr_field.member) {
                                         // TODO: dereference
                                         eprintln!("Member type: {:?}", field);
-                                        self.add_eq_constraint(left_ty.clone(), field.clone());
+                                        self.add_eq_constraint(left_ty.clone(), field.ty.clone());
                                     }
                                 }
                             }
@@ -311,10 +311,11 @@ impl super::WInferenceContext {
 
         let call_path = call.fn_path.clone().without_generics();
 
-        if let Some(signature) = self.signatures.get(&call_path) {
-            let WSignature::Fn(signature) = signature else {
+        if let Some(def) = self.definitions.get(&call_path) {
+            let WDefinition::Fn(fn_def) = def else {
                 return Err(Error::new(ErrorType::NotCallable, call_path.wir_span()));
             };
+            let signature = &fn_def.signature;
 
             let num_expected = signature.inputs.len();
             let num_provided = call.args.len();
@@ -332,7 +333,8 @@ impl super::WInferenceContext {
             let mut constraints = vec![(left_ty, output_ty)];
 
             // constrain each argument
-            for (arg_ident, constrain_ty) in call.args.iter().zip(signature.inputs.iter()) {
+            for (arg_ident, arg) in call.args.iter().zip(signature.inputs.iter()) {
+                let constrain_ty = &arg.ty;
                 match arg_ident {
                     WCallArg::Ident(ident) => {
                         let arg_ty = get_type(types, ident)?;

@@ -36,7 +36,7 @@ pub fn from_runtime_fn(item_struct: &WItemStruct, ctx: &WLowContext) -> ImplItem
     let mut assign_stmts = Vec::new();
     let mut struct_field_values: Vec<FieldValue> = Vec::new();
 
-    for (index, field) in item_struct.fields.iter().enumerate() {
+    for (index, (field_name, field)) in item_struct.fields.iter().enumerate() {
         let index_expr = Expr::Lit(ExprLit {
             attrs: vec![],
             lit: Lit::Int(LitInt::new(index.to_string().as_str(), span)),
@@ -72,7 +72,7 @@ pub fn from_runtime_fn(item_struct: &WItemStruct, ctx: &WLowContext) -> ImplItem
 
         struct_field_values.push(FieldValue {
             attrs: Vec::new(),
-            member: syn::Member::Named(field.ident.to_syn_ident()),
+            member: syn::Member::Named(field_name.to_syn_ident()),
             colon_token: Some(Token![:](span)),
             expr: create_expr_ident(our_field_temp_ident),
         });
@@ -115,12 +115,12 @@ pub fn to_runtime_fn(item_struct: &WItemStruct) -> ImplItemFn {
 
     let mut exprs: Punctuated<Expr, syn::token::Comma> = Punctuated::new();
 
-    for field in &item_struct.fields {
+    for (field_name, _field) in &item_struct.fields {
         let field_expr = Expr::Field(ExprField {
             attrs: Vec::new(),
             base: Box::new(create_expr_ident(self_ident.clone())),
             dot_token: Token![.](span),
-            member: syn::Member::Named(field.ident.to_syn_ident()),
+            member: syn::Member::Named(field_name.to_syn_ident()),
         });
 
         let reference_expr = create_expr_reference(false, field_expr);
