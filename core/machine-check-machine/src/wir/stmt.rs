@@ -15,6 +15,9 @@ use crate::{
 
 use super::{IntoSyn, WIdent, YIfPolarity};
 
+#[derive(Clone, Hash, Debug)]
+pub struct WSynBlock(Block);
+
 #[derive(Clone, Hash)]
 pub struct WBlock<Y: YStage> {
     pub stmts: Vec<Y::Stmt>,
@@ -63,6 +66,12 @@ pub enum WPanicMacroKind {
     Panic,
     Unimplemented,
     Todo,
+}
+
+impl IntoSyn<Block> for WSynBlock {
+    fn into_syn(self, _type_fn: &impl Fn(WTypeId) -> Type) -> Block {
+        self.0
+    }
 }
 
 impl<Y: YStage> IntoSyn<Block> for WBlock<Y> {

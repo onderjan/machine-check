@@ -1,16 +1,17 @@
 use std::{fmt::Debug, hash::Hash};
 
-use syn::{Expr, Local, Path, Stmt, Type};
+use syn::{Block, Expr, Local, Path, Stmt, Type};
 
 use crate::wir::{
-    IntoSyn, WExpr, WExprHighCall, WExprLowCall, WIdent, WIndexedExpr, WIndexedIdent,
-    WItemImplTrait, WMacroableStmt, WSsaLocal, WStmt, WTacLocal, WTypeId,
+    IntoSyn, WBlock, WExpr, WExprHighCall, WExprLowCall, WIdent, WIndexedExpr, WIndexedIdent,
+    WItemImplTrait, WMacroableStmt, WSsaLocal, WStmt, WSynBlock, WTacLocal, WTypeId,
 };
 
 pub trait YStage {
     type Local: IntoSyn<Local> + Clone + Debug + Hash;
     type ItemImplTrait: IntoSyn<Path> + Clone + Debug + Hash;
 
+    type FnBlock: IntoSyn<Block> + Clone + Debug + Hash;
     type Stmt: IntoSyn<Stmt> + Clone + Debug + Hash;
     type AssignLeft: IntoSyn<Expr> + Clone + Debug + Hash;
     type AssignRight: IntoSyn<Expr> + Clone + Debug + Hash;
@@ -20,12 +21,27 @@ pub trait YStage {
 pub trait YIfPolarity: IntoSyn<Path> + Clone + Debug + Hash {}
 
 #[derive(Clone, Debug, Hash)]
+pub struct YBuild;
+
+impl YStage for YBuild {
+    type Local = WTacLocal;
+    type ItemImplTrait = WItemImplTrait;
+
+    type FnBlock = WSynBlock;
+    type Stmt = WMacroableStmt<YTac>;
+    type AssignLeft = WIndexedIdent;
+    type AssignRight = WIndexedExpr<WExprHighCall>;
+    type IfPolarity = WNoIfPolarity;
+}
+
+#[derive(Clone, Debug, Hash)]
 pub struct YTac;
 
 impl YStage for YTac {
     type Local = WTacLocal;
     type ItemImplTrait = WItemImplTrait;
 
+    type FnBlock = WBlock<YTac>;
     type Stmt = WMacroableStmt<YTac>;
     type AssignLeft = WIndexedIdent;
     type AssignRight = WIndexedExpr<WExprHighCall>;
@@ -39,6 +55,7 @@ impl YStage for YLowered {
     type Local = WTacLocal;
     type ItemImplTrait = WItemImplTrait;
 
+    type FnBlock = WBlock<YLowered>;
     type Stmt = WStmt<YLowered>;
     type AssignLeft = WIdent;
     type AssignRight = WExpr<WExprLowCall>;
@@ -52,6 +69,7 @@ impl YStage for YSsa {
     type Local = WSsaLocal;
     type ItemImplTrait = WItemImplTrait;
 
+    type FnBlock = WBlock<YSsa>;
     type Stmt = WStmt<YSsa>;
     type AssignLeft = WIdent;
     type AssignRight = WExpr<WExprLowCall>;
