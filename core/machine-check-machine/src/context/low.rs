@@ -11,16 +11,16 @@ use syn::{
     TypeReference,
 };
 
-use crate::wir::{WDefinition, WDefinitions, WTypeId};
+use crate::wir::{WDefinition, WDefinitions, WTypeId, YTac};
 
 #[derive(Debug)]
 pub struct WLowContext {
-    signatures: WDefinitions,
+    signatures: WDefinitions<YTac>,
     types: Vec<IGeneralType>,
 }
 
 impl WLowContext {
-    pub(super) fn new(signatures: WDefinitions, types: Vec<IGeneralType>) -> Self {
+    pub(super) fn new(signatures: WDefinitions<YTac>, types: Vec<IGeneralType>) -> Self {
         Self { signatures, types }
     }
 

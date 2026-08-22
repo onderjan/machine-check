@@ -1,6 +1,6 @@
 use indexmap::IndexMap;
 
-use crate::wir::{WIdent, WImplItemType, WItemFn, WItemStruct, WTypeId, WUniquePath, YTac};
+use crate::wir::{WIdent, WImplItemType, WItemFn, WItemStruct, WTypeId, WUniquePath, YStage};
 
 #[derive(Debug)]
 pub struct WStructSig {
@@ -20,18 +20,18 @@ pub struct WFnSig {
 }
 
 #[derive(Debug)]
-pub enum WDefinition {
+pub enum WDefinition<Y: YStage> {
     Struct(WItemStruct),
-    Fn(WItemFn<YTac>),
+    Fn(WItemFn<Y>),
     Type(WImplItemType),
 }
 
 #[derive(Debug)]
-pub struct WDefinitions {
-    inner: IndexMap<WUniquePath, WDefinition>,
+pub struct WDefinitions<Y: YStage> {
+    inner: IndexMap<WUniquePath, WDefinition<Y>>,
 }
 
-impl WDefinitions {
+impl<Y: YStage> WDefinitions<Y> {
     pub fn new() -> Self {
         Self {
             inner: IndexMap::new(),
@@ -42,7 +42,7 @@ impl WDefinitions {
         self.inner.insert(path, WDefinition::Struct(def));
     }
 
-    pub fn add_fn(&mut self, path: WUniquePath, def: WItemFn<YTac>) {
+    pub fn add_fn(&mut self, path: WUniquePath, def: WItemFn<Y>) {
         self.inner.insert(path, WDefinition::Fn(def));
     }
 
@@ -50,11 +50,11 @@ impl WDefinitions {
         self.inner.insert(path, WDefinition::Type(def));
     }
 
-    pub fn get(&self, path: &WUniquePath) -> Option<&WDefinition> {
+    pub fn get(&self, path: &WUniquePath) -> Option<&WDefinition<Y>> {
         self.inner.get(path)
     }
 
-    pub fn get_index(&self, index: usize) -> Option<(&WUniquePath, &WDefinition)> {
+    pub fn get_index(&self, index: usize) -> Option<(&WUniquePath, &WDefinition<Y>)> {
         self.inner.get_index(index)
     }
 

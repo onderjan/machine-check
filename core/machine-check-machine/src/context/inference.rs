@@ -22,7 +22,7 @@ mod constraints;
 
 #[derive(Debug)]
 pub struct WInferenceContext {
-    definitions: WDefinitions,
+    definitions: WDefinitions<YTac>,
     types: Vec<WPartialType>,
     eq_constraints: QuickUnionUf<UnionBySize>,
 }
