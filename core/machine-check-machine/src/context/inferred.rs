@@ -1,12 +1,26 @@
 use std::fmt::Debug;
 
-use crate::wir::{WDefinitions, WType, WTypeId, YTac};
+use indexmap::IndexMap;
+use proc_macro2::Span;
 
+use crate::{
+    context::{
+        inferred::{convert::convert_item_fn, lower::lower_item_fn},
+        WLowContext,
+    },
+    into_wir::Errors,
+    wir::{
+        WDefinition, WDefinitions, WIdent, WPath, WPathArgument, WPathGenerics, WPathSegment,
+        WType, WTypeId, YTac,
+    },
+};
+
+mod convert;
 mod lower;
 
 #[derive(Debug)]
 pub struct WInferredContext {
-    signatures: WDefinitions<YTac>,
+    definitions: WDefinitions<YTac>,
     types: Vec<WType>,
     boolean_type_id: WTypeId,
     panic_type_id: WTypeId,
@@ -14,24 +28,18 @@ pub struct WInferredContext {
 
 impl WInferredContext {
     pub(super) fn new(
-        signatures: WDefinitions<YTac>,
+        definitions: WDefinitions<YTac>,
         types: Vec<WType>,
         boolean_type_id: WTypeId,
         panic_type_id: WTypeId,
     ) -> Self {
         Self {
-            signatures,
+            definitions,
             types,
             boolean_type_id,
             panic_type_id,
         }
     }
-
-    /*fn type_id(&mut self, ty: WType) -> WTypeId {
-        let type_id = WTypeId(self.types.len());
-        self.types.push(ty);
-        type_id
-    }*/
 
     pub fn boolean_type_id(&self) -> WTypeId {
         self.boolean_type_id.clone()
@@ -46,7 +54,78 @@ impl WInferredContext {
     }
 
     pub fn signatures(&self) -> &WDefinitions<YTac> {
-        &self.signatures
+        &self.definitions
+    }
+
+    pub fn lower(mut self) -> Result<WLowContext, Errors> {
+        let mut types = Vec::new();
+
+        for ty in &self.types {
+            let lowered = self.lower_type(ty.clone())?;
+            eprintln!("Lowered type to: {:?}", lowered);
+            types.push(lowered);
+        }
+
+        let mut definitions = IndexMap::new();
+
+        for (path, def) in self.definitions.clone().into_inner() {
+            let def = match def {
+                WDefinition::Struct(item_struct) => WDefinition::Struct(item_struct),
+                WDefinition::Fn(item_fn) => {
+                    let item_fn = lower_item_fn(&mut self, item_fn)?;
+                    let item_fn = convert_item_fn(&mut self, item_fn)?;
+                    WDefinition::Fn(item_fn)
+                }
+                WDefinition::Type(impl_item_type) => WDefinition::Type(impl_item_type),
+            };
+            definitions.insert(path, def);
+        }
+
+        Ok(WLowContext::new(WDefinitions::new(definitions), types))
+    }
+
+    fn new_type_id(&mut self, ty: WType) -> WTypeId {
+        let type_id = WTypeId(self.types.len());
+        self.types.push(ty);
+        type_id
+    }
+
+    fn new_phi_arg_id(&mut self, inner: WTypeId) -> WTypeId {
+        let inner = self.types[inner.0].clone();
+        let span = inner.wir_span();
+
+        let ty = WType::Path(WPath {
+            leading_colon: Some(span),
+            segments: vec![
+                WPathSegment {
+                    ident: WIdent::new(String::from("mck"), span.first()),
+                    generics: None,
+                },
+                WPathSegment {
+                    ident: WIdent::new(String::from("forward"), span.first()),
+                    generics: None,
+                },
+                WPathSegment {
+                    ident: WIdent::new(String::from("PhiArg"), span.first()),
+                    generics: Some(WPathGenerics {
+                        turbofish: Some(span),
+                        arguments: vec![WPathArgument::Type(inner)],
+                    }),
+                },
+            ],
+        });
+        self.new_type_id(ty)
+    }
+
+    fn new_bool_id(&mut self) -> WTypeId {
+        let ty = WType::Path(WPath {
+            leading_colon: None,
+            segments: vec![WPathSegment {
+                ident: WIdent::new(String::from("bool"), Span::call_site()),
+                generics: None,
+            }],
+        });
+        self.new_type_id(ty)
     }
 
     /*pub fn iir_id_general_type(&self, id: WTypeId) -> IGeneralType {

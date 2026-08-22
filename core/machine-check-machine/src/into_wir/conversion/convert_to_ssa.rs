@@ -1,3 +1,4 @@
+/*
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -590,3 +591,4 @@ fn create_new_temporary(
 fn construct_temp_ident(orig_ident: &WIdent, counter: u32) -> WIdent {
     orig_ident.mck_prefixed(&format!("ssa_{}", counter))
 }
+*/

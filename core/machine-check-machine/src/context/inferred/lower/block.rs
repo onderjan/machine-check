@@ -2,10 +2,8 @@ use machine_check_common::ir_common::IrMckBinaryOp;
 use proc_macro2::Span;
 
 use crate::{
-    into_wir::{
-        conversion::lower::{create_panic_call, lower_basic_path},
-        Errors,
-    },
+    context::inferred::lower::{create_panic_call, item::lower_basic_path},
+    into_wir::Errors,
     wir::{
         WBlock, WExpr, WExprHighCall, WExprLowCall, WExprStruct, WIfCondition, WIndexedExpr,
         WIndexedIdent, WMacroableStmt, WMckBinary, WNoIfPolarity, WStmt, WStmtAssign, WStmtIf,

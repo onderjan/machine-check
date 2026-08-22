@@ -6,14 +6,14 @@ use mck::{concr::ConcreteBitvector, misc::RBound};
 use syn::Lit;
 
 use crate::{
-    into_wir::{conversion::lower::FnLowerer, Error, ErrorType},
+    into_wir::{Error, ErrorType},
     wir::{
         WCall, WCallArg, WExpr, WExprHighCall, WExprLowCall, WIdent, WMckBinary, WMckExt, WMckNew,
         WMckUnary, WPartialArgument, WSpanned, WStdBinary, WStdUnary, WType,
     },
 };
 
-impl FnLowerer<'_> {
+impl super::FnLowerer<'_> {
     pub fn lower_call(&self, call: WExprHighCall) -> Result<WExpr<WExprLowCall>, Error> {
         Ok(WExpr::Call(match call {
             WExprHighCall::Call(call) => return self.lower_normal_call(call),

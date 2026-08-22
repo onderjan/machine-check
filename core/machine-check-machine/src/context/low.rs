@@ -11,17 +11,17 @@ use syn::{
     TypeReference,
 };
 
-use crate::wir::{WDefinition, WDefinitions, WTypeId, YTac};
+use crate::wir::{WDefinition, WDefinitions, WTypeId, YSsa};
 
 #[derive(Debug)]
 pub struct WLowContext {
-    signatures: WDefinitions<YTac>,
+    definitions: WDefinitions<YSsa>,
     types: Vec<IGeneralType>,
 }
 
 impl WLowContext {
-    pub(super) fn new(signatures: WDefinitions<YTac>, types: Vec<IGeneralType>) -> Self {
-        Self { signatures, types }
+    pub(super) fn new(definitions: WDefinitions<YSsa>, types: Vec<IGeneralType>) -> Self {
+        Self { definitions, types }
     }
 
     pub fn id_general_type(&self, id: WTypeId) -> IGeneralType {
@@ -104,7 +104,7 @@ impl WLowContext {
             }
             IElementaryType::Struct(struct_id) => {
                 let Some((path, WDefinition::Struct(_struct_sig))) =
-                    self.signatures.get_index(struct_id.0)
+                    self.definitions.get_index(struct_id.0)
                 else {
                     todo!("Not a struct");
                 };

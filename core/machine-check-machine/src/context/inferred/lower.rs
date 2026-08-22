@@ -1,137 +1,110 @@
-use machine_check_common::{
-    iir::{
-        description::IStructId,
-        ty::{IElementaryType, IGeneralType, IType},
-    },
-    ir_common::IrReference,
-};
+use indexmap::IndexMap;
 
 use super::WInferredContext;
 use crate::{
-    context::WLowContext,
-    into_wir::{Error, ErrorType},
-    wir::{WPathArgument, WType},
+    into_wir::Errors,
+    util::ident_creator::IdentCreator,
+    wir::{
+        WExpr, WExprLowCall, WFnSignature, WIdent, WItemFn, WItemFnBody, WMckNew, WStmt,
+        WStmtAssign, WTacLocal, WTypeId, YLowered, YTac,
+    },
 };
+use mck::{concr::ConcreteBitvector, misc::RBound};
 
-impl WInferredContext {
-    pub fn lower(self) -> Result<WLowContext, Error> {
-        let mut types = Vec::new();
+mod block;
+mod call;
+mod item;
+mod ty;
 
-        for ty in &self.types {
-            let lowered = self.lower_type(ty.clone())?;
-            eprintln!("Lowered type to: {:?}", lowered);
-            types.push(lowered);
-        }
+pub fn lower_item_fn(
+    ctx: &mut WInferredContext,
+    //self_path: Option<&WPath>,
+    impl_item: WItemFn<YTac>,
+) -> Result<WItemFn<YLowered>, Errors> {
+    let signature = WFnSignature {
+        ident: impl_item.signature.ident,
+        inputs: impl_item.signature.inputs,
+        output: impl_item.signature.output,
+    };
 
-        /*for (ty, def) in self.type_defs.clone().into_inner() {
-            match def {
-                WContextTypeDef::Struct(fields) => {
-                    let mut low_fields = Vec::new();
-                    for (field_name, field_type) in fields {
-                        let field_type = self.lower_type(self.types[field_type.0].clone())?;
-                        let IGeneralType::Normal(IType {
-                            reference: IrReference::None,
-                            inner,
-                        }) = field_type
-                        else {
-                            return Err(Error::new(
-                                ErrorType::UnsupportedConstruct(
-                                    "General type in struct definition",
-                                ),
-                                field_name.wir_span(),
-                            ));
-                        };
-                        low_fields.push((field_name, inner));
-                    }
-                    type_defs.push((ty.0, WLowTypeDef::Struct(low_fields)));
-                }
-            }
-        }*/
+    let mut local_types = IndexMap::new();
+    for local in &impl_item.body.locals {
+        local_types.insert(local.ident.clone(), local.ty.clone());
+    }
+    let span = signature.ident.span();
 
-        Ok(WLowContext::new(self.signatures, types))
+    let mut locals = impl_item.body.locals;
+
+    let panic_ident = WIdent::new(String::from("__mck_panic"), span);
+    let zero_bitvec_ident = WIdent::new(String::from("__mck_paniczbv"), span);
+
+    let panic_ty = ctx.panic_type_id();
+    locals.push(WTacLocal {
+        ident: panic_ident.clone(),
+        ty: panic_ty.clone(),
+    });
+    locals.push(WTacLocal {
+        ident: zero_bitvec_ident.clone(),
+        ty: panic_ty.clone(),
+    });
+
+    let zero_panic_call = create_panic_call(0);
+    let mut stmts = vec![
+        WStmt::Assign(WStmtAssign {
+            left: panic_ident.clone(),
+            right: zero_panic_call.clone(),
+        }),
+        WStmt::Assign(WStmtAssign {
+            left: zero_bitvec_ident.clone(),
+            right: zero_panic_call,
+        }),
+    ];
+
+    let mut fn_lowerer = FnLowerer {
+        ctx,
+        //self_path,
+        local_types,
+        next_panic_num: 0,
+        ident_creator: IdentCreator::new(String::from("panic")),
+        panic_ident,
+        zero_bitvec_ident,
+    };
+
+    let mut block = fn_lowerer.lower_block(impl_item.body.block)?;
+
+    for (ident, ty) in fn_lowerer.ident_creator.drain_created_temporaries() {
+        locals.push(WTacLocal { ident, ty });
     }
 
-    fn lower_type(&self, ty: WType) -> Result<IGeneralType, Error> {
-        let span = ty.wir_span();
-        eprintln!("Lowering type {:?}", ty);
-        match ty {
-            WType::Path(path) => {
-                if path.matches_absolute(&["machine_check", "Bitvector"])
-                    || path.matches_absolute(&["machine_check", "Unsigned"])
-                    || path.matches_absolute(&["machine_check", "Signed"])
-                {
-                    /*let span = path.segments[0].ident.wir_span();
-                    path.segments[0].ident.set_name(String::from("mck"));
-                    path.segments.insert(
-                        1,
-                        WPathSegment {
-                            ident: WIdent::new(String::from("forward"), span.first()),
-                            generics: None,
-                        },
-                    );
-                    path.segments[2].ident.set_name(String::from("Bitvector"));*/
+    stmts.append(&mut block.stmts);
+    block.stmts = stmts;
 
-                    if let Some(generics) = &path.segments[1].generics {
-                        if generics.arguments.len() == 1 {
-                            if let WPathArgument::Uint(width, _span) = generics.arguments[0] {
-                                return Ok(IGeneralType::Normal(IType {
-                                    reference: IrReference::None,
-                                    inner: IElementaryType::Bitvector(width),
-                                }));
-                            }
-                        }
-                    }
-                }
+    Ok(WItemFn {
+        visibility: impl_item.visibility,
+        signature,
+        body: WItemFnBody {
+            locals,
+            block,
+            result: impl_item.body.result,
+        },
+    })
+}
 
-                if path.matches_absolute(&["mck", "forward", "PhiArg"]) {
-                    if let Some(generics) = &path.segments[2].generics {
-                        if generics.arguments.len() == 1 {
-                            if let WPathArgument::Type(ty) = &generics.arguments[0] {
-                                let inner = self.lower_type(ty.clone())?;
-                                let inner = match inner {
-                                    IGeneralType::Normal(ty) => ty,
-                                    _ => panic!(
-                                        "Expected normal type as phi arg lowered, got {:?}",
-                                        inner
-                                    ),
-                                };
-                                return Ok(IGeneralType::PhiArg(inner));
-                            }
-                        }
-                    }
-                }
+struct FnLowerer<'a> {
+    ctx: &'a mut WInferredContext,
+    //self_path: Option<&'a WPath>,
+    local_types: IndexMap<WIdent, WTypeId>,
+    // TODO: just use a str for panics
+    next_panic_num: u32,
 
-                if path.matches_relative(&["bool"]) {
-                    return Ok(IGeneralType::Normal(IType {
-                        reference: IrReference::None,
-                        inner: IElementaryType::Boolean,
-                    }));
-                }
+    // for making total
+    ident_creator: IdentCreator<WTypeId>,
+    panic_ident: WIdent,
+    zero_bitvec_ident: WIdent,
+}
 
-                let path = path.clone().without_generics();
-
-                if let Some(type_index) = self.signatures.get_index_of(&path) {
-                    eprintln!("Lowering {:?} to {:?}", path, type_index);
-                    return Ok(IGeneralType::Normal(IType {
-                        reference: IrReference::None,
-                        inner: IElementaryType::Struct(IStructId(type_index)),
-                    }));
-                }
-            }
-            WType::Reference(inner) => {
-                let inner = self.lower_type(*inner)?;
-                let mut inner = match inner {
-                    IGeneralType::Normal(ty) => ty,
-                    _ => panic!("Expected normal type as reference lowered, got {:?}", inner),
-                };
-                inner.reference = IrReference::Immutable;
-                return Ok(IGeneralType::Normal(inner));
-            }
-        }
-
-        Err(Error::new(
-            ErrorType::UnsupportedConstruct("Unknown type"),
-            span,
-        ))
-    }
+fn create_panic_call(val: u64) -> WExpr<WExprLowCall> {
+    WExpr::Call(WExprLowCall::MckNew(WMckNew::Bitvector(
+        ConcreteBitvector::new(val, RBound::new(32)),
+    )))
 }
