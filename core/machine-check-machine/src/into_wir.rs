@@ -13,7 +13,7 @@ pub use from_syn::fold_type;
 
 use crate::{
     context::{WInferenceContext, WLowContext},
-    support::error_list::ErrorList,
+    util::error_list::ErrorList,
     wir::{WDescription, WIdent, WProperty, WSpan, WTypeId, YSsa},
 };
 

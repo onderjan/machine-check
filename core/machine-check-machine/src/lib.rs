@@ -10,12 +10,12 @@ use machine_check_common::PropertyMacros;
 use mck::concr::FullMachine;
 use proc_macro2::{Ident, Span};
 use quote::{quote, ToTokens};
-use support::error_list::ErrorList;
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::visit_mut::{self, VisitMut};
 use syn::{parse_quote, Attribute, Expr, Item, ItemFn, ItemMod, Meta, MetaList, PathSegment, Type};
 use syn_path::path;
+use util::error_list::ErrorList;
 use wir::IntoSyn;
 
 use crate::context::{bitvector_type, bool_type, WInferenceContext};
@@ -27,11 +27,10 @@ mod concr;
 mod context;
 mod into_iir;
 mod into_wir;
-mod support;
 mod util;
 mod wir;
 
-pub use support::machine_error::{Error, ErrorType};
+pub use util::machine_error::{Error, ErrorType};
 
 pub type Errors = ErrorList<Error>;
 
@@ -222,7 +221,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
 
     abstract_description.items.extend(misc_abstract_items);
 
-    support::strip_machine::strip_machine(&mut abstract_description)?;
+    util::strip_machine::strip_machine(&mut abstract_description)?;
 
     concr::process_items(items, &panic_messages, iir)?;
 

@@ -15,7 +15,7 @@ use crate::{
         },
         Error, ErrorType, Errors,
     },
-    support::ident_creator::IdentCreator,
+    util::ident_creator::IdentCreator,
     wir::{
         WFnArg, WFnSignature, WIdent, WItemFn, WPath, WSpan, WSpanned, WTacLocal, WTypeId, YTac,
     },

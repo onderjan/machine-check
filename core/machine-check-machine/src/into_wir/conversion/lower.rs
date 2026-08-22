@@ -3,7 +3,7 @@ use indexmap::IndexMap;
 use crate::{
     context::{WInferredContext, WLowContext},
     into_wir::Errors,
-    support::ident_creator::IdentCreator,
+    util::ident_creator::IdentCreator,
     wir::{
         WDescription, WExpr, WExprLowCall, WFnSignature, WIdent, WImplItemType, WItemFn, WItemImpl,
         WItemStruct, WMckNew, WPartialPath, WPartialSegment, WProperty, WStmt, WStmtAssign,
