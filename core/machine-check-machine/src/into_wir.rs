@@ -12,8 +12,9 @@ use syn::Item;
 pub use from_syn::fold_type;
 
 use crate::{
+    context::{WInferenceContext, WLowContext},
     support::error_list::ErrorList,
-    wir::{WDescription, WIdent, WInferenceContext, WLowContext, WProperty, WSpan, WTypeId, YSsa},
+    wir::{WDescription, WIdent, WProperty, WSpan, WTypeId, YSsa},
 };
 
 pub fn create_description(

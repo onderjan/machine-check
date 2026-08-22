@@ -1,13 +1,13 @@
 use indexmap::IndexMap;
 
 use crate::{
+    context::{WInferredContext, WLowContext},
     into_wir::Errors,
     support::ident_creator::IdentCreator,
     wir::{
-        WDescription, WExpr, WExprLowCall, WFnSignature, WIdent, WImplItemType, WInferredContext,
-        WItemFn, WItemImpl, WItemStruct, WLowContext, WMckNew, WPartialPath, WPartialSegment,
-        WProperty, WStmt, WStmtAssign, WSubproperty, WSubpropertyFunc, WTacLocal, WTypeId,
-        YLowered, YTac,
+        WDescription, WExpr, WExprLowCall, WFnSignature, WIdent, WImplItemType, WItemFn, WItemImpl,
+        WItemStruct, WMckNew, WPartialPath, WPartialSegment, WProperty, WStmt, WStmtAssign,
+        WSubproperty, WSubpropertyFunc, WTacLocal, WTypeId, YLowered, YTac,
     },
 };
 use mck::{concr::ConcreteBitvector, misc::RBound};

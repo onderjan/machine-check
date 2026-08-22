@@ -14,8 +14,6 @@ mod property;
 mod signature;
 mod stage;
 
-mod context;
-
 pub use call::*;
 pub use expr::*;
 pub use ident::*;
@@ -31,5 +29,3 @@ pub use description::*;
 pub use property::*;
 pub use signature::*;
 pub use stage::*;
-
-pub use context::*;

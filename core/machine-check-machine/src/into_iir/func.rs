@@ -9,7 +9,8 @@ use machine_check_common::iir::{
 };
 
 use crate::{
-    wir::{WBlock, WItemFn, WLowContext, YSsa, ZSsa},
+    context::WLowContext,
+    wir::{WBlock, WItemFn, YSsa, ZSsa},
     Error,
 };
 

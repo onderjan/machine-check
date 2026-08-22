@@ -4,12 +4,13 @@ use syn_path::path;
 
 use crate::{
     abstr::item_struct::phi::phi_impl,
+    context::WLowContext,
     support::meta_eq::meta_eq_impl,
     util::{
         create_path_from_ident, create_path_segment, create_path_with_last_generic_type,
         create_type_path,
     },
-    wir::{WItemStruct, WLowContext},
+    wir::WItemStruct,
 };
 
 use self::from_concrete::from_concrete_fn;

@@ -18,11 +18,13 @@ use syn::{parse_quote, Attribute, Expr, Item, ItemFn, ItemMod, Meta, MetaList, P
 use syn_path::path;
 use wir::IntoSyn;
 
+use crate::context::{bitvector_type, bool_type, WInferenceContext};
 use crate::util::{create_item_mod, path_matches_global_names};
-use crate::wir::{bitvector_type, bool_type, WIdent, WInferenceContext, WSpan};
+use crate::wir::{WIdent, WSpan};
 
 mod abstr;
 mod concr;
+mod context;
 mod into_iir;
 mod into_wir;
 mod support;

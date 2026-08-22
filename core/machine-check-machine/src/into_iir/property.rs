@@ -6,7 +6,8 @@ use machine_check_common::iir::property::{
 };
 
 use crate::{
-    wir::{WLowContext, WProperty, WSubproperty, YSsa},
+    context::WLowContext,
+    wir::{WProperty, WSubproperty, YSsa},
     Error,
 };
 

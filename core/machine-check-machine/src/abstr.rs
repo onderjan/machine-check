@@ -4,10 +4,11 @@ mod item_struct;
 use syn::{GenericArgument, Item, Path, Type};
 
 use crate::{
+    context::WLowContext,
     util::{create_angle_bracketed_path_arguments, create_type_path},
     wir::{
-        IntoSyn, WDescription, WExpr, WExprLowCall, WIdent, WItemImplTrait, WLowContext, WPath,
-        WSsaLocal, WStmt, WTypeId, YSsa, YStage, ZAssignTypes, ZIfPolarity,
+        IntoSyn, WDescription, WExpr, WExprLowCall, WIdent, WItemImplTrait, WPath, WSsaLocal,
+        WStmt, WTypeId, YSsa, YStage, ZAssignTypes, ZIfPolarity,
     },
 };
 

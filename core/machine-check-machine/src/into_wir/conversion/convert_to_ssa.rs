@@ -1,11 +1,12 @@
 use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
+use crate::context::WLowContext;
 use crate::into_wir::{Error, ErrorType, Errors};
 use crate::wir::{
-    WBlock, WCallArg, WExpr, WExprLowCall, WFnArg, WFnSignature, WIdent, WLowContext, WMckNew,
-    WPhi, WPhiTaken, WProperty, WSpan, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf,
-    WSubproperty, WSubpropertyFunc, WTypeId, YLowered, ZLowered, ZSsa,
+    WBlock, WCallArg, WExpr, WExprLowCall, WFnArg, WFnSignature, WIdent, WMckNew, WPhi, WPhiTaken,
+    WProperty, WSpan, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf, WSubproperty,
+    WSubpropertyFunc, WTypeId, YLowered, ZLowered, ZSsa,
 };
 use crate::wir::{WDescription, WItemFn, WItemImpl, YSsa};
 

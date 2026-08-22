@@ -4,15 +4,12 @@ use machine_check_common::ir_common::IrStdBinaryOp;
 use syn::{Path, Type, TypePath};
 
 use crate::{
+    context::{bitvector_type, bool_type, signed_type, typedef::WContextTypeDef, unsigned_type},
     into_wir::{Error, ErrorType},
     wir::{
-        context::{
-            typedef::WContextTypeDef,
-            types::{bitvector_type, bool_type},
-        },
-        signed_type, unsigned_type, WBlock, WCall, WCallArg, WExpr, WExprHighCall, WIdent,
-        WIndexedExpr, WIndexedIdent, WMacroableStmt, WPartialArgument, WPartialGenerics,
-        WPartialType, WSignature, WSignatures, WSpanned, WTypeId, ZTac,
+        WBlock, WCall, WCallArg, WExpr, WExprHighCall, WIdent, WIndexedExpr, WIndexedIdent,
+        WMacroableStmt, WPartialArgument, WPartialGenerics, WPartialType, WSignature, WSignatures,
+        WSpanned, WTypeId, ZTac,
     },
 };
 

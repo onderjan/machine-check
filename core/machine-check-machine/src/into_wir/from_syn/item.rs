@@ -5,14 +5,15 @@ use syn::{
 };
 
 use crate::{
+    context::WInferenceContext,
     into_wir::{
         from_syn::{attribute_disallower::AttributeDisallower, path::fold_partial_path},
         Error, ErrorType, Errors,
     },
     util::path_matches_global_names,
     wir::{
-        WField, WIdent, WImplItemType, WInferenceContext, WItemImpl, WItemImplTrait, WItemStruct,
-        WSpan, WVisibility, YTac,
+        WField, WIdent, WImplItemType, WItemImpl, WItemImplTrait, WItemStruct, WSpan, WVisibility,
+        YTac,
     },
 };
 

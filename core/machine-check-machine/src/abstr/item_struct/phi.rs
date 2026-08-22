@@ -2,13 +2,14 @@ use syn::{punctuated::Punctuated, Expr, ExprStruct, ImplItem, ImplItemFn, ItemIm
 use syn_path::path;
 
 use crate::{
+    context::WLowContext,
     util::{
         create_arg, create_assign, create_expr_call, create_expr_field_named, create_expr_ident,
         create_expr_path, create_field_value_ident, create_ident, create_impl_item_fn,
         create_item_impl, create_let_bare, create_path_from_ident, create_self, create_self_arg,
         create_type_path, ArgType,
     },
-    wir::{IntoSyn, WItemStruct, WLowContext},
+    wir::{IntoSyn, WItemStruct},
 };
 
 pub fn phi_impl(item_struct: &WItemStruct, ctx: &WLowContext) -> ItemImpl {

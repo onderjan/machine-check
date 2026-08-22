@@ -1,6 +1,9 @@
 use std::fmt::Debug;
 
-use crate::wir::{context::typedef::WTypeDefs, WSignatures, WType, WTypeId};
+use crate::{
+    context::typedef::WTypeDefs,
+    wir::{WSignatures, WType, WTypeId},
+};
 
 mod lower;
 

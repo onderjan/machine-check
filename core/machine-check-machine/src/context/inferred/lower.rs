@@ -9,11 +9,9 @@ use syn::{Path, Type, TypePath};
 
 use super::WInferredContext;
 use crate::{
+    context::{low::WLowTypeDef, typedef::WContextTypeDef, WLowContext},
     into_wir::{Error, ErrorType},
-    wir::{
-        context::{low::WLowTypeDef, typedef::WContextTypeDef},
-        WLowContext, WPathArgument, WSpanned, WType,
-    },
+    wir::{WPathArgument, WSpanned, WType},
 };
 
 impl WInferredContext {

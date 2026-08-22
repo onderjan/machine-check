@@ -6,12 +6,13 @@ use syn::{
 use syn_path::path;
 
 use crate::{
+    context::WLowContext,
     util::{
         create_arg, create_assign, create_expr_call, create_expr_ident, create_expr_path,
         create_expr_reference, create_ident, create_impl_item_fn, create_let, create_let_bare,
         create_type_path, create_type_reference, ArgType,
     },
-    wir::{IntoSyn, WItemStruct, WLowContext, WSpanned},
+    wir::{IntoSyn, WItemStruct, WSpanned},
 };
 
 pub fn from_runtime_fn(item_struct: &WItemStruct, ctx: &WLowContext) -> ImplItemFn {

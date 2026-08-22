@@ -9,13 +9,15 @@ use syn::Type;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind};
 
 use crate::{
+    context::{
+        bitvector_type, bool_type,
+        typedef::{WContextTypeDef, WTypeDefs},
+        WInferredContext,
+    },
     into_wir::{fold_type, Error, ErrorType},
     wir::{
-        bitvector_type, bool_type,
-        context::typedef::{WContextTypeDef, WTypeDefs},
-        WIdent, WInferredContext, WItemImpl, WItemStruct, WPartialArgument, WPartialGenerics,
-        WPartialPath, WPartialSegment, WPartialType, WSignatures, WSpan, WSubproperty, WTypeId,
-        YTac,
+        WIdent, WItemImpl, WItemStruct, WPartialArgument, WPartialGenerics, WPartialPath,
+        WPartialSegment, WPartialType, WSignatures, WSpan, WSubproperty, WTypeId, YTac,
     },
 };
 

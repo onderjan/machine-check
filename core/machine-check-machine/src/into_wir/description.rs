@@ -4,14 +4,14 @@ use indexmap::IndexMap;
 use syn::{Item, Path, Type, TypePath};
 
 use crate::{
+    context::{WInferenceContext, WInferredContext, WLowContext},
     into_wir::{
         conversion::{convert_to_ssa, expand_macros, lower, resolve_use},
         from_syn, Error, Errors,
     },
     wir::{
-        WDescription, WImplFnSignature, WImplTypeSignature, WInferenceContext, WInferredContext,
-        WItemImpl, WItemStruct, WLowContext, WPath, WPathSegment, WSignature, WSignatures,
-        WStructSignature, YSsa, YTac,
+        WDescription, WImplFnSignature, WImplTypeSignature, WItemImpl, WItemStruct, WPath,
+        WPathSegment, WSignature, WSignatures, WStructSignature, YSsa, YTac,
     },
 };
 

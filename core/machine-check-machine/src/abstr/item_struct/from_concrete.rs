@@ -5,12 +5,13 @@ use syn::{
 use syn_path::path;
 
 use crate::{
+    context::WLowContext,
     util::{
         create_arg, create_assign, create_expr_call, create_expr_ident, create_expr_path,
         create_ident, create_impl_item_fn, create_let_bare, create_type_path,
         path_starts_with_global_names, ArgType,
     },
-    wir::{IntoSyn, WItemStruct, WLowContext},
+    wir::{IntoSyn, WItemStruct},
 };
 
 pub fn from_concrete_fn(

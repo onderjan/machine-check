@@ -7,6 +7,7 @@ use syn::{
 };
 
 use crate::{
+    context::WInferenceContext,
     into_wir::{
         from_syn::{
             attribute_disallower::AttributeDisallower, item::fold_visibility,
@@ -16,8 +17,7 @@ use crate::{
     },
     support::ident_creator::IdentCreator,
     wir::{
-        WFnArg, WFnSignature, WIdent, WInferenceContext, WItemFn, WPath, WSpan, WSpanned,
-        WTacLocal, WTypeId, YTac,
+        WFnArg, WFnSignature, WIdent, WItemFn, WPath, WSpan, WSpanned, WTacLocal, WTypeId, YTac,
     },
 };
 

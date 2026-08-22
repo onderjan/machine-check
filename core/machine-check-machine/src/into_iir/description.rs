@@ -2,7 +2,8 @@ use indexmap::IndexMap;
 use machine_check_common::iir::description::{IDescription, IStruct, IStructDeclaration, ITrait};
 
 use crate::{
-    wir::{WDescription, WItemImplTrait, WLowContext, YSsa},
+    context::WLowContext,
+    wir::{WDescription, WItemImplTrait, YSsa},
     Error,
 };
 
