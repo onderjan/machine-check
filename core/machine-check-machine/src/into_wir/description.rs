@@ -9,12 +9,10 @@ use crate::{
         from_syn::{self, fold_partial_path},
         Error, Errors,
     },
-    wir::{WDescription, WIdent, WPath, YSsa},
+    wir::{WIdent, WPath},
 };
 
-pub fn description_from_syn(
-    mut items: Vec<Item>,
-) -> Result<(WLowContext, WDescription<YSsa>, Vec<String>), Errors> {
+pub fn description_from_syn(mut items: Vec<Item>) -> Result<WLowContext, Errors> {
     let mut use_map = HashMap::new();
     loop {
         use_map.extend(resolve_use::extract_use_map(&mut items)?);
@@ -23,22 +21,12 @@ pub fn description_from_syn(
             break;
         }
     }
-
     resolve_use::remove_use(&mut items)?;
 
-    let ctx = description_from_items(items)?;
-    //let w_description = convert_indexing::convert_description(w_description);
-    /*let (w_description, panic_messages) =
-    convert_total::convert_description(&mut ctx, w_description);
-
-    let panic_messages = Vec::new();
-    let (mut ctx, description) = lower::lower_description(ctx, description)?;
-    let description = convert_to_ssa::convert_description(&mut ctx, description)?;
-    Ok((ctx, description, panic_messages))*/
-    todo!("Description from syn, ctx: {:#?}", ctx)
+    description_from_preprocessed(items)
 }
 
-fn description_from_items(item_iter: Vec<Item>) -> Result<WLowContext, Errors> {
+fn description_from_preprocessed(item_iter: Vec<Item>) -> Result<WLowContext, Errors> {
     let mut builder = WContextBuilder::new();
 
     let mut errors = Vec::new();

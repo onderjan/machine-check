@@ -12,14 +12,12 @@ use syn::Item;
 pub use from_syn::{fold_partial_path, fold_type};
 
 use crate::{
-    context::{WContextBuilder, WInferenceContext, WLowContext},
+    context::{WContextBuilder, WLowContext},
     util::error_list::ErrorList,
-    wir::{WDescription, WIdent, WProperty, WSpan, WTypeId, YSsa},
+    wir::{WIdent, WProperty, WSpan, WTypeId, YSsa},
 };
 
-pub fn create_description(
-    items: Vec<Item>,
-) -> Result<(WLowContext, WDescription<YSsa>, Vec<String>), crate::Errors> {
+pub fn create_description(items: Vec<Item>) -> Result<WLowContext, crate::Errors> {
     description::description_from_syn(items).map_err(Errors::convert_inner)
 }
 

@@ -18,7 +18,7 @@ use syn_path::path;
 use util::error_list::ErrorList;
 use wir::IntoSyn;
 
-use crate::context::{bitvector_type, bool_type, WContextBuilder, WInferenceContext};
+use crate::context::{bitvector_type, bool_type, WContextBuilder};
 use crate::util::{create_item_mod, path_matches_global_names};
 use crate::wir::{WIdent, WSpan};
 
@@ -181,8 +181,11 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
         None
     };
 
-    let (mut ctx, description, panic_messages) = into_wir::create_description(items.clone())?;
+    let ctx = into_wir::create_description(items.clone())?;
 
+    todo!("Process context: {:#?}", ctx);
+
+    /*
     if let Some(out_dir) = &out_dir {
         eprintln!("Writing machine files to directory {:?}", out_dir);
         std::fs::write(
@@ -235,7 +238,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
             .expect("Full machine file should be writable");
     }
 
-    Ok(())
+    Ok(())*/
 }
 
 fn redirect_mck(items: &mut [Item]) -> Result<(), Error> {
