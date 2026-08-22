@@ -7,8 +7,8 @@ use crate::{
     context::WLowContext,
     util::{create_angle_bracketed_path_arguments, create_type_path},
     wir::{
-        IntoSyn, WBlock, WDescription, WExpr, WExprLowCall, WIdent, WItemImplTrait, WPath,
-        WSsaLocal, WStmt, WTypeId, YIfPolarity, YSsa, YStage,
+        IntoSyn, WBlock, WDescription, WExpr, WExprLowCall, WIdent, WItemFnBody, WItemImplTrait,
+        WPath, WSsaLocal, WStmt, WTypeId, YIfPolarity, YSsa, YStage,
     },
 };
 
@@ -24,7 +24,7 @@ impl YStage for YAbstr {
     type Local = WSsaLocal;
     type ItemImplTrait = WAbstrItemImplTrait;
 
-    type FnBlock = WBlock<YAbstr>;
+    type FnBody = WItemFnBody<YAbstr>;
     type Stmt = WStmt<YAbstr>;
     type AssignLeft = WIdent;
     type AssignRight = WExpr<WExprLowCall>;

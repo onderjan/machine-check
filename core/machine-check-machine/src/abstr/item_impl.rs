@@ -5,8 +5,9 @@ use proc_macro2::Span;
 use crate::{
     abstr::{WAbstrItemImplTrait, YAbstr, YAbstrIfPolarity},
     wir::{
-        WBlock, WExpr, WExprLowCall, WFnSignature, WIdent, WIfCondition, WItemFn, WItemImpl,
-        WItemImplTrait, WPath, WPathSegment, WSsaLocal, WStmt, WStmtAssign, WStmtIf, YSsa,
+        WBlock, WExpr, WExprLowCall, WFnSignature, WIdent, WIfCondition, WItemFn, WItemFnBody,
+        WItemImpl, WItemImplTrait, WPath, WPathSegment, WSsaLocal, WStmt, WStmtAssign, WStmtIf,
+        YSsa,
     },
 };
 
@@ -82,7 +83,7 @@ pub fn fold_impl_item_fn(impl_item_fn: WItemFn<YSsa>) -> WItemFn<YAbstr> {
         );
     }
 
-    for local in &impl_item_fn.locals {
+    for local in &impl_item_fn.body.locals {
         locals_and_args_map.insert(local.ident.clone(), local.clone());
     }
 
@@ -92,14 +93,16 @@ pub fn fold_impl_item_fn(impl_item_fn: WItemFn<YSsa>) -> WItemFn<YAbstr> {
         next_cloned_id: 0,*/
     };
 
-    let block = converter.fold_block(impl_item_fn.block);
+    let block = converter.fold_block(impl_item_fn.body.block);
 
     WItemFn {
         visibility: impl_item_fn.visibility,
         signature,
-        locals: impl_item_fn.locals,
-        block,
-        result: impl_item_fn.result,
+        body: WItemFnBody {
+            locals: impl_item_fn.body.locals,
+            block,
+            result: impl_item_fn.body.result,
+        },
     }
 }
 

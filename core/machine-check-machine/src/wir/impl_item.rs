@@ -1,13 +1,13 @@
 use proc_macro2::Span;
 use std::fmt::Debug;
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, token::Paren, FnArg, Generics, ImplItemFn,
+    punctuated::Punctuated, spanned::Spanned, token::Paren, Block, FnArg, Generics, ImplItemFn,
     ImplItemType, ItemFn, Local, Pat, PatIdent, PatType, Receiver, Signature, Stmt, Token, Type,
     TypePath, TypeReference,
 };
 use syn_path::path;
 
-use crate::wir::{WItemFn, WPartialPath, WTypeId, WVisibility};
+use crate::wir::{WBlock, WItemFn, WPartialPath, WTypeId, WVisibility};
 
 use super::{IntoSyn, WIdent, YStage};
 
@@ -121,10 +121,15 @@ impl<Y: YStage> IntoSyn<ImplItemFn> for WItemFn<Y> {
     }
 }
 
-impl<Y: YStage> IntoSyn<ItemFn> for WItemFn<Y> {
-    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> ItemFn {
-        let span = Span::call_site();
+#[derive(Clone, Debug, Hash)]
+pub struct WItemFnBody<Y: YStage> {
+    pub locals: Vec<Y::Local>,
+    pub block: WBlock<Y>,
+    pub result: WIdent,
+}
 
+impl<Y: YStage> IntoSyn<Block> for WItemFnBody<Y> {
+    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Block {
         let mut block = self.block.into_syn(type_fn);
 
         let standard_stmts: Vec<Stmt> = block.stmts.drain(..).collect();
@@ -137,6 +142,16 @@ impl<Y: YStage> IntoSyn<ItemFn> for WItemFn<Y> {
         block
             .stmts
             .push(Stmt::Expr(self.result.into_syn(type_fn), None));
+
+        block
+    }
+}
+
+impl<Y: YStage> IntoSyn<ItemFn> for WItemFn<Y> {
+    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> ItemFn {
+        let span = Span::call_site();
+
+        let body = self.body.into_syn(type_fn);
 
         ItemFn {
             attrs: Vec::new(),
@@ -203,7 +218,7 @@ impl<Y: YStage> IntoSyn<ItemFn> for WItemFn<Y> {
                     Box::new(self.signature.output.into_syn(type_fn)),
                 ),
             },
-            block: Box::new(block),
+            block: Box::new(body),
         }
     }
 }

@@ -1,16 +1,27 @@
 use std::fmt::Debug;
 
-use crate::wir::{WDefinitions, WItemImpl, WItemStruct, WUniquePath, YBuild, YTac};
+use syn::Type;
+
+use crate::{
+    context::WInferenceContext,
+    into_wir::{fold_type, Error},
+    wir::{
+        WDefinitions, WItemImpl, WItemStruct, WPartialType, WSpan, WTypeId, WUniquePath, YBuild,
+        YTac,
+    },
+};
 
 #[derive(Debug)]
 pub struct WContextBuilder {
     definitions: WDefinitions<YBuild>,
+    types: Vec<WPartialType>,
 }
 
 impl WContextBuilder {
     pub fn new() -> Self {
         Self {
             definitions: WDefinitions::new(),
+            types: Vec::new(),
         }
     }
 
@@ -30,5 +41,29 @@ impl WContextBuilder {
             fn_path.segments.push(impl_fn.signature.ident.clone());
             self.definitions.add_fn(fn_path, impl_fn);
         }
+    }
+
+    pub fn noninferred_id(&mut self, ty: &Type) -> Result<WTypeId, Error> {
+        let span = WSpan::from_syn(&ty);
+        let ty = fold_type(ty.clone())?;
+        if !ty.is_fully_inferred() {
+            return Err(Error::new(
+                crate::into_wir::ErrorType::IllegalConstruct(String::from(
+                    "Interference not allowed here",
+                )),
+                span,
+            ));
+        }
+        Ok(self.partial_type_id(ty))
+    }
+
+    fn partial_type_id(&mut self, ty: WPartialType) -> WTypeId {
+        let id = WTypeId(self.types.len());
+        self.types.push(ty);
+        id
+    }
+
+    pub fn build(self) -> WInferenceContext {
+        todo!("Build context")
     }
 }

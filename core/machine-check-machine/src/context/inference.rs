@@ -93,12 +93,13 @@ impl WInferenceContext {
                 }
                 types.extend(
                     item_fn
+                        .body
                         .locals
                         .iter()
                         .map(|local| (local.ident.clone(), local.ty.clone())),
                 );
 
-                self.add_block_constraints(&types, &item_fn.block)?;
+                self.add_block_constraints(&types, &item_fn.body.block)?;
             }
         }
 
@@ -130,12 +131,13 @@ impl WInferenceContext {
                     let func = &subproperty_func.func;
                     let mut types = globals_with_results.clone();
                     types.extend(
-                        func.locals
+                        func.body
+                            .locals
                             .iter()
                             .map(|local| (local.ident.clone(), local.ty.clone())),
                     );
 
-                    self.add_block_constraints(&types, &func.block)?;
+                    self.add_block_constraints(&types, &func.body.block)?;
                 }
                 WSubproperty::FixedPoint(_) => {}
                 WSubproperty::Next(_) => {}

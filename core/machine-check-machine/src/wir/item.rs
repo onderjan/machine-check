@@ -6,8 +6,8 @@ use quote::ToTokens;
 use syn::{
     punctuated::Punctuated,
     token::{Brace, Bracket, Comma, Paren},
-    Attribute, Field, FieldsNamed, Generics, Ident, ImplItem, ImplItemFn, ItemImpl, ItemStruct,
-    MetaList, Path, PathSegment, Token, Type, TypePath, Visibility,
+    Attribute, Block, Field, FieldsNamed, Generics, Ident, ImplItem, ImplItemFn, ItemImpl,
+    ItemStruct, MetaList, Path, PathSegment, Token, Type, TypePath, Visibility,
 };
 use syn_path::path;
 
@@ -19,9 +19,7 @@ use super::{IntoSyn, WIdent, WImplItemType, YStage};
 pub struct WItemFn<Y: YStage> {
     pub visibility: WVisibility,
     pub signature: WFnSignature,
-    pub locals: Vec<Y::Local>,
-    pub block: WBlock<Y>,
-    pub result: WIdent,
+    pub body: Y::FnBody,
 }
 
 #[derive(Clone, Debug)]

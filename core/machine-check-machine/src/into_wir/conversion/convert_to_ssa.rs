@@ -4,9 +4,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use crate::context::WLowContext;
 use crate::into_wir::{Error, ErrorType, Errors};
 use crate::wir::{
-    WBlock, WCallArg, WExpr, WExprLowCall, WFnArg, WFnSignature, WIdent, WMckNew, WPhi, WPhiTaken,
-    WProperty, WSpan, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf, WSubproperty,
-    WSubpropertyFunc, WTypeId, YLowered, YSsa,
+    WBlock, WCallArg, WExpr, WExprLowCall, WFnArg, WFnSignature, WIdent, WItemFnBody, WMckNew,
+    WPhi, WPhiTaken, WProperty, WSpan, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf,
+    WSubproperty, WSubpropertyFunc, WTypeId, YLowered, YSsa,
 };
 use crate::wir::{WDescription, WItemFn, WItemImpl};
 
@@ -179,7 +179,7 @@ fn process_fn(
     // initialise local idents
     let mut local_ident_counters = BTreeMap::new();
 
-    for local in &item_fn.locals {
+    for local in &item_fn.body.locals {
         local_ident_counters.insert(
             local.ident.clone(),
             Counter {
@@ -238,8 +238,8 @@ impl LocalVisitor<'_> {
             output: item_fn.signature.output,
         };
 
-        let block = self.process_block(item_fn.block);
-        self.process_ident(&mut item_fn.result);
+        let block = self.process_block(item_fn.body.block);
+        self.process_ident(&mut item_fn.body.result);
 
         let mut errors = Vec::new();
         errors.append(&mut self.errors);
@@ -258,9 +258,11 @@ impl LocalVisitor<'_> {
         Ok(WItemFn {
             visibility: item_fn.visibility,
             signature,
-            locals,
-            block,
-            result: item_fn.result,
+            body: WItemFnBody {
+                locals,
+                block,
+                result: item_fn.body.result,
+            },
         })
     }
 

@@ -4,14 +4,14 @@ use syn::{Block, Expr, Local, Path, Stmt, Type};
 
 use crate::wir::{
     IntoSyn, WBlock, WExpr, WExprHighCall, WExprLowCall, WIdent, WIndexedExpr, WIndexedIdent,
-    WItemImplTrait, WMacroableStmt, WSsaLocal, WStmt, WSynBlock, WTacLocal, WTypeId,
+    WItemFnBody, WItemImplTrait, WMacroableStmt, WSsaLocal, WStmt, WSynBlock, WTacLocal, WTypeId,
 };
 
 pub trait YStage {
     type Local: IntoSyn<Local> + Clone + Debug + Hash;
     type ItemImplTrait: IntoSyn<Path> + Clone + Debug + Hash;
 
-    type FnBlock: IntoSyn<Block> + Clone + Debug + Hash;
+    type FnBody: IntoSyn<Block> + Clone + Debug + Hash;
     type Stmt: IntoSyn<Stmt> + Clone + Debug + Hash;
     type AssignLeft: IntoSyn<Expr> + Clone + Debug + Hash;
     type AssignRight: IntoSyn<Expr> + Clone + Debug + Hash;
@@ -27,7 +27,7 @@ impl YStage for YBuild {
     type Local = WTacLocal;
     type ItemImplTrait = WItemImplTrait;
 
-    type FnBlock = WSynBlock;
+    type FnBody = WSynBlock;
     type Stmt = WMacroableStmt<YTac>;
     type AssignLeft = WIndexedIdent;
     type AssignRight = WIndexedExpr<WExprHighCall>;
@@ -41,7 +41,7 @@ impl YStage for YTac {
     type Local = WTacLocal;
     type ItemImplTrait = WItemImplTrait;
 
-    type FnBlock = WBlock<YTac>;
+    type FnBody = WItemFnBody<YTac>;
     type Stmt = WMacroableStmt<YTac>;
     type AssignLeft = WIndexedIdent;
     type AssignRight = WIndexedExpr<WExprHighCall>;
@@ -55,7 +55,7 @@ impl YStage for YLowered {
     type Local = WTacLocal;
     type ItemImplTrait = WItemImplTrait;
 
-    type FnBlock = WBlock<YLowered>;
+    type FnBody = WItemFnBody<YLowered>;
     type Stmt = WStmt<YLowered>;
     type AssignLeft = WIdent;
     type AssignRight = WExpr<WExprLowCall>;
@@ -69,7 +69,7 @@ impl YStage for YSsa {
     type Local = WSsaLocal;
     type ItemImplTrait = WItemImplTrait;
 
-    type FnBlock = WBlock<YSsa>;
+    type FnBody = WItemFnBody<YSsa>;
     type Stmt = WStmt<YSsa>;
     type AssignLeft = WIdent;
     type AssignRight = WExpr<WExprLowCall>;

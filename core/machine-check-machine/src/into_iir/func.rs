@@ -63,7 +63,7 @@ impl WItemFn<YSsa> {
             inputs.push(var_id);
         }
 
-        for local in self.locals {
+        for local in self.body.locals {
             let info = IVarInfo {
                 ident: local.ident.into_iir(),
                 ty: ctx.id_general_type(local.ty),
@@ -74,7 +74,7 @@ impl WItemFn<YSsa> {
             variables.insert(var_id, info);
         }
 
-        let result_ident = self.result.into_iir();
+        let result_ident = self.body.result.into_iir();
 
         let result_normal_id = *variables
             .iter()
@@ -108,7 +108,7 @@ impl WItemFn<YSsa> {
             ident_var_map.insert(var_data.ident.clone(), *var_id);
         }
 
-        let block = self.block.into_iir(&WFnData {
+        let block = self.body.block.into_iir(&WFnData {
             ident_var_map,
             variables: &declaration.variables,
             structs,

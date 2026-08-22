@@ -16,7 +16,7 @@ use crate::{
 use super::{IntoSyn, WIdent, YIfPolarity};
 
 #[derive(Clone, Hash, Debug)]
-pub struct WSynBlock(Block);
+pub struct WSynBlock(pub Block);
 
 #[derive(Clone, Hash)]
 pub struct WBlock<Y: YStage> {

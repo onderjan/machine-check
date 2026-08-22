@@ -6,7 +6,7 @@ use syn::{
 };
 
 use crate::{
-    context::WInferenceContext,
+    context::{WContextBuilder, WInferenceContext},
     into_wir::{
         from_syn::{attribute_disallower::AttributeDisallower, path::fold_partial_path},
         Error, ErrorType, Errors,
@@ -14,14 +14,14 @@ use crate::{
     util::path_matches_global_names,
     wir::{
         WField, WIdent, WImplItemType, WItemImpl, WItemImplTrait, WItemStruct, WSpan, WVisibility,
-        YTac,
+        YBuild,
     },
 };
 
 use super::item_fn::fold_impl_item_fn;
 
 pub fn fold_item_struct(
-    ctx: &mut WInferenceContext,
+    ctx: &mut WContextBuilder,
     mut item: ItemStruct,
 ) -> Result<WItemStruct, Errors> {
     let item_span = WSpan::from_syn(&item);
@@ -144,9 +144,9 @@ pub fn fold_item_struct(
 }
 
 pub fn fold_item_impl(
-    ctx: &mut WInferenceContext,
+    ctx: &mut WContextBuilder,
     item: ItemImpl,
-) -> Result<WItemImpl<YTac>, Errors> {
+) -> Result<WItemImpl<YBuild>, Errors> {
     if item.defaultness.is_some() {
         return Err(Errors::single(Error::unsupported_syn_construct(
             "Defaultness",

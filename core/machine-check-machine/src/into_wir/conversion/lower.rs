@@ -5,9 +5,9 @@ use crate::{
     into_wir::Errors,
     util::ident_creator::IdentCreator,
     wir::{
-        WDescription, WExpr, WExprLowCall, WFnSignature, WIdent, WImplItemType, WItemFn, WItemImpl,
-        WItemStruct, WMckNew, WPartialPath, WPartialSegment, WProperty, WStmt, WStmtAssign,
-        WSubproperty, WSubpropertyFunc, WTacLocal, WTypeId, YLowered, YTac,
+        WDescription, WExpr, WExprLowCall, WFnSignature, WIdent, WImplItemType, WItemFn,
+        WItemFnBody, WItemImpl, WItemStruct, WMckNew, WPartialPath, WPartialSegment, WProperty,
+        WStmt, WStmtAssign, WSubproperty, WSubpropertyFunc, WTacLocal, WTypeId, YLowered, YTac,
     },
 };
 use mck::{concr::ConcreteBitvector, misc::RBound};
@@ -129,12 +129,12 @@ fn lower_item_fn(
     };
 
     let mut local_types = IndexMap::new();
-    for local in &impl_item.locals {
+    for local in &impl_item.body.locals {
         local_types.insert(local.ident.clone(), local.ty.clone());
     }
     let span = signature.ident.span();
 
-    let mut locals = impl_item.locals;
+    let mut locals = impl_item.body.locals;
 
     let panic_ident = WIdent::new(String::from("__mck_panic"), span);
     let zero_bitvec_ident = WIdent::new(String::from("__mck_paniczbv"), span);
@@ -171,7 +171,7 @@ fn lower_item_fn(
         zero_bitvec_ident,
     };
 
-    let mut block = fn_lowerer.lower_block(impl_item.block)?;
+    let mut block = fn_lowerer.lower_block(impl_item.body.block)?;
 
     for (ident, ty) in fn_lowerer.ident_creator.drain_created_temporaries() {
         locals.push(WTacLocal { ident, ty });
@@ -183,9 +183,11 @@ fn lower_item_fn(
     Ok(WItemFn {
         visibility: impl_item.visibility,
         signature,
-        locals,
-        block,
-        result: impl_item.result,
+        body: WItemFnBody {
+            locals,
+            block,
+            result: impl_item.body.result,
+        },
     })
 }
 

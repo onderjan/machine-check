@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use syn::{Item, Type, TypePath};
 
 use crate::{
-    context::{WInferenceContext, WInferredContext, WLowContext},
+    context::{WContextBuilder, WInferredContext, WLowContext},
     into_wir::{
         conversion::{convert_to_ssa, expand_macros, lower, resolve_use},
         from_syn::{self, fold_partial_path},
@@ -37,7 +37,7 @@ pub fn description_from_syn(
 }
 
 fn tac_from_items(item_iter: Vec<Item>) -> Result<(WInferredContext, WDescription<YTac>), Errors> {
-    let mut ctx = WInferenceContext::new();
+    let mut builder = WContextBuilder::new();
 
     let mut structs = Vec::new();
     let mut impls = Vec::new();
@@ -49,9 +49,9 @@ fn tac_from_items(item_iter: Vec<Item>) -> Result<(WInferredContext, WDescriptio
         if let Item::Struct(item) = item {
             let path =
                 WPath::from_ident(WIdent::from_syn_ident(item.ident.clone())).without_generics();
-            let struct_def = from_syn::fold_item_struct(&mut ctx, item.clone());
+            let struct_def = from_syn::fold_item_struct(&mut builder, item.clone());
             if let Ok(struct_def) = &struct_def {
-                ctx.add_struct_sig(path, struct_def.clone());
+                builder.add_struct(path, struct_def.clone());
             }
             structs.push(struct_def);
         }
@@ -72,9 +72,9 @@ fn tac_from_items(item_iter: Vec<Item>) -> Result<(WInferredContext, WDescriptio
 
                 let path = fold_partial_path(self_path)?.without_generics();
 
-                let impl_def = from_syn::fold_item_impl(&mut ctx, item);
+                let impl_def = from_syn::fold_item_impl(&mut builder, item);
                 if let Ok(impl_def) = &impl_def {
-                    ctx.add_impl_sig(path, impl_def.clone());
+                    builder.add_impl(path, impl_def.clone());
                 }
                 impls.push(impl_def)
             }
@@ -85,8 +85,12 @@ fn tac_from_items(item_iter: Vec<Item>) -> Result<(WInferredContext, WDescriptio
     let impls = Errors::flat_result(impls);
     let (structs, impls) = Errors::combine_and_vec(structs, impls, errors)?;
 
-    let ctx = ctx.infer_impls(impls.as_slice())?;
-    let description = WDescription { structs, impls };
+    let ctx = builder.build();
+    /*let ctx = ctx.infer_impls(impls.as_slice())?;
+    let description = WDescription { structs, impls };*/
+
+    let ctx = todo!("Inferred context");
+    let description = todo!("Build description");
 
     Ok((ctx, description))
 }
