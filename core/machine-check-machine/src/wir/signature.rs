@@ -22,6 +22,10 @@ impl<Y: YStage> WDefinitions<Y> {
         Self::new(IndexMap::new())
     }
 
+    pub fn inner(&self) -> &IndexMap<WUniquePath, WDefinition<Y>> {
+        &self.inner
+    }
+
     pub fn into_inner(self) -> IndexMap<WUniquePath, WDefinition<Y>> {
         self.inner
     }

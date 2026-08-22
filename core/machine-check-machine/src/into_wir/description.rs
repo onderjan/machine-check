@@ -9,7 +9,7 @@ use crate::{
         from_syn::{self, fold_partial_path},
         Error, Errors,
     },
-    wir::{WDescription, WIdent, WPath, YSsa, YTac},
+    wir::{WDescription, WIdent, WPath, YSsa},
 };
 
 pub fn description_from_syn(
@@ -26,17 +26,19 @@ pub fn description_from_syn(
 
     resolve_use::remove_use(&mut items)?;
 
-    let (ctx, description) = tac_from_items(items)?;
+    let ctx = tac_from_items(items)?;
     //let w_description = convert_indexing::convert_description(w_description);
     /*let (w_description, panic_messages) =
-    convert_total::convert_description(&mut ctx, w_description);*/
+    convert_total::convert_description(&mut ctx, w_description);
+
     let panic_messages = Vec::new();
     let (mut ctx, description) = lower::lower_description(ctx, description)?;
     let description = convert_to_ssa::convert_description(&mut ctx, description)?;
-    Ok((ctx, description, panic_messages))
+    Ok((ctx, description, panic_messages))*/
+    todo!("Description from syn, ctx: {:#?}", ctx)
 }
 
-fn tac_from_items(item_iter: Vec<Item>) -> Result<(WInferredContext, WDescription<YTac>), Errors> {
+fn tac_from_items(item_iter: Vec<Item>) -> Result<WLowContext, Errors> {
     let mut builder = WContextBuilder::new();
 
     let mut structs = Vec::new();
@@ -85,12 +87,6 @@ fn tac_from_items(item_iter: Vec<Item>) -> Result<(WInferredContext, WDescriptio
     let impls = Errors::flat_result(impls);
     let (structs, impls) = Errors::combine_and_vec(structs, impls, errors)?;
 
-    let ctx = builder.build();
-    /*let ctx = ctx.infer_impls(impls.as_slice())?;
-    let description = WDescription { structs, impls };*/
-
-    let ctx = todo!("Inferred context");
-    let description = todo!("Build description");
-
-    Ok((ctx, description))
+    let ctx = builder.build()?.infer()?.lower()?;
+    Ok(ctx)
 }

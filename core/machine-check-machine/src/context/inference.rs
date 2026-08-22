@@ -4,7 +4,6 @@ use std::{
 };
 
 use indexmap::IndexMap;
-use proc_macro2::Span;
 use syn::Type;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind};
 
@@ -12,9 +11,8 @@ use crate::{
     context::{bitvector_type, bool_type, WInferredContext},
     into_wir::{fold_type, Error, ErrorType},
     wir::{
-        WDefinitions, WIdent, WItemImpl, WItemStruct, WPartialArgument, WPartialGenerics,
-        WPartialPath, WPartialSegment, WPartialType, WSpan, WSubproperty, WTypeId, WUniquePath,
-        YTac,
+        WDefinition, WDefinitions, WItemImpl, WItemStruct, WPartialArgument, WPartialGenerics,
+        WPartialPath, WPartialSegment, WPartialType, WSpan, WTypeId, WUniquePath, YTac,
     },
 };
 
@@ -83,7 +81,29 @@ impl WInferenceContext {
         self.eq_constraints.union(a.0, b.0);
     }
 
-    pub fn infer_impls(mut self, impls: &[WItemImpl<YTac>]) -> Result<WInferredContext, Error> {
+    pub fn infer(mut self) -> Result<WInferredContext, Error> {
+        for (_path, def) in self.definitions.clone().into_inner() {
+            if let WDefinition::Fn(item_fn) = def {
+                let mut types = BTreeMap::new();
+
+                for arg in &item_fn.signature.inputs {
+                    types.insert(arg.ident.clone(), arg.ty.clone());
+                }
+                types.extend(
+                    item_fn
+                        .body
+                        .locals
+                        .iter()
+                        .map(|local| (local.ident.clone(), local.ty.clone())),
+                );
+
+                self.add_block_constraints(&types, &item_fn.body.block)?;
+            }
+        }
+        self.unify()
+    }
+
+    /*pub fn infer_impls(mut self, impls: &[WItemImpl<YTac>]) -> Result<WInferredContext, Error> {
         for item_impl in impls.iter() {
             for item_fn in &item_impl.impl_item_fns {
                 let mut types = BTreeMap::new();
@@ -145,7 +165,7 @@ impl WInferenceContext {
         }
 
         self.unify()
-    }
+    }*/
 
     fn unify(mut self) -> Result<WInferredContext, Error> {
         eprintln!("Unifying {:?}", self);

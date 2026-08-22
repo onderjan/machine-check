@@ -20,13 +20,13 @@ use syn_path::path;
 use crate::{
     context::{WContextBuilder, WInferenceContext, WInferredContext, WLowContext},
     into_wir::{
-        conversion::{convert_to_ssa, expand_macros, lower, resolve_use},
-        from_syn, Errors,
+        conversion::{expand_macros, resolve_use},
+        Errors,
     },
     util::{create_type_path, path_matches_global_names},
     wir::{
-        WIdent, WProperty, WSubproperty, WSubpropertyFixedPoint, WSubpropertyFunc,
-        WSubpropertyNext, WTypeId, YSsa, YTac,
+        WIdent, WProperty, WSubproperty, WSubpropertyFixedPoint, WSubpropertyNext, WTypeId, YSsa,
+        YTac,
     },
 };
 
@@ -165,7 +165,8 @@ fn property_from_exprs(
     globals: &BTreeMap<WIdent, WTypeId>,
     property: ExprProperty,
 ) -> Result<(WInferredContext, WProperty<YTac>), Errors> {
-    let mut subproperties = Vec::new();
+    todo!("Property from exprs");
+    /*let mut subproperties = Vec::new();
 
     for (index, subproperty) in property.subproperties.into_iter().enumerate() {
         let subproperty = match subproperty {
@@ -221,7 +222,7 @@ fn property_from_exprs(
 
     let ctx = ctx.infer_subproperties(globals, subproperties.as_slice())?;
 
-    Ok((ctx, WProperty { subproperties }))
+    Ok((ctx, WProperty { subproperties }))*/
 }
 
 fn property_use_map(span: Span) -> HashMap<Ident, Path> {
