@@ -29,8 +29,7 @@ pub fn description_from_syn(
 
     resolve_use::remove_use(&mut items)?;
 
-    let ctx = WInferenceContext::new();
-    let (ctx, description) = tac_from_items(ctx, items.into_iter())?;
+    let (ctx, description) = tac_from_items(items.into_iter())?;
     //let w_description = convert_indexing::convert_description(w_description);
     /*let (w_description, panic_messages) =
     convert_total::convert_description(&mut ctx, w_description);*/
@@ -41,9 +40,10 @@ pub fn description_from_syn(
 }
 
 fn tac_from_items(
-    mut ctx: WInferenceContext,
     item_iter: impl Iterator<Item = Item>,
 ) -> Result<(WInferredContext, WDescription<YTac>), Errors> {
+    let mut ctx = WInferenceContext::new();
+
     let mut structs = Vec::new();
     let mut impls = Vec::new();
     let mut errors = Vec::new();
