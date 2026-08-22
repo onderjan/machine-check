@@ -1,4 +1,4 @@
-use crate::abstr::{AbstractValue, PanicResult};
+use crate::abstr::AbstractValue;
 use crate::concr::FullMachine;
 use crate::misc::Join;
 use std::fmt::Debug;
