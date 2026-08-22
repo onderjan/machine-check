@@ -43,24 +43,12 @@ fn description_from_preprocessed(item_iter: Vec<Item>) -> Result<WLowContext, Er
                     Err(err) => errors.push(err),
                 }
             }
-            Item::Impl(item) => {
-                let Type::Path(TypePath {
-                    qself: None,
-                    path: self_path,
-                }) = *item.self_ty.clone()
-                else {
-                    todo!("Non-path impl type");
-                };
-
-                let path = fold_partial_path(self_path)?.without_generics();
-
-                match from_syn::fold_item_impl(&mut builder, item) {
-                    Ok(item_impl) => {
-                        builder.add_impl(path, item_impl);
-                    }
-                    Err(err) => errors.push(err),
+            Item::Impl(item) => match from_syn::fold_item_impl(&mut builder, item) {
+                Ok(item_impl) => {
+                    builder.add_impl(item_impl);
                 }
-            }
+                Err(err) => errors.push(err),
+            },
             _ => errors.push(Error::unsupported_syn_construct("Item kind", &item).into()),
         }
     }

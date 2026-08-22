@@ -12,8 +12,8 @@ use crate::{
     into_wir::{fold_type, Error, Errors},
     util::ident_creator::IdentCreator,
     wir::{
-        WDefinition, WDefinitions, WIdent, WItemFn, WItemImpl, WItemStruct, WPartialType, WPath,
-        WSpan, WTypeId, WUniquePath, YBuild, YTac,
+        WDefinitions, WIdent, WItemFn, WItemImpl, WItemStruct, WPartialType, WPath, WSpan,
+        WSpanned, WTypeId, WUniquePath, YBuild, YTac,
     },
 };
 
@@ -35,18 +35,32 @@ impl WContextBuilder {
         self.definitions.add_struct(path, item_struct);
     }
 
-    pub fn add_impl(&mut self, path: WUniquePath, item_impl: WItemImpl<YBuild>) {
+    pub fn add_impl(&mut self, item_impl: WItemImpl<YBuild>) -> Result<(), Error> {
+        let datatype_path = item_impl.self_ty.clone().without_generics();
+        let Some(self_datatype) = self.definitions.datatype_id(&datatype_path) else {
+            return Err(Error::new(
+                crate::into_wir::ErrorType::IllegalConstruct(String::from("Unknown self type")),
+                item_impl.wir_span(),
+            ));
+        };
+
         for impl_type in item_impl.impl_item_types {
-            let mut type_path = path.clone();
-            type_path.segments.push(impl_type.left_ident.clone());
-            self.definitions.add_type(type_path, impl_type);
+            let assoc_name = impl_type.left_ident.clone();
+            self.definitions.add_assoc_type(
+                self_datatype,
+                item_impl.trait_.clone(),
+                assoc_name,
+                impl_type,
+            );
         }
 
         for impl_fn in item_impl.impl_item_fns {
-            let mut fn_path = path.clone();
-            fn_path.segments.push(impl_fn.signature.ident.clone());
-            self.definitions.add_fn(fn_path, impl_fn);
+            let fn_name = impl_fn.signature.ident.clone();
+            self.definitions
+                .add_fn(self_datatype, item_impl.trait_.clone(), fn_name, impl_fn);
         }
+
+        Ok(())
     }
 
     pub fn noninferred_id(&mut self, ty: &Type) -> Result<WTypeId, Error> {
@@ -75,7 +89,12 @@ impl WContextBuilder {
     }
 
     pub fn build(mut self) -> Result<WInferenceContext, Errors> {
-        let mut definitions = Vec::new();
+        let definitions = self
+            .definitions
+            .clone()
+            .map_functions(|func| self.build_function(func))?;
+        /*let mut definitions = Vec::new();
+
         for (path, def) in self.definitions.clone().into_inner() {
             let def = match def {
                 WDefinition::Struct(item_struct) => Ok(WDefinition::Struct(item_struct)),
@@ -85,12 +104,9 @@ impl WContextBuilder {
             definitions.push(def.map(|def| (path, def)));
         }
         let definitions = Errors::flat_result(definitions)?;
-        let definitions = IndexMap::from_iter(definitions);
+        let definitions = IndexMap::from_iter(definitions);*/
 
-        Ok(WInferenceContext::new(
-            WDefinitions::new(definitions),
-            self.types,
-        ))
+        Ok(WInferenceContext::new(definitions, self.types))
     }
 
     fn build_function(&mut self, item_fn: WItemFn<YBuild>) -> Result<WItemFn<YTac>, Errors> {

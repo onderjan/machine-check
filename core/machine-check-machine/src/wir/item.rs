@@ -56,7 +56,7 @@ pub struct WItemImpl<Y: YStage> {
     pub impl_item_types: Vec<WImplItemType>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum WItemImplTrait {
     Machine(WSpan),
 }

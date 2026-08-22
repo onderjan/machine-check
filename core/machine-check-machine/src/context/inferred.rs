@@ -1,6 +1,5 @@
 use std::fmt::Debug;
 
-use indexmap::IndexMap;
 use proc_macro2::Span;
 
 use crate::{
@@ -10,8 +9,8 @@ use crate::{
     },
     into_wir::Errors,
     wir::{
-        WDefinition, WDefinitions, WIdent, WPath, WPathArgument, WPathGenerics, WPathSegment,
-        WType, WTypeId, YTac,
+        WDefinitions, WIdent, WItemFn, WPath, WPathArgument, WPathGenerics, WPathSegment, WType,
+        WTypeId, YSsa, YTac,
     },
 };
 
@@ -54,14 +53,17 @@ impl WInferredContext {
         self.types[id.0].clone()
     }
 
-    pub fn signatures(&self) -> &WDefinitions<YTac> {
+    pub fn definitions(&self) -> &WDefinitions<YTac> {
         &self.definitions
     }
 
     pub fn lower(mut self) -> Result<WLowContext, Errors> {
-        let mut definitions = IndexMap::new();
+        let definitions = self
+            .definitions
+            .clone()
+            .map_functions(|func| self.lower_function(func))?;
 
-        for (path, def) in self.definitions.clone().into_inner() {
+        /*for (path, def) in self.definitions.clone().into_inner() {
             let def = match def {
                 WDefinition::Struct(item_struct) => WDefinition::Struct(item_struct),
                 WDefinition::Fn(item_fn) => {
@@ -72,7 +74,7 @@ impl WInferredContext {
                 WDefinition::Type(impl_item_type) => WDefinition::Type(impl_item_type),
             };
             definitions.insert(path, def);
-        }
+        }*/
 
         let mut types = Vec::new();
 
@@ -82,7 +84,12 @@ impl WInferredContext {
             types.push(lowered);
         }
 
-        Ok(WLowContext::new(WDefinitions::new(definitions), types))
+        Ok(WLowContext::new(definitions, types))
+    }
+
+    fn lower_function(&mut self, item_fn: WItemFn<YTac>) -> Result<WItemFn<YSsa>, Errors> {
+        let item_fn = lower_item_fn(self, item_fn)?;
+        convert_item_fn(self, item_fn)
     }
 
     fn new_type_id(&mut self, ty: WType) -> WTypeId {

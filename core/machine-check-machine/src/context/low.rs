@@ -11,7 +11,7 @@ use syn::{
     TypePath, TypeReference,
 };
 
-use crate::wir::{WDefinition, WDefinitions, WTypeId, YSsa};
+use crate::wir::{WDatatype, WDatatypeId, WDefinitions, WTypeId, YSsa};
 
 #[derive(Debug, Clone)]
 pub struct WLowContext {
@@ -107,8 +107,9 @@ impl WLowContext {
                 Type::Path(TypePath { qself: None, path })
             }
             IElementaryType::Struct(struct_id) => {
-                let Some((path, WDefinition::Struct(_struct_sig))) =
-                    self.definitions.get_index(struct_id.0)
+                let Some((path, _datatype)) = self
+                    .definitions
+                    .datatype_by_id(WDatatypeId::from_index(struct_id.0))
                 else {
                     todo!("Not a struct");
                 };

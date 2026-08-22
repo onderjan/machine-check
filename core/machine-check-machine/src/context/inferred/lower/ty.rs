@@ -72,11 +72,11 @@ impl WInferredContext {
 
                 let path = path.clone().without_generics();
 
-                if let Some(type_index) = self.definitions.get_index_of(&path) {
-                    eprintln!("Lowering {:?} to {:?}", path, type_index);
+                if let Some(type_id) = self.definitions.datatype_id(&path) {
+                    eprintln!("Lowering {:?} to {:?}", path, type_id);
                     return Ok(IGeneralType::Normal(IType {
                         reference: IrReference::None,
-                        inner: IElementaryType::Struct(IStructId(type_index)),
+                        inner: IElementaryType::Struct(IStructId(type_id.index())),
                     }));
                 }
             }

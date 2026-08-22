@@ -106,7 +106,12 @@ impl super::FnLowerer<'_> {
 
         let without_generics = call.fn_path.clone().without_generics();
 
-        if self.ctx.signatures().get(&without_generics).is_none() {
+        if self
+            .ctx
+            .definitions()
+            .get_function(without_generics)
+            .is_none()
+        {
             panic!(
                 "Call should be in signatures due to constraints: {:?}",
                 call

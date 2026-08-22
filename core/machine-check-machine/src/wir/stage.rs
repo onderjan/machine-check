@@ -7,7 +7,7 @@ use crate::wir::{
     WItemFnBody, WItemImplTrait, WMacroableStmt, WSsaLocal, WStmt, WSynBlock, WTacLocal, WTypeId,
 };
 
-pub trait YStage {
+pub trait YStage: Clone {
     type Local: IntoSyn<Local> + Clone + Debug + Hash;
     type ItemImplTrait: IntoSyn<Path> + Clone + Debug + Hash;
 

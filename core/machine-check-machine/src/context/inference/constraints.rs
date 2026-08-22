@@ -7,9 +7,8 @@ use crate::{
     context::{bitvector_type, bool_type, signed_type, unsigned_type},
     into_wir::{Error, ErrorType},
     wir::{
-        WBlock, WCall, WCallArg, WDefinition, WExpr, WExprHighCall, WIdent, WIndexedExpr,
-        WIndexedIdent, WMacroableStmt, WPartialArgument, WPartialGenerics, WPartialType, WSpanned,
-        WTypeId, YTac,
+        WBlock, WCall, WCallArg, WExpr, WExprHighCall, WIdent, WIndexedExpr, WIndexedIdent,
+        WMacroableStmt, WPartialArgument, WPartialGenerics, WPartialType, WSpanned, WTypeId, YTac,
     },
 };
 
@@ -65,10 +64,11 @@ impl super::WInferenceContext {
                             if let WPartialType::Path(base_path) = base_ty {
                                 eprintln!("Field {:?}: base path {:?}", expr_field, base_path);
                                 let base_path = base_path.clone().without_generics();
-                                let base_def = self.definitions.get(&base_path);
+                                let base_def = self.definitions.datatype(&base_path);
                                 eprintln!("Base def: {:?}", base_def);
-                                if let Some(WDefinition::Struct(struct_sig)) = base_def {
-                                    if let Some(field) = struct_sig.fields.get(&expr_field.member) {
+                                if let Some(base_def) = base_def {
+                                    if let Some(field) = base_def.def.fields.get(&expr_field.member)
+                                    {
                                         // TODO: dereference
                                         eprintln!("Member type: {:?}", field);
                                         self.add_eq_constraint(left_ty.clone(), field.ty.clone());
@@ -311,10 +311,7 @@ impl super::WInferenceContext {
 
         let call_path = call.fn_path.clone().without_generics();
 
-        if let Some(def) = self.definitions.get(&call_path) {
-            let WDefinition::Fn(fn_def) = def else {
-                return Err(Error::new(ErrorType::NotCallable, call_path.wir_span()));
-            };
+        if let Some(fn_def) = self.definitions.get_function(call_path.clone()) {
             let signature = &fn_def.signature;
 
             let num_expected = signature.inputs.len();
