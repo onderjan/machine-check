@@ -20,8 +20,8 @@ pub struct WItemFn<Y: YStage> {
     pub visibility: WVisibility,
     pub signature: WFnSignature,
     pub locals: Vec<Y::Local>,
-    pub block: WBlock<Y::AssignTypes>,
-    pub result: Y::FnResult,
+    pub block: WBlock<Y>,
+    pub result: WIdent,
 }
 
 #[derive(Clone, Debug)]

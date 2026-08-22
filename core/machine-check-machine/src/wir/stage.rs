@@ -8,79 +8,54 @@ use crate::wir::{
 };
 
 pub trait YStage {
-    type AssignTypes: ZAssignTypes + Clone + Debug + Hash;
-    type FnResult: IntoSyn<Expr> + Clone + Debug + Hash;
     type Local: IntoSyn<Local> + Clone + Debug + Hash;
     type ItemImplTrait: IntoSyn<Path> + Clone + Debug + Hash;
+
+    type Stmt: IntoSyn<Stmt> + Clone + Debug + Hash;
+    type AssignLeft: IntoSyn<Expr> + Clone + Debug + Hash;
+    type AssignRight: IntoSyn<Expr> + Clone + Debug + Hash;
+    type IfPolarity: YIfPolarity;
 }
+
+pub trait YIfPolarity: IntoSyn<Path> + Clone + Debug + Hash {}
 
 #[derive(Clone, Debug, Hash)]
 pub struct YTac;
 
 impl YStage for YTac {
-    type AssignTypes = ZTac;
-    type FnResult = WIdent;
     type Local = WTacLocal;
     type ItemImplTrait = WItemImplTrait;
-}
 
-#[derive(Clone, Debug, Hash)]
-pub struct YLowered;
-
-impl YStage for YLowered {
-    type AssignTypes = ZLowered;
-    type FnResult = WIdent;
-    type Local = WTacLocal;
-    type ItemImplTrait = WItemImplTrait;
-}
-
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
-pub struct YSsa;
-
-impl YStage for YSsa {
-    type AssignTypes = ZSsa;
-    type FnResult = WIdent;
-    type Local = WSsaLocal;
-    type ItemImplTrait = WItemImplTrait;
-}
-
-#[derive(Clone, Debug, Hash)]
-pub struct ZTac;
-
-impl ZAssignTypes for ZTac {
-    type Stmt = WMacroableStmt<ZTac>;
+    type Stmt = WMacroableStmt<YTac>;
     type AssignLeft = WIndexedIdent;
     type AssignRight = WIndexedExpr<WExprHighCall>;
     type IfPolarity = WNoIfPolarity;
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct ZLowered;
+pub struct YLowered;
 
-impl ZAssignTypes for ZLowered {
-    type Stmt = WStmt<ZLowered>;
+impl YStage for YLowered {
+    type Local = WTacLocal;
+    type ItemImplTrait = WItemImplTrait;
+
+    type Stmt = WStmt<YLowered>;
     type AssignLeft = WIdent;
     type AssignRight = WExpr<WExprLowCall>;
     type IfPolarity = WNoIfPolarity;
 }
 
-#[derive(Clone, Debug, Hash)]
-pub struct ZSsa;
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+pub struct YSsa;
 
-impl ZAssignTypes for ZSsa {
-    type Stmt = WStmt<ZSsa>;
+impl YStage for YSsa {
+    type Local = WSsaLocal;
+    type ItemImplTrait = WItemImplTrait;
+
+    type Stmt = WStmt<YSsa>;
     type AssignLeft = WIdent;
     type AssignRight = WExpr<WExprLowCall>;
     type IfPolarity = WNoIfPolarity;
-}
-
-pub trait ZIfPolarity: IntoSyn<Path> + Clone + Debug + Hash {}
-
-pub trait ZAssignTypes {
-    type Stmt: IntoSyn<Stmt> + Clone + Debug + Hash;
-    type AssignLeft: IntoSyn<Expr> + Clone + Debug + Hash;
-    type AssignRight: IntoSyn<Expr> + Clone + Debug + Hash;
-    type IfPolarity: ZIfPolarity;
 }
 
 #[derive(Clone, Debug, Hash)]
@@ -92,4 +67,4 @@ impl IntoSyn<Path> for WNoIfPolarity {
     }
 }
 
-impl ZIfPolarity for WNoIfPolarity {}
+impl YIfPolarity for WNoIfPolarity {}

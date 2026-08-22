@@ -10,7 +10,7 @@ use machine_check_common::iir::{
 
 use crate::{
     context::WLowContext,
-    wir::{WBlock, WItemFn, YSsa, ZSsa},
+    wir::{WBlock, WItemFn, YSsa},
     Error,
 };
 
@@ -122,7 +122,7 @@ impl WItemFn<YSsa> {
     }
 }
 
-impl WBlock<ZSsa> {
+impl WBlock<YSsa> {
     pub(super) fn into_iir(self, fn_data: &WFnData) -> Result<IBlock, Error> {
         let mut stmts = Vec::new();
 

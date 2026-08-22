@@ -6,9 +6,9 @@ use crate::into_wir::{Error, ErrorType, Errors};
 use crate::wir::{
     WBlock, WCallArg, WExpr, WExprLowCall, WFnArg, WFnSignature, WIdent, WMckNew, WPhi, WPhiTaken,
     WProperty, WSpan, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf, WSubproperty,
-    WSubpropertyFunc, WTypeId, YLowered, ZLowered, ZSsa,
+    WSubpropertyFunc, WTypeId, YLowered, YSsa,
 };
-use crate::wir::{WDescription, WItemFn, WItemImpl, YSsa};
+use crate::wir::{WDescription, WItemFn, WItemImpl};
 
 pub fn convert_description(
     ctx: &mut WLowContext,
@@ -264,7 +264,7 @@ impl LocalVisitor<'_> {
         })
     }
 
-    fn process_block(&mut self, block: WBlock<ZLowered>) -> WBlock<ZSsa> {
+    fn process_block(&mut self, block: WBlock<YLowered>) -> WBlock<YSsa> {
         let mut stmts = Vec::new();
         for stmt in block.stmts {
             match stmt {
@@ -280,7 +280,7 @@ impl LocalVisitor<'_> {
         WBlock { stmts }
     }
 
-    fn process_if(&mut self, stmt: WStmtIf<ZLowered>) -> impl Iterator<Item = WStmt<ZSsa>> {
+    fn process_if(&mut self, stmt: WStmtIf<YLowered>) -> impl Iterator<Item = WStmt<YSsa>> {
         // process the condition if it is an identifier
         let mut condition = stmt.condition;
         self.process_ident(&mut condition.ident);
@@ -404,7 +404,7 @@ impl LocalVisitor<'_> {
         std::iter::once(WStmt::If(stmt)).chain(append_stmts)
     }
 
-    fn process_assign(&mut self, stmt: WStmtAssign<ZLowered>) -> WStmtAssign<ZSsa> {
+    fn process_assign(&mut self, stmt: WStmtAssign<YLowered>) -> WStmtAssign<YSsa> {
         let mut left = stmt.left;
         let mut right = stmt.right;
         // process right side first
@@ -537,7 +537,7 @@ fn create_phi_call(
     condition: WIdent,
     then_ident: WIdent,
     else_ident: WIdent,
-) -> WStmt<ZSsa> {
+) -> WStmt<YSsa> {
     WStmt::Assign(WStmtAssign {
         left: assigned,
         right: WExpr::Call(WExprLowCall::Phi(WPhi {
@@ -552,7 +552,7 @@ fn create_taken_assign(
     phi_arg_ident: WIdent,
     taken_ident: WIdent,
     condition_ident: WIdent,
-) -> WStmt<ZSsa> {
+) -> WStmt<YSsa> {
     WStmt::Assign(WStmtAssign {
         left: phi_arg_ident,
         right: WExpr::Call(WExprLowCall::PhiTaken(WPhiTaken {
@@ -562,7 +562,7 @@ fn create_taken_assign(
     })
 }
 
-fn create_not_taken_assign(phi_arg_ident: WIdent) -> WStmt<ZSsa> {
+fn create_not_taken_assign(phi_arg_ident: WIdent) -> WStmt<YSsa> {
     WStmt::Assign(WStmtAssign {
         left: phi_arg_ident,
         right: WExpr::Call(WExprLowCall::PhiNotTaken),

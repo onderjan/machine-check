@@ -3,10 +3,10 @@ use std::collections::HashMap;
 use proc_macro2::Span;
 
 use crate::{
-    abstr::{WAbstrItemImplTrait, YAbstr, ZAbstr, ZAbstrIfPolarity},
+    abstr::{WAbstrItemImplTrait, YAbstr, YAbstrIfPolarity},
     wir::{
         WBlock, WExpr, WExprLowCall, WFnSignature, WIdent, WIfCondition, WItemFn, WItemImpl,
-        WItemImplTrait, WPath, WPathSegment, WSsaLocal, WStmt, WStmtAssign, WStmtIf, YSsa, ZSsa,
+        WItemImplTrait, WPath, WPathSegment, WSsaLocal, WStmt, WStmtAssign, WStmtIf, YSsa,
     },
 };
 
@@ -111,7 +111,7 @@ struct AbstractConverter {
 }
 
 impl AbstractConverter {
-    fn fold_block(&mut self, block: WBlock<ZSsa>) -> WBlock<ZAbstr> {
+    fn fold_block(&mut self, block: WBlock<YSsa>) -> WBlock<YAbstr> {
         WBlock {
             stmts: block
                 .stmts
@@ -121,7 +121,7 @@ impl AbstractConverter {
         }
     }
 
-    fn fold_stmt(&mut self, stmt: WStmt<ZSsa>) -> Vec<WStmt<ZAbstr>> {
+    fn fold_stmt(&mut self, stmt: WStmt<YSsa>) -> Vec<WStmt<YAbstr>> {
         match stmt {
             WStmt::Assign(stmt_assign) => {
                 vec![WStmt::Assign(WStmtAssign {
@@ -133,7 +133,7 @@ impl AbstractConverter {
         }
     }
 
-    fn fold_if(&mut self, stmt_if: WStmtIf<ZSsa>) -> Vec<WStmt<ZAbstr>> {
+    fn fold_if(&mut self, stmt_if: WStmtIf<YSsa>) -> Vec<WStmt<YAbstr>> {
         // split into two if statements with then branch for each branch of original:
         // 1. can be true
         // 2. can be false
@@ -155,8 +155,8 @@ impl AbstractConverter {
         &mut self,
         condition: &WIdent,
         polarity: bool,
-        mut taken_block: WBlock<ZSsa>,
-    ) -> WStmtIf<ZAbstr> {
+        mut taken_block: WBlock<YSsa>,
+    ) -> WStmtIf<YAbstr> {
         // first, make sure that if we use variables from above scopes,
         // they are appropriately cloned
 
@@ -177,7 +177,7 @@ impl AbstractConverter {
 
         WStmtIf {
             condition: WIfCondition {
-                polarity: ZAbstrIfPolarity(polarity),
+                polarity: YAbstrIfPolarity(polarity),
                 ident: condition.clone(),
             },
             then_block: taken_block,
@@ -187,8 +187,8 @@ impl AbstractConverter {
 
     fn process_taken_branch_block(
         &mut self,
-        taken_block: WBlock<ZSsa>,
-    ) -> (WBlock<ZAbstr>, WBlock<ZAbstr>) {
+        taken_block: WBlock<YSsa>,
+    ) -> (WBlock<YAbstr>, WBlock<YAbstr>) {
         // change Taken statements to MaybeTaken and also add them changed to NotTaken to else block
         // eliminate the NotTaken statements
         let mut taken_stmts = Vec::new();
@@ -240,8 +240,8 @@ impl AbstractConverter {
 
     /*fn process_used_open_ident(
         &mut self,
-        taken_block: &mut WBlock<ZSsa>,
-        added_start_stmts: &mut Vec<WStmt<ZSsa>>,
+        taken_block: &mut WBlock<YSsa>,
+        added_start_stmts: &mut Vec<WStmt<YSsa>>,
         used_open_ident: WIdent,
     ) {
         /*let Some(local) = self.get_from_locals_and_idents(&used_open_ident) else {
@@ -338,7 +338,7 @@ impl AbstractConverter {
 }
 
 /*
-fn replace_stmt_ident(stmt: &mut WStmt<ZSsa>, original: &WIdent, replacement: &WIdent) {
+fn replace_stmt_ident(stmt: &mut WStmt<YSsa>, original: &WIdent, replacement: &WIdent) {
     match stmt {
         WStmt::Assign(stmt_assign) => match &mut stmt_assign.right {
             WExpr::Move(ident) | WExpr::Reference(WExprReference::Ident(ident)) => {

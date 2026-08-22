@@ -8,7 +8,7 @@ use crate::{
     util::{create_angle_bracketed_path_arguments, create_type_path},
     wir::{
         IntoSyn, WDescription, WExpr, WExprLowCall, WIdent, WItemImplTrait, WPath, WSsaLocal,
-        WStmt, WTypeId, YSsa, YStage, ZAssignTypes, ZIfPolarity,
+        WStmt, WTypeId, YIfPolarity, YSsa, YStage,
     },
 };
 
@@ -20,10 +20,20 @@ use self::{
 #[derive(Clone, Debug, Hash)]
 pub struct YAbstr;
 
-#[derive(Clone, Debug, Hash)]
-pub struct ZAbstrIfPolarity(pub bool);
+impl YStage for YAbstr {
+    type Local = WSsaLocal;
+    type ItemImplTrait = WAbstrItemImplTrait;
 
-impl IntoSyn<Path> for ZAbstrIfPolarity {
+    type Stmt = WStmt<YAbstr>;
+    type AssignLeft = WIdent;
+    type AssignRight = WExpr<WExprLowCall>;
+    type IfPolarity = YAbstrIfPolarity;
+}
+
+#[derive(Clone, Debug, Hash)]
+pub struct YAbstrIfPolarity(pub bool);
+
+impl IntoSyn<Path> for YAbstrIfPolarity {
     fn into_syn(self, _type_fn: &impl Fn(WTypeId) -> Type) -> Path {
         if self.0 {
             syn_path::path!(::mck::forward::Test::can_be_true)
@@ -33,24 +43,7 @@ impl IntoSyn<Path> for ZAbstrIfPolarity {
     }
 }
 
-impl ZIfPolarity for ZAbstrIfPolarity {}
-
-#[derive(Clone, Debug, Hash)]
-pub struct ZAbstr;
-
-impl ZAssignTypes for ZAbstr {
-    type Stmt = WStmt<ZAbstr>;
-    type AssignLeft = WIdent;
-    type AssignRight = WExpr<WExprLowCall>;
-    type IfPolarity = ZAbstrIfPolarity;
-}
-
-impl YStage for YAbstr {
-    type AssignTypes = ZAbstr;
-    type FnResult = WIdent;
-    type Local = WSsaLocal;
-    type ItemImplTrait = WAbstrItemImplTrait;
-}
+impl YIfPolarity for YAbstrIfPolarity {}
 
 #[derive(Clone, Debug, Hash)]
 pub struct WAbstrItemImplTrait {

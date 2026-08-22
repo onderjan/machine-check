@@ -8,43 +8,46 @@ use syn::{
 };
 use syn_path::path;
 
-use crate::{util::create_expr_path, wir::WTypeId};
+use crate::{
+    util::create_expr_path,
+    wir::{WTypeId, YStage},
+};
 
-use super::{IntoSyn, WIdent, ZAssignTypes, ZIfPolarity};
+use super::{IntoSyn, WIdent, YIfPolarity};
 
 #[derive(Clone, Hash)]
-pub struct WBlock<Z: ZAssignTypes> {
-    pub stmts: Vec<Z::Stmt>,
+pub struct WBlock<Y: YStage> {
+    pub stmts: Vec<Y::Stmt>,
 }
 
 #[derive(Clone, Hash)]
-pub enum WMacroableStmt<Z: ZAssignTypes> {
-    Assign(WStmtAssign<Z>),
-    If(WStmtIf<Z>),
+pub enum WMacroableStmt<Y: YStage> {
+    Assign(WStmtAssign<Y>),
+    If(WStmtIf<Y>),
     PanicMacro(WStmtPanicMacro),
 }
 
 #[derive(Clone, Hash)]
-pub enum WStmt<Z: ZAssignTypes> {
-    Assign(WStmtAssign<Z>),
-    If(WStmtIf<Z>),
+pub enum WStmt<Y: YStage> {
+    Assign(WStmtAssign<Y>),
+    If(WStmtIf<Y>),
 }
 
 #[derive(Clone, Hash)]
-pub struct WStmtAssign<Z: ZAssignTypes> {
-    pub left: Z::AssignLeft,
-    pub right: Z::AssignRight,
+pub struct WStmtAssign<Y: YStage> {
+    pub left: Y::AssignLeft,
+    pub right: Y::AssignRight,
 }
 
 #[derive(Clone, Hash)]
-pub struct WStmtIf<Z: ZAssignTypes> {
-    pub condition: WIfCondition<Z::IfPolarity>,
-    pub then_block: WBlock<Z>,
-    pub else_block: WBlock<Z>,
+pub struct WStmtIf<Y: YStage> {
+    pub condition: WIfCondition<Y::IfPolarity>,
+    pub then_block: WBlock<Y>,
+    pub else_block: WBlock<Y>,
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WIfCondition<P: ZIfPolarity> {
+pub struct WIfCondition<P: YIfPolarity> {
     pub polarity: P,
     pub ident: WIdent,
 }
@@ -62,7 +65,7 @@ pub enum WPanicMacroKind {
     Todo,
 }
 
-impl<Z: ZAssignTypes> IntoSyn<Block> for WBlock<Z> {
+impl<Y: YStage> IntoSyn<Block> for WBlock<Y> {
     fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Block {
         let mut stmts = Vec::new();
         for stmt in self.stmts {
@@ -76,7 +79,7 @@ impl<Z: ZAssignTypes> IntoSyn<Block> for WBlock<Z> {
     }
 }
 
-impl<Z: ZAssignTypes> IntoSyn<Stmt> for WStmt<Z> {
+impl<Y: YStage> IntoSyn<Stmt> for WStmt<Y> {
     fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Stmt {
         let span = Span::call_site();
         match self {
@@ -129,7 +132,7 @@ impl<Z: ZAssignTypes> IntoSyn<Stmt> for WStmt<Z> {
     }
 }
 
-impl<Z: ZAssignTypes> IntoSyn<Stmt> for WMacroableStmt<Z> {
+impl<Y: YStage> IntoSyn<Stmt> for WMacroableStmt<Y> {
     fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Stmt {
         let panic_macro = match self {
             WMacroableStmt::Assign(stmt) => return WStmt::Assign(stmt).into_syn(type_fn),
@@ -159,7 +162,7 @@ impl<Z: ZAssignTypes> IntoSyn<Stmt> for WMacroableStmt<Z> {
     }
 }
 
-impl<Z: ZAssignTypes> Debug for WStmt<Z> {
+impl<Y: YStage> Debug for WStmt<Y> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             WStmt::Assign(assign) => assign.fmt(f),
@@ -168,7 +171,7 @@ impl<Z: ZAssignTypes> Debug for WStmt<Z> {
     }
 }
 
-impl<Z: ZAssignTypes> Debug for WMacroableStmt<Z> {
+impl<Y: YStage> Debug for WMacroableStmt<Y> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             WMacroableStmt::Assign(assign) => assign.fmt(f),
@@ -178,13 +181,13 @@ impl<Z: ZAssignTypes> Debug for WMacroableStmt<Z> {
     }
 }
 
-impl<Z: ZAssignTypes> Debug for WStmtAssign<Z> {
+impl<Y: YStage> Debug for WStmtAssign<Y> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "{:?} = {:?}", self.left, self.right)
     }
 }
 
-impl<Z: ZAssignTypes> Debug for WStmtIf<Z> {
+impl<Y: YStage> Debug for WStmtIf<Y> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "if {:?} ", self.condition)?;
         Debug::fmt(&self.then_block, f)?;
@@ -193,7 +196,7 @@ impl<Z: ZAssignTypes> Debug for WStmtIf<Z> {
     }
 }
 
-impl<Z: ZAssignTypes> Debug for WBlock<Z> {
+impl<Y: YStage> Debug for WBlock<Y> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut franz = f.debug_set();
 

@@ -10,12 +10,12 @@ use crate::{
     util::{create_expr_ident, path_matches_global_names},
     wir::{
         WBlock, WIdent, WIfCondition, WIndexedIdent, WMacroableStmt, WNoIfPolarity,
-        WPanicMacroKind, WSpan, WSpanned, WStmtAssign, WStmtIf, WStmtPanicMacro, ZTac,
+        WPanicMacroKind, WSpan, WSpanned, WStmtAssign, WStmtIf, WStmtPanicMacro, YTac,
     },
 };
 
 impl<'a> super::FunctionFolder<'a> {
-    pub fn fold_block(&mut self, block: Block) -> Result<(WBlock<ZTac>, Option<WIdent>), Errors> {
+    pub fn fold_block(&mut self, block: Block) -> Result<(WBlock<YTac>, Option<WIdent>), Errors> {
         // push a local scope
         let scope_id = self.next_scope_id;
         self.next_scope_id = self
@@ -50,7 +50,7 @@ impl<'a> super::FunctionFolder<'a> {
             None
         };
 
-        let mut stmts: Vec<WMacroableStmt<ZTac>> = Vec::new();
+        let mut stmts: Vec<WMacroableStmt<YTac>> = Vec::new();
         let mut errors = Vec::new();
 
         for orig_stmt in orig_stmts {
@@ -90,7 +90,7 @@ impl<'a> super::FunctionFolder<'a> {
         &mut self,
         scope_id: u32,
         stmt: Stmt,
-        result_stmts: &mut Vec<WMacroableStmt<ZTac>>,
+        result_stmts: &mut Vec<WMacroableStmt<YTac>>,
     ) -> Result<(), Errors> {
         match stmt {
             Stmt::Local(local) => {
@@ -167,7 +167,7 @@ impl<'a> super::FunctionFolder<'a> {
     fn fold_stmt_expr(
         &mut self,
         expr: Expr,
-        result_stmts: &mut Vec<WMacroableStmt<ZTac>>,
+        result_stmts: &mut Vec<WMacroableStmt<YTac>>,
     ) -> Result<(), Errors> {
         match expr {
             syn::Expr::Assign(expr) => self.fold_assign(expr, result_stmts),
@@ -196,7 +196,7 @@ impl<'a> super::FunctionFolder<'a> {
     fn fold_assign(
         &mut self,
         expr: ExprAssign,
-        result_stmts: &mut Vec<WMacroableStmt<ZTac>>,
+        result_stmts: &mut Vec<WMacroableStmt<YTac>>,
     ) -> Result<(), Errors> {
         let left = match *expr.left {
             Expr::Index(expr_index) => {
@@ -226,7 +226,7 @@ impl<'a> super::FunctionFolder<'a> {
     fn fold_if(
         &mut self,
         expr: ExprIf,
-        result_stmts: &mut Vec<WMacroableStmt<ZTac>>,
+        result_stmts: &mut Vec<WMacroableStmt<YTac>>,
     ) -> Result<(), Errors> {
         let condition = self.force_right_expr_to_ident(*expr.cond, result_stmts)?;
 
@@ -252,7 +252,7 @@ impl<'a> super::FunctionFolder<'a> {
     fn fold_macro(
         &mut self,
         expr: ExprMacro,
-        result_stmts: &mut Vec<WMacroableStmt<ZTac>>,
+        result_stmts: &mut Vec<WMacroableStmt<YTac>>,
     ) -> Result<(), Errors> {
         let mac = expr.mac;
         let kind = if path_matches_global_names(&mac.path, &["std", "panic"]) {

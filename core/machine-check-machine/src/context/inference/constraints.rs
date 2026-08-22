@@ -9,7 +9,7 @@ use crate::{
     wir::{
         WBlock, WCall, WCallArg, WDefinition, WExpr, WExprHighCall, WIdent, WIndexedExpr,
         WIndexedIdent, WMacroableStmt, WPartialArgument, WPartialGenerics, WPartialType, WSpanned,
-        WTypeId, ZTac,
+        WTypeId, YTac,
     },
 };
 
@@ -17,7 +17,7 @@ impl super::WInferenceContext {
     pub(super) fn add_block_constraints(
         &mut self,
         types: &BTreeMap<WIdent, WTypeId>,
-        block: &WBlock<ZTac>,
+        block: &WBlock<YTac>,
     ) -> Result<(), Error> {
         eprintln!("Adding constraints for block {:?}", block);
         for stmt in &block.stmts {

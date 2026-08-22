@@ -9,12 +9,12 @@ use crate::{
     wir::{
         WBlock, WExpr, WExprHighCall, WExprLowCall, WExprStruct, WIfCondition, WIndexedExpr,
         WIndexedIdent, WMacroableStmt, WMckBinary, WNoIfPolarity, WStmt, WStmtAssign, WStmtIf,
-        ZLowered, ZTac,
+        YLowered, YTac,
     },
 };
 
 impl super::FnLowerer<'_> {
-    pub fn lower_block(&mut self, block: WBlock<ZTac>) -> Result<WBlock<ZLowered>, Errors> {
+    pub fn lower_block(&mut self, block: WBlock<YTac>) -> Result<WBlock<YLowered>, Errors> {
         let mut stmts = Vec::new();
         let mut errors = Vec::new();
 
@@ -85,7 +85,7 @@ impl super::FnLowerer<'_> {
         &mut self,
         panic_expr: WExpr<WExprLowCall>,
         span: Span,
-    ) -> Vec<WStmt<ZLowered>> {
+    ) -> Vec<WStmt<YLowered>> {
         // assign to the panic variable if it is currently zero
         let panic_is_zero_ident = self
             .ident_creator

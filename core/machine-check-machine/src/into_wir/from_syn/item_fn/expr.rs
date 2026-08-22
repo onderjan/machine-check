@@ -13,7 +13,7 @@ use crate::{
     wir::{
         WArrayBaseExpr, WBlock, WCall, WCallArg, WExpr, WExprField, WExprHighCall, WExprReference,
         WExprStruct, WIdent, WIfCondition, WIndexedExpr, WIndexedIdent, WMacroableStmt,
-        WNoIfPolarity, WSpan, WStdBinary, WStdUnary, WStmtAssign, WStmtIf, ZTac,
+        WNoIfPolarity, WSpan, WStdBinary, WStdUnary, WStmtAssign, WStmtIf, YTac,
     },
 };
 
@@ -23,7 +23,7 @@ impl super::FunctionFolder<'_> {
     pub fn fold_right_expr(
         &mut self,
         expr: Expr,
-        stmts: &mut Vec<WMacroableStmt<ZTac>>,
+        stmts: &mut Vec<WMacroableStmt<YTac>>,
     ) -> Result<WIndexedExpr<WExprHighCall>, Error> {
         RightExprFolder {
             fn_folder: self,
@@ -35,7 +35,7 @@ impl super::FunctionFolder<'_> {
     pub fn force_right_expr_to_ident(
         &mut self,
         expr: Expr,
-        stmts: &mut Vec<WMacroableStmt<ZTac>>,
+        stmts: &mut Vec<WMacroableStmt<YTac>>,
     ) -> Result<WIdent, Error> {
         {
             RightExprFolder {
@@ -49,7 +49,7 @@ impl super::FunctionFolder<'_> {
 
 struct RightExprFolder<'a, 'b, 'c> {
     fn_folder: &'a mut FunctionFolder<'b>,
-    stmts: &'c mut Vec<WMacroableStmt<ZTac>>,
+    stmts: &'c mut Vec<WMacroableStmt<YTac>>,
 }
 
 impl RightExprFolder<'_, '_, '_> {
