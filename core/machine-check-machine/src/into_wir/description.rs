@@ -3,9 +3,9 @@ use std::collections::HashMap;
 use syn::{Item, Type, TypePath};
 
 use crate::{
-    context::{WContextBuilder, WInferredContext, WLowContext},
+    context::{WContextBuilder, WLowContext},
     into_wir::{
-        conversion::{convert_to_ssa, expand_macros, lower, resolve_use},
+        conversion::{expand_macros, resolve_use},
         from_syn::{self, fold_partial_path},
         Error, Errors,
     },
@@ -26,7 +26,7 @@ pub fn description_from_syn(
 
     resolve_use::remove_use(&mut items)?;
 
-    let ctx = tac_from_items(items)?;
+    let ctx = description_from_items(items)?;
     //let w_description = convert_indexing::convert_description(w_description);
     /*let (w_description, panic_messages) =
     convert_total::convert_description(&mut ctx, w_description);
@@ -38,31 +38,23 @@ pub fn description_from_syn(
     todo!("Description from syn, ctx: {:#?}", ctx)
 }
 
-fn tac_from_items(item_iter: Vec<Item>) -> Result<WLowContext, Errors> {
+fn description_from_items(item_iter: Vec<Item>) -> Result<WLowContext, Errors> {
     let mut builder = WContextBuilder::new();
 
-    let mut structs = Vec::new();
-    let mut impls = Vec::new();
     let mut errors = Vec::new();
 
-    // TODO: rewrite to 1. signatures, 2. bodies
-    // first iteration: structs
-    for item in &item_iter {
-        if let Item::Struct(item) = item {
-            let path =
-                WPath::from_ident(WIdent::from_syn_ident(item.ident.clone())).without_generics();
-            let struct_def = from_syn::fold_item_struct(&mut builder, item.clone());
-            if let Ok(struct_def) = &struct_def {
-                builder.add_struct(path, struct_def.clone());
-            }
-            structs.push(struct_def);
-        }
-    }
-
-    // second iteration: impls
     for item in item_iter {
         match item {
-            Item::Struct(_item) => {}
+            Item::Struct(item) => {
+                let path = WPath::from_ident(WIdent::from_syn_ident(item.ident.clone()))
+                    .without_generics();
+                match from_syn::fold_item_struct(&mut builder, item) {
+                    Ok(item_struct) => {
+                        builder.add_struct(path, item_struct);
+                    }
+                    Err(err) => errors.push(err),
+                }
+            }
             Item::Impl(item) => {
                 let Type::Path(TypePath {
                     qself: None,
@@ -74,19 +66,18 @@ fn tac_from_items(item_iter: Vec<Item>) -> Result<WLowContext, Errors> {
 
                 let path = fold_partial_path(self_path)?.without_generics();
 
-                let impl_def = from_syn::fold_item_impl(&mut builder, item);
-                if let Ok(impl_def) = &impl_def {
-                    builder.add_impl(path, impl_def.clone());
+                match from_syn::fold_item_impl(&mut builder, item) {
+                    Ok(item_impl) => {
+                        builder.add_impl(path, item_impl);
+                    }
+                    Err(err) => errors.push(err),
                 }
-                impls.push(impl_def)
             }
-            _ => errors.push(Error::unsupported_syn_construct("Item kind", &item)),
+            _ => errors.push(Error::unsupported_syn_construct("Item kind", &item).into()),
         }
     }
-    let structs = Errors::flat_result(structs);
-    let impls = Errors::flat_result(impls);
-    let (structs, impls) = Errors::combine_and_vec(structs, impls, errors)?;
 
-    let ctx = builder.build()?.infer()?.lower()?;
-    Ok(ctx)
+    Errors::errors_vec_to_result(errors)?;
+
+    builder.build()?.infer()?.lower()
 }
