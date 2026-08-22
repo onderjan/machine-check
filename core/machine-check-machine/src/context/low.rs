@@ -11,23 +11,17 @@ use syn::{
     TypeReference,
 };
 
-use crate::wir::{WIdent, WTypeId};
-
-#[derive(Debug, Clone)]
-pub enum WLowTypeDef {
-    #[allow(dead_code)]
-    Struct(Vec<(WIdent, IElementaryType)>),
-}
+use crate::wir::{WSignature, WSignatures, WTypeId};
 
 #[derive(Debug)]
 pub struct WLowContext {
-    type_defs: Vec<(Type, WLowTypeDef)>,
+    signatures: WSignatures,
     types: Vec<IGeneralType>,
 }
 
 impl WLowContext {
-    pub(super) fn new(type_defs: Vec<(Type, WLowTypeDef)>, types: Vec<IGeneralType>) -> Self {
-        Self { type_defs, types }
+    pub(super) fn new(signatures: WSignatures, types: Vec<IGeneralType>) -> Self {
+        Self { signatures, types }
     }
 
     pub fn id_general_type(&self, id: WTypeId) -> IGeneralType {
@@ -108,7 +102,15 @@ impl WLowContext {
                 };
                 Type::Path(TypePath { qself: None, path })
             }
-            IElementaryType::Struct(istruct_id) => self.type_defs[istruct_id.0].0.clone(),
+            IElementaryType::Struct(struct_id) => {
+                let Some((path, WSignature::Struct(_struct_sig))) =
+                    self.signatures.get_index(struct_id.0)
+                else {
+                    todo!("Not a struct");
+                };
+                let path: Path = path.clone().into_path().into();
+                Type::Path(TypePath { qself: None, path })
+            }
         };
         let span = result.span();
         let result = match itype.reference {

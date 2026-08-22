@@ -5,18 +5,16 @@ use machine_check_common::{
     },
     ir_common::IrReference,
 };
-use syn::{Path, Type, TypePath};
 
 use super::WInferredContext;
 use crate::{
-    context::{low::WLowTypeDef, typedef::WContextTypeDef, WLowContext},
+    context::WLowContext,
     into_wir::{Error, ErrorType},
-    wir::{WPathArgument, WSpanned, WType},
+    wir::{WPathArgument, WType},
 };
 
 impl WInferredContext {
     pub fn lower(self) -> Result<WLowContext, Error> {
-        let mut type_defs = Vec::new();
         let mut types = Vec::new();
 
         for ty in &self.types {
@@ -25,7 +23,7 @@ impl WInferredContext {
             types.push(lowered);
         }
 
-        for (ty, def) in self.type_defs.clone().into_inner() {
+        /*for (ty, def) in self.type_defs.clone().into_inner() {
             match def {
                 WContextTypeDef::Struct(fields) => {
                     let mut low_fields = Vec::new();
@@ -48,9 +46,9 @@ impl WInferredContext {
                     type_defs.push((ty.0, WLowTypeDef::Struct(low_fields)));
                 }
             }
-        }
+        }*/
 
-        Ok(WLowContext::new(type_defs, types))
+        Ok(WLowContext::new(self.signatures, types))
     }
 
     fn lower_type(&self, ty: WType) -> Result<IGeneralType, Error> {
@@ -110,12 +108,10 @@ impl WInferredContext {
                     }));
                 }
 
-                let path: Path = path.clone().into();
+                let path = path.clone().without_generics();
 
-                if let Some(type_index) = self
-                    .type_defs
-                    .get_index_of(&Type::Path(TypePath { qself: None, path }))
-                {
+                if let Some(type_index) = self.signatures.get_index_of(&path) {
+                    eprintln!("Lowering {:?} to {:?}", path, type_index);
                     return Ok(IGeneralType::Normal(IType {
                         reference: IrReference::None,
                         inner: IElementaryType::Struct(IStructId(type_index)),

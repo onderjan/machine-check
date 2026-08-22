@@ -1,7 +1,6 @@
 mod inference;
 mod inferred;
 mod low;
-mod typedef;
 mod types;
 
 pub use inference::WInferenceContext;

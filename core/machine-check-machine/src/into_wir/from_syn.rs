@@ -6,4 +6,5 @@ mod ty;
 
 pub use item::*;
 pub use item_fn::*;
+pub use path::*;
 pub use ty::*;

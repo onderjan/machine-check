@@ -9,15 +9,12 @@ use syn::Type;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind};
 
 use crate::{
-    context::{
-        bitvector_type, bool_type,
-        typedef::{WContextTypeDef, WTypeDefs},
-        WInferredContext,
-    },
+    context::{bitvector_type, bool_type, WInferredContext},
     into_wir::{fold_type, Error, ErrorType},
     wir::{
-        WIdent, WItemImpl, WItemStruct, WPartialArgument, WPartialGenerics, WPartialPath,
-        WPartialSegment, WPartialType, WSignatures, WSpan, WSubproperty, WTypeId, YTac,
+        WFnSig, WIdent, WItemImpl, WPartialArgument, WPartialGenerics, WPartialPath,
+        WPartialSegment, WPartialType, WSignatures, WSpan, WStructSig, WSubproperty, WTypeId,
+        WTypeSig, WUniquePath, YTac,
     },
 };
 
@@ -25,7 +22,7 @@ mod constraints;
 
 #[derive(Debug)]
 pub struct WInferenceContext {
-    type_defs: WTypeDefs,
+    signatures: WSignatures,
     types: Vec<WPartialType>,
     eq_constraints: QuickUnionUf<UnionBySize>,
 }
@@ -33,7 +30,7 @@ pub struct WInferenceContext {
 impl WInferenceContext {
     pub fn new() -> Self {
         Self {
-            type_defs: WTypeDefs::new(),
+            signatures: WSignatures::new(),
             types: Vec::new(),
             eq_constraints: QuickUnionUf::new(0),
         }
@@ -68,14 +65,14 @@ impl WInferenceContext {
         self.partial_type_id(WPartialType::Infer(span))
     }
 
-    pub fn add_struct_def(&mut self, ty: Type, def: &WItemStruct) {
+    /*pub fn add_struct_def(&mut self, ty: Type, def: &WItemStruct) {
         let fields = def
             .fields
             .iter()
             .map(|field| (field.ident.clone(), field.ty.clone()))
             .collect();
         self.type_defs.add(ty, WContextTypeDef::Struct(fields));
-    }
+    }*/
 
     fn add_eq_constraint(&mut self, a: WTypeId, b: WTypeId) {
         let max = a.0.max(b.0);
@@ -86,11 +83,7 @@ impl WInferenceContext {
         self.eq_constraints.union(a.0, b.0);
     }
 
-    pub fn infer_impls(
-        mut self,
-        signatures: WSignatures,
-        impls: &[WItemImpl<YTac>],
-    ) -> Result<WInferredContext, Error> {
+    pub fn infer_impls(mut self, impls: &[WItemImpl<YTac>]) -> Result<WInferredContext, Error> {
         for item_impl in impls.iter() {
             for item_fn in &item_impl.impl_item_fns {
                 let mut types = BTreeMap::new();
@@ -105,16 +98,15 @@ impl WInferenceContext {
                         .map(|local| (local.ident.clone(), local.ty.clone())),
                 );
 
-                self.add_block_constraints(&signatures, &types, &item_fn.block)?;
+                self.add_block_constraints(&types, &item_fn.block)?;
             }
         }
 
-        self.unify(signatures)
+        self.unify()
     }
 
     pub fn infer_subproperties(
         mut self,
-        signatures: WSignatures,
         globals: &BTreeMap<WIdent, WTypeId>,
         subproperties: &[WSubproperty<YTac>],
     ) -> Result<WInferredContext, Error> {
@@ -143,17 +135,17 @@ impl WInferenceContext {
                             .map(|local| (local.ident.clone(), local.ty.clone())),
                     );
 
-                    self.add_block_constraints(&signatures, &types, &func.block)?;
+                    self.add_block_constraints(&types, &func.block)?;
                 }
                 WSubproperty::FixedPoint(_) => {}
                 WSubproperty::Next(_) => {}
             }
         }
 
-        self.unify(signatures)
+        self.unify()
     }
 
-    fn unify(mut self, signatures: WSignatures) -> Result<WInferredContext, Error> {
+    fn unify(mut self) -> Result<WInferredContext, Error> {
         eprintln!("Unifying {:?}", self);
         let mut united = IndexMap::new();
 
@@ -193,10 +185,10 @@ impl WInferenceContext {
             );
         }
 
-        self.into_total(signatures)
+        self.into_total()
     }
 
-    pub fn into_total(mut self, signatures: WSignatures) -> Result<WInferredContext, Error> {
+    pub fn into_total(mut self) -> Result<WInferredContext, Error> {
         let boolean_type_id = self.type_id(&Type::from(bool_type()))?;
         let panic_type_id = self.type_id(&Type::from(bitvector_type(Some(32))))?;
 
@@ -210,12 +202,47 @@ impl WInferenceContext {
         }
 
         Ok(WInferredContext::new(
-            signatures,
-            self.type_defs,
+            self.signatures,
             types,
             boolean_type_id,
             panic_type_id,
         ))
+    }
+
+    pub fn add_struct_sig(&mut self, path: WUniquePath, item_struct: &crate::wir::WItemStruct) {
+        let fields = IndexMap::from_iter(
+            item_struct
+                .fields
+                .iter()
+                .map(|a| (a.ident.clone(), a.ty.clone())),
+        );
+
+        self.signatures.add_struct(path, WStructSig { fields });
+    }
+
+    pub fn add_impl_sig(&mut self, path: WUniquePath, item_impl: &WItemImpl<YTac>) {
+        for impl_type in &item_impl.impl_item_types {
+            let mut type_path = path.clone();
+            type_path.segments.push(impl_type.left_ident.clone());
+            let signature = WTypeSig { inside_impl: true };
+            self.signatures.add_type(type_path, signature);
+        }
+
+        for impl_fn in &item_impl.impl_item_fns {
+            let mut fn_path = path.clone();
+            fn_path.segments.push(impl_fn.signature.ident.clone());
+            let signature = WFnSig {
+                inputs: impl_fn
+                    .signature
+                    .inputs
+                    .iter()
+                    .map(|input| input.ty.clone())
+                    .collect(),
+                output: impl_fn.signature.output.clone(),
+                inside_impl: true,
+            };
+            self.signatures.add_fn(fn_path, signature);
+        }
     }
 }
 

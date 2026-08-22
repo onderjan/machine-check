@@ -9,8 +9,10 @@ use syn::{
 use crate::wir::{ident::WIdent, WSpan, WSpanned, WType};
 
 mod partial;
+mod unique;
 
 pub use partial::{WPartialArgument, WPartialGenerics, WPartialPath, WPartialSegment};
+pub use unique::WUniquePath;
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub enum WPathArgument {
@@ -175,6 +177,17 @@ impl WPath {
                 .segments
                 .into_iter()
                 .map(|segment| segment.into_partial())
+                .collect(),
+        }
+    }
+
+    pub fn without_generics(self) -> WUniquePath {
+        WUniquePath {
+            leading_colon: self.leading_colon,
+            segments: self
+                .segments
+                .into_iter()
+                .map(|segment| segment.ident)
                 .collect(),
         }
     }
