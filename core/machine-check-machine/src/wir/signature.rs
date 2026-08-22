@@ -1,12 +1,36 @@
 use indexmap::IndexMap;
+use proc_macro2::Span;
+use syn::{Item, ItemMod, ItemUse, Token, Type, UseGlob};
 
-use crate::wir::{WImplItemType, WItemFn, WItemStruct, WUniquePath, YStage};
+use crate::wir::{IntoSyn, WImplItemType, WItemFn, WItemStruct, WTypeId, WUniquePath, YStage};
 
 #[derive(Debug, Clone)]
 pub enum WDefinition<Y: YStage> {
     Struct(WItemStruct),
     Fn(WItemFn<Y>),
     Type(WImplItemType),
+}
+
+impl<Y: YStage> WDefinition<Y> {
+    pub fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Item {
+        match self {
+            WDefinition::Struct(item_struct) => Item::Struct(item_struct.into_syn(type_fn)),
+            WDefinition::Fn(item_fn) => Item::Fn(item_fn.into_syn(type_fn)),
+            WDefinition::Type(item_type) => {
+                // TODO: correct
+                Item::Use(ItemUse {
+                    attrs: vec![],
+                    vis: syn::Visibility::Inherited,
+                    use_token: Token![use](Span::call_site()),
+                    leading_colon: None,
+                    tree: syn::UseTree::Glob(UseGlob {
+                        star_token: Token![*](Span::call_site()),
+                    }),
+                    semi_token: Token![;](Span::call_site()),
+                })
+            } //Item::Type(item_type.into_syn(type_fn)),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -52,5 +76,13 @@ impl<Y: YStage> WDefinitions<Y> {
 
     pub fn get_index_of(&self, path: &WUniquePath) -> Option<usize> {
         self.inner.get_index_of(path)
+    }
+
+    pub fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Vec<Item> {
+        let mut items = Vec::new();
+        for (_path, def) in self.inner {
+            items.push(def.into_syn(type_fn));
+        }
+        items
     }
 }

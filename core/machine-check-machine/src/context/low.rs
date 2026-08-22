@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{any::TypeId, fmt::Debug};
 
 use machine_check_common::{
     iir::ty::{IElementaryType, IGeneralType, IType},
@@ -7,13 +7,13 @@ use machine_check_common::{
 use proc_macro2::Span;
 use syn::{
     punctuated::Punctuated, spanned::Spanned, AngleBracketedGenericArguments, Expr, ExprLit,
-    GenericArgument, Ident, Lit, LitInt, Path, PathArguments, PathSegment, Token, Type, TypePath,
-    TypeReference,
+    GenericArgument, Ident, Item, Lit, LitInt, Path, PathArguments, PathSegment, Token, Type,
+    TypePath, TypeReference,
 };
 
 use crate::wir::{WDefinition, WDefinitions, WTypeId, YSsa};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct WLowContext {
     definitions: WDefinitions<YSsa>,
     types: Vec<IGeneralType>,
@@ -22,6 +22,10 @@ pub struct WLowContext {
 impl WLowContext {
     pub(super) fn new(definitions: WDefinitions<YSsa>, types: Vec<IGeneralType>) -> Self {
         Self { definitions, types }
+    }
+
+    pub fn num_types(&self) -> usize {
+        self.types.len()
     }
 
     pub fn id_general_type(&self, id: WTypeId) -> IGeneralType {
@@ -187,6 +191,17 @@ impl WLowContext {
             inner: IElementaryType::Boolean,
         });
         self.new_type_id(ty)
+    }
+
+    pub fn into_syn(self) -> Vec<Item> {
+        self.definitions
+            .clone()
+            .into_syn(&|type_id: WTypeId| -> Type {
+                eprintln!("Into syn type id {:?}", type_id);
+                let ty = self.id_syn_type(type_id);
+                eprintln!("Type: {:?}", ty);
+                ty
+            })
     }
 
     /*

@@ -33,6 +33,7 @@ impl WInferredContext {
         boolean_type_id: WTypeId,
         panic_type_id: WTypeId,
     ) -> Self {
+        eprintln!("Num inferred types: {}", types.len());
         Self {
             definitions,
             types,
@@ -58,14 +59,6 @@ impl WInferredContext {
     }
 
     pub fn lower(mut self) -> Result<WLowContext, Errors> {
-        let mut types = Vec::new();
-
-        for ty in &self.types {
-            let lowered = self.lower_type(ty.clone())?;
-            eprintln!("Lowered type to: {:?}", lowered);
-            types.push(lowered);
-        }
-
         let mut definitions = IndexMap::new();
 
         for (path, def) in self.definitions.clone().into_inner() {
@@ -79,6 +72,14 @@ impl WInferredContext {
                 WDefinition::Type(impl_item_type) => WDefinition::Type(impl_item_type),
             };
             definitions.insert(path, def);
+        }
+
+        let mut types = Vec::new();
+
+        for ty in &self.types {
+            let lowered = self.lower_type(ty.clone())?;
+            eprintln!("Lowered type to: {:?}", lowered);
+            types.push(lowered);
         }
 
         Ok(WLowContext::new(WDefinitions::new(definitions), types))

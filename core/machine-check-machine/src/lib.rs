@@ -183,21 +183,21 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
 
     let ctx = into_wir::create_description(items.clone())?;
 
-    todo!("Process context: {:#?}", ctx);
+    eprintln!("Description context: {:#?}", ctx);
+    eprintln!("Num context types: {}", ctx.num_types());
 
-    /*
     if let Some(out_dir) = &out_dir {
         eprintln!("Writing machine files to directory {:?}", out_dir);
         std::fs::write(
             out_dir.join("description.rs"),
-            unparse(
-                wir::IntoSyn::into_syn(description.clone(), &|type_id| ctx.id_syn_type(type_id))
-                    .items,
-            ),
+            unparse(ctx.clone().into_syn()),
         )
         .expect("SSA machine file should be writable");
     }
 
+    todo!("Process context: {:#?}", ctx);
+
+    /*
     let iir = description.clone().into_iir(&mut ctx)?;
 
     let (abstract_description, misc_abstract_items) =
