@@ -29,7 +29,7 @@ pub fn description_from_syn(
 
     resolve_use::remove_use(&mut items)?;
 
-    let mut ctx = WInferenceContext::new();
+    let ctx = WInferenceContext::new();
     let (ctx, description) = tac_from_items(ctx, items.into_iter())?;
     //let w_description = convert_indexing::convert_description(w_description);
     /*let (w_description, panic_messages) =

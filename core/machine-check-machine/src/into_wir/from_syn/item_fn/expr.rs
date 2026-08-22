@@ -3,7 +3,7 @@ use std::str::FromStr;
 use machine_check_common::ir_common::{IrStdBinaryOp, IrStdUnaryOp};
 use syn::{
     punctuated::Punctuated, spanned::Spanned, token::Comma, Expr, ExprBinary, ExprCall, ExprField,
-    ExprIndex, ExprReference, ExprStruct, ExprUnary, Member, Path, Type, TypePath, UnOp,
+    ExprIndex, ExprReference, ExprStruct, ExprUnary, Member, Path, UnOp,
 };
 use syn_path::path;
 

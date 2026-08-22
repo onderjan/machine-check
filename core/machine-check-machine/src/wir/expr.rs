@@ -9,7 +9,7 @@ use syn::{
 
 use crate::{
     util::create_expr_ident,
-    wir::{WExprLowCall, WPartialPath, WTypeId},
+    wir::{WPartialPath, WTypeId},
 };
 
 use super::{IntoSyn, WIdent};
@@ -207,6 +207,7 @@ impl<CF: IntoSyn<Expr> + Debug> Debug for WExpr<CF> {
     }
 }
 
+/*
 impl WExpr<WExprLowCall> {
     pub fn idents(&self) -> Vec<WIdent> {
         match self {
@@ -232,3 +233,4 @@ impl WExpr<WExprLowCall> {
         }
     }
 }
+*/

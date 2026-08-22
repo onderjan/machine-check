@@ -230,7 +230,7 @@ fn join_types(previous: &WPartialType, current: WPartialType) -> Result<WPartial
                 return Err(Error::new(ErrorType::InferenceFailure, span));
             }
             let mut segments = Vec::new();
-            for (lhs, rhs) in lhs.segments.iter().zip(rhs.segments.into_iter()) {
+            for (lhs, rhs) in lhs.segments.iter().zip(rhs.segments) {
                 if lhs.ident != rhs.ident {
                     return Err(Error::new(ErrorType::InferenceFailure, span));
                 }
@@ -244,7 +244,7 @@ fn join_types(previous: &WPartialType, current: WPartialType) -> Result<WPartial
                         }
 
                         let mut arguments = Vec::new();
-                        for (lhs, rhs) in lhs.arguments.iter().zip(rhs.arguments.into_iter()) {
+                        for (lhs, rhs) in lhs.arguments.iter().zip(rhs.arguments) {
                             let arg = match (lhs, rhs) {
                                 (WPartialArgument::Infer(_), rhs) => rhs,
                                 (lhs, WPartialArgument::Infer(_)) => lhs.clone(),

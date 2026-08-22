@@ -102,7 +102,7 @@ impl<E: Error> ErrorList<E> {
         for element in vec {
             match element {
                 Ok(ok) => ok_result.push(ok),
-                Err(err) => err_result.extend(err.into_iter()),
+                Err(err) => err_result.extend(err),
             }
         }
         Self::iter_to_result(err_result).map(|_| ok_result)

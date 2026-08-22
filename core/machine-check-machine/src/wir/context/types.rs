@@ -1,8 +1,7 @@
 use proc_macro2::Span;
 
 use crate::wir::{
-    WIdent, WPartialArgument, WPartialGenerics, WPartialPath, WPartialSegment, WPartialType, WPath,
-    WPathArgument, WPathGenerics, WPathSegment, WSpan, WType,
+    WIdent, WPartialArgument, WPartialGenerics, WPartialPath, WPartialSegment, WPartialType, WSpan,
 };
 
 pub fn bitvector_type(width: Option<u32>) -> WPartialType {

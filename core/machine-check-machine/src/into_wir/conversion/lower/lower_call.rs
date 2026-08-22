@@ -9,7 +9,7 @@ use crate::{
     into_wir::{conversion::lower::FnLowerer, Error, ErrorType},
     wir::{
         WCall, WCallArg, WExpr, WExprHighCall, WExprLowCall, WIdent, WMckBinary, WMckExt, WMckNew,
-        WMckUnary, WPartialArgument, WSignature, WSpanned, WStdBinary, WStdUnary, WType,
+        WMckUnary, WPartialArgument, WSpanned, WStdBinary, WStdUnary, WType,
     },
 };
 

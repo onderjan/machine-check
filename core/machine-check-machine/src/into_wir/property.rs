@@ -20,15 +20,14 @@ use syn_path::path;
 
 use crate::{
     into_wir::{
-        conversion::{convert_to_ssa, convert_total, expand_macros, lower, resolve_use},
-        description::generate_signatures,
+        conversion::{convert_to_ssa, expand_macros, lower, resolve_use},
         from_syn, Errors,
     },
     util::{create_type_path, path_matches_global_names},
     wir::{
         WIdent, WInferenceContext, WInferredContext, WLowContext, WProperty, WSignatures,
-        WSubproperty, WSubpropertyFixedPoint, WSubpropertyFunc, WSubpropertyNext, WTypeId,
-        YLowered, YSsa, YTac,
+        WSubproperty, WSubpropertyFixedPoint, WSubpropertyFunc, WSubpropertyNext, WTypeId, YSsa,
+        YTac,
     },
 };
 

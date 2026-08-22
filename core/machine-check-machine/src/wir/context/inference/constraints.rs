@@ -11,8 +11,8 @@ use crate::{
             types::{bitvector_type, bool_type},
         },
         signed_type, unsigned_type, WBlock, WCall, WCallArg, WExpr, WExprHighCall, WIdent,
-        WIndexedExpr, WIndexedIdent, WMacroableStmt, WPartialArgument, WPartialType, WPath,
-        WSignature, WSignatures, WSpanned, WTypeId, ZTac,
+        WIndexedExpr, WIndexedIdent, WMacroableStmt, WPartialArgument, WPartialGenerics,
+        WPartialType, WSignature, WSignatures, WSpanned, WTypeId, ZTac,
     },
 };
 
@@ -29,13 +29,13 @@ impl super::WInferenceContext {
             match stmt {
                 WMacroableStmt::Assign(assign) => {
                     let left = match &assign.left {
-                        WIndexedIdent::Indexed(wident, wident1) => {
+                        WIndexedIdent::Indexed(_wident, _wident1) => {
                             todo!("Constraints for indexed left")
                         }
                         WIndexedIdent::NonIndexed(ident) => ident,
                     };
                     let right = match &assign.right {
-                        WIndexedExpr::Indexed(base_expr, ident) => {
+                        WIndexedExpr::Indexed(_base_expr, _ident) => {
                             todo!("Constraints for indexed right")
                         }
                         WIndexedExpr::NonIndexed(expr) => expr,
@@ -135,7 +135,11 @@ impl super::WInferenceContext {
             WExprHighCall::Call(call) => {
                 return self.add_normal_call_constraint(signatures, types, left_ty, call);
             }
-            WExprHighCall::StdUnary(unary) => todo!("Std unary"),
+            WExprHighCall::StdUnary(unary) => {
+                // both not and neg return the same type as the operand
+                let operand_ty = get_type(types, &unary.operand)?;
+                self.add_eq_constraint(left_ty, operand_ty);
+            }
             WExprHighCall::StdBinary(binary) => {
                 let a_ty = get_type(types, &binary.a)?;
                 let b_ty = get_type(types, &binary.b)?;
@@ -180,7 +184,6 @@ impl super::WInferenceContext {
         left_ty: WTypeId,
         call: &WCall,
     ) -> Result<(), Error> {
-        let mut found = false;
         if call.fn_path.leading_colon.is_some() && call.fn_path.segments.len() == 3 {
             let segments = &call.fn_path.segments;
             let is_bitvector = segments[1].ident.name() == "Bitvector";
@@ -226,8 +229,8 @@ impl super::WInferenceContext {
                 let mut width = None;
                 if let Some(generics) = &segments[1].generics {
                     if generics.arguments.len() == 1 {
-                        if let WPartialArgument::Uint(width_arg, _span) = generics.arguments[0] {
-                            width = Some(width_arg)
+                        if let WPartialArgument::Uint(width_arg, span) = generics.arguments[0] {
+                            width = Some((width_arg, span))
                         }
                     }
                 }
@@ -257,9 +260,17 @@ impl super::WInferenceContext {
                             || path.matches_absolute(&["machine_check", "Signed"])
                             || path.matches_absolute(&["machine_check", "Unsigned"])
                         {
-                            // drop the generics
+                            // remake the generics
                             let mut path = path.clone();
-                            path.segments[1].generics = None;
+
+                            path.segments[1].generics = if let Some((width_arg, span)) = width {
+                                Some(WPartialGenerics {
+                                    turbofish: None,
+                                    arguments: vec![WPartialArgument::Uint(width_arg, span)],
+                                })
+                            } else {
+                                None
+                            };
 
                             let constraint_ty = self.type_id(&Type::Path(TypePath {
                                 qself: None,
@@ -289,14 +300,14 @@ impl super::WInferenceContext {
             {
                 eprintln!("Processing Into");
                 let span = call.fn_path.wir_span();
-                let WCallArg::Ident(ident) = &call.args[0] else {
+                let WCallArg::Ident(_ident) = &call.args[0] else {
                     return Err(Error::new(
                         ErrorType::IllegalConstruct(String::from("Expected ident in argument")),
                         span,
                     ));
                 };
-                let right_ty = get_type(types, ident)?;
                 // TODO: check whether the Into conversion is permitted
+                //let right_ty = get_type(types, ident)?;
 
                 if let Some(generics) = &segments[2].generics {
                     if generics.arguments.len() == 1 {

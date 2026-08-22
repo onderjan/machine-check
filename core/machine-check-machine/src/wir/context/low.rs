@@ -11,10 +11,11 @@ use syn::{
     TypeReference,
 };
 
-use crate::wir::{WIdent, WSpan, WTypeId};
+use crate::wir::{WIdent, WTypeId};
 
 #[derive(Debug, Clone)]
 pub enum WLowTypeDef {
+    #[allow(dead_code)]
     Struct(Vec<(WIdent, IElementaryType)>),
 }
 

@@ -418,7 +418,7 @@ fn arrange_frontend_package(
                     .entry(repository_key.to_string())
                     .or_default();
 
-                entry.extend(patched_package_paths.into_iter());
+                entry.extend(patched_package_paths);
             }
             debug!("Applying workspace patch to WASM package");
             cargo_toml.insert("patch", patch);
@@ -563,7 +563,8 @@ fn compile_frontend_package(arrangement: &Arrangement) -> anyhow::Result<Option<
         .arg("--target=web")
         .arg(bindgen_out_dir_arg)
         .arg(cargo_target_dir.join(target_path));
-    execute_command("wasm-bindgen", wasm_bindgen).map_err(|err| anyhow!("Cannot generate bindings using wasm-bindgen: {}", err))?;
+    execute_command("wasm-bindgen", wasm_bindgen)
+        .map_err(|err| anyhow!("Cannot generate bindings using wasm-bindgen: {}", err))?;
 
     // Write the frontend package directory hash to the artefact directory.
 

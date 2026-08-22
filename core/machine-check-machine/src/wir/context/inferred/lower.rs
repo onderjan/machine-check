@@ -12,7 +12,7 @@ use crate::{
     into_wir::{Error, ErrorType},
     wir::{
         context::{low::WLowTypeDef, typedef::WContextTypeDef},
-        WIdent, WLowContext, WPathArgument, WPathSegment, WSpanned, WType,
+        WLowContext, WPathArgument, WSpanned, WType,
     },
 };
 

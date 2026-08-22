@@ -460,14 +460,13 @@ impl LocalVisitor<'_> {
                 }
             }
             WExprLowCall::MckNew(call) => match call {
-                WMckNew::Bitvector(_value) => {}
-                WMckNew::BitvectorArray(_ty, from) => {
-                    self.process_ident(from);
-                }
+                WMckNew::Bitvector(_value) => {} /*WMckNew::BitvectorArray(_ty, from) => {
+                                                     self.process_ident(from);
+                                                 }*/
             },
-            WExprLowCall::BooleanNew(_) => {
+            /*WExprLowCall::BooleanNew(_) => {
                 // no ident, do nothing
-            }
+            }*/
             WExprLowCall::MckUnary(call) => {
                 self.process_ident(&mut call.operand);
             }
@@ -480,7 +479,7 @@ impl LocalVisitor<'_> {
             }
             /*WExprLowCall::StdInto(call) => {
                 self.process_ident(&mut call.from);
-            }*/
+            }
             WExprLowCall::StdClone(ident) => self.process_ident(ident),
             WExprLowCall::ArrayRead(read) => {
                 self.process_ident(&mut read.base);
@@ -490,7 +489,7 @@ impl LocalVisitor<'_> {
                 self.process_ident(&mut write.base);
                 self.process_ident(&mut write.index);
                 self.process_ident(&mut write.element);
-            }
+            }*/
             WExprLowCall::Phi(phi) => {
                 self.process_ident(&mut phi.condition);
                 self.process_ident(&mut phi.then_ident);

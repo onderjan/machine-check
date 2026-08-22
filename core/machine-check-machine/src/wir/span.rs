@@ -28,7 +28,7 @@ impl Hash for WSpan {
 }
 
 impl PartialEq for WSpan {
-    fn eq(&self, other: &Self) -> bool {
+    fn eq(&self, _other: &Self) -> bool {
         // always return true, the spans are just for information
         true
     }

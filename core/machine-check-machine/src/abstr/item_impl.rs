@@ -1,14 +1,12 @@
 use std::collections::HashMap;
 
-use machine_check_common::ir_common::IrReference;
 use proc_macro2::Span;
 
 use crate::{
     abstr::{WAbstrItemImplTrait, YAbstr, ZAbstr, ZAbstrIfPolarity},
     wir::{
-        WBlock, WExpr, WExprLowCall, WExprReference, WFnArg, WFnSignature, WIdent, WIfCondition,
-        WItemFn, WItemImpl, WItemImplTrait, WPath, WPathSegment, WSsaLocal, WStmt, WStmtAssign,
-        WStmtIf, WType, WTypeId, YSsa, ZSsa,
+        WBlock, WExpr, WExprLowCall, WFnSignature, WIdent, WIfCondition, WItemFn, WItemImpl,
+        WItemImplTrait, WPath, WPathSegment, WSsaLocal, WStmt, WStmtAssign, WStmtIf, YSsa, ZSsa,
     },
 };
 
@@ -64,7 +62,7 @@ pub fn process_item_impl(
     results
 }
 
-pub fn fold_impl_item_fn(mut impl_item_fn: WItemFn<YSsa>) -> WItemFn<YAbstr> {
+pub fn fold_impl_item_fn(impl_item_fn: WItemFn<YSsa>) -> WItemFn<YAbstr> {
     let signature = WFnSignature {
         ident: impl_item_fn.signature.ident,
         inputs: impl_item_fn.signature.inputs,
@@ -89,9 +87,9 @@ pub fn fold_impl_item_fn(mut impl_item_fn: WItemFn<YSsa>) -> WItemFn<YAbstr> {
     }
 
     let mut converter = AbstractConverter {
-        locals: &mut impl_item_fn.locals,
+        /*locals: &mut impl_item_fn.locals,
         inputs: &signature.inputs,
-        next_cloned_id: 0,
+        next_cloned_id: 0,*/
     };
 
     let block = converter.fold_block(impl_item_fn.block);
@@ -106,13 +104,13 @@ pub fn fold_impl_item_fn(mut impl_item_fn: WItemFn<YSsa>) -> WItemFn<YAbstr> {
 }
 
 #[derive(Debug)]
-struct AbstractConverter<'a> {
-    locals: &'a mut Vec<WSsaLocal>,
+struct AbstractConverter {
+    /*locals: &'a mut Vec<WSsaLocal>,
     inputs: &'a Vec<WFnArg>,
-    next_cloned_id: u64,
+    next_cloned_id: u64,*/
 }
 
-impl AbstractConverter<'_> {
+impl AbstractConverter {
     fn fold_block(&mut self, block: WBlock<ZSsa>) -> WBlock<ZAbstr> {
         WBlock {
             stmts: block
@@ -162,12 +160,13 @@ impl AbstractConverter<'_> {
         // first, make sure that if we use variables from above scopes,
         // they are appropriately cloned
 
-        let used_open_idents = used_open::used_open_idents(&taken_block);
+        //let used_open_idents = used_open::used_open_idents(&taken_block);
         let mut added_start_stmts = Vec::new();
 
-        for used_open_ident in used_open_idents {
+        // TODO: process used open idents
+        /*for used_open_ident in used_open_idents {
             self.process_used_open_ident(&mut taken_block, &mut added_start_stmts, used_open_ident);
-        }
+        }*/
 
         added_start_stmts.append(&mut taken_block.stmts);
         taken_block.stmts = added_start_stmts;
@@ -239,7 +238,7 @@ impl AbstractConverter<'_> {
         )
     }
 
-    fn process_used_open_ident(
+    /*fn process_used_open_ident(
         &mut self,
         taken_block: &mut WBlock<ZSsa>,
         added_start_stmts: &mut Vec<WStmt<ZSsa>>,
@@ -314,9 +313,9 @@ impl AbstractConverter<'_> {
             ty: original_ty,
         });
         */
-    }
+    }*/
 
-    fn get_from_locals_and_idents(&self, ident: &WIdent) -> Option<WSsaLocal> {
+    /*fn get_from_locals_and_idents(&self, ident: &WIdent) -> Option<WSsaLocal> {
         // TODO: make faster and nicer
         for local in self.locals.iter() {
             if &local.ident == ident {
@@ -335,7 +334,7 @@ impl AbstractConverter<'_> {
         }
 
         None
-    }
+    }*/
 }
 
 /*

@@ -12,11 +12,11 @@ pub enum WExprHighCall {
     StdBinary(WStdBinary),
 }
 
-pub const MCK_HIGH_EXT: &str = "::machine_check::Ext::ext";
+/*pub const MCK_HIGH_EXT: &str = "::machine_check::Ext::ext";
 pub const MCK_HIGH_BITVECTOR_NEW: &str = "::machine_check::Bitvector::new";
 pub const MCK_HIGH_UNSIGNED_NEW: &str = "::machine_check::Unsigned::new";
 pub const MCK_HIGH_SIGNED_NEW: &str = "::machine_check::Signed::new";
-pub const MCK_HIGH_BITVECTOR_ARRAY_NEW: &str = "::machine_check::BitvectorArray::new_filled";
+pub const MCK_HIGH_BITVECTOR_ARRAY_NEW: &str = "::machine_check::BitvectorArray::new_filled";*/
 
 impl IntoSyn<Expr> for WExprHighCall {
     fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Expr {

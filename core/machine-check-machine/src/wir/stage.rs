@@ -25,16 +25,6 @@ impl YStage for YTac {
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct YTotal;
-
-impl YStage for YTotal {
-    type AssignTypes = ZTotal;
-    type FnResult = WIdent;
-    type Local = WTacLocal;
-    type ItemImplTrait = WItemImplTrait;
-}
-
-#[derive(Clone, Debug, Hash)]
 pub struct YLowered;
 
 impl YStage for YLowered {
@@ -61,16 +51,6 @@ impl ZAssignTypes for ZTac {
     type Stmt = WMacroableStmt<ZTac>;
     type AssignLeft = WIndexedIdent;
     type AssignRight = WIndexedExpr<WExprHighCall>;
-    type IfPolarity = WNoIfPolarity;
-}
-
-#[derive(Clone, Debug, Hash)]
-pub struct ZTotal;
-
-impl ZAssignTypes for ZTotal {
-    type Stmt = WStmt<ZTotal>;
-    type AssignLeft = WIdent;
-    type AssignRight = WExpr<WExprHighCall>;
     type IfPolarity = WNoIfPolarity;
 }
 

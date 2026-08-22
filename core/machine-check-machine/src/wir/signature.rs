@@ -1,6 +1,6 @@
 use indexmap::IndexMap;
 
-use crate::wir::{WPath, WType, WTypeId};
+use crate::wir::{WPath, WTypeId};
 
 #[derive(Debug)]
 pub struct WStructSignature;

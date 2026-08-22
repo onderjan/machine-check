@@ -1,11 +1,10 @@
-use machine_check_common::{ir_common::IrTypeArray, Signedness};
 use proc_macro2::Span;
 use std::fmt::Debug;
 use syn::{
     punctuated::Punctuated,
     token::{Comma, Paren},
-    Expr, ExprCall, ExprInfer, ExprLit, ExprPath, Ident, Lit, LitInt, Path, PathArguments,
-    PathSegment, Token, Type,
+    Expr, ExprCall, ExprLit, ExprPath, Ident, Lit, LitInt, Path, PathArguments, PathSegment, Token,
+    Type,
 };
 
 use crate::wir::{IntoSyn, WTypeId};
@@ -19,10 +18,10 @@ pub enum WExprLowCall {
     MckBinary(WMckBinary),
     MckExt(WMckExt),
     MckNew(WMckNew),
-    BooleanNew(bool),
+    /*    BooleanNew(bool),
     StdClone(WIdent),
     ArrayRead(WArrayRead),
-    ArrayWrite(WArrayWrite),
+    ArrayWrite(WArrayWrite),*/
     Phi(WPhi),
     PhiTaken(WPhiTaken),
     PhiNotTaken,
@@ -44,9 +43,17 @@ pub struct WPhiTaken {
 #[derive(Clone, Debug, Hash)]
 pub enum WMckNew {
     Bitvector(mck::concr::ConcreteBitvector<mck::misc::RBound>),
-    BitvectorArray(IrTypeArray, WIdent),
+    //BitvectorArray(IrTypeArray, WIdent),
 }
 
+#[derive(Clone, Debug, Hash)]
+pub struct WMckExt {
+    pub signed: bool,
+    pub width: u32,
+    pub from: WIdent,
+}
+
+/*
 #[derive(Clone, Debug, Hash)]
 pub struct WBitvectorNew {}
 
@@ -59,13 +66,6 @@ pub struct WArrayNew {
 #[derive(Clone, Debug, Hash)]
 pub struct WHighMckExt {
     pub width: Option<u32>,
-    pub from: WIdent,
-}
-
-#[derive(Clone, Debug, Hash)]
-pub struct WMckExt {
-    pub signed: bool,
-    pub width: u32,
     pub from: WIdent,
 }
 
@@ -87,25 +87,26 @@ pub struct WArrayWrite {
     pub index: WIdent,
     pub element: WIdent,
 }
+    */
 
-pub const MCK_HIGH_EXT: &str = "::machine_check::Ext::ext";
+/*pub const MCK_HIGH_EXT: &str = "::machine_check::Ext::ext";
 pub const MCK_HIGH_BITVECTOR_NEW: &str = "::machine_check::Bitvector::new";
 pub const MCK_HIGH_UNSIGNED_NEW: &str = "::machine_check::Unsigned::new";
 pub const MCK_HIGH_SIGNED_NEW: &str = "::machine_check::Signed::new";
 pub const MCK_HIGH_BITVECTOR_ARRAY_NEW: &str = "::machine_check::BitvectorArray::new_filled";
 
-pub const BOOLEAN_NEW: &str = "::mck::forward::Boolean::new";
+pub const BOOLEAN_NEW: &str = "::mck::forward::Boolean::new";*/
 
 pub const MCK_UEXT: &str = "::mck::forward::Ext::uext";
 pub const MCK_SEXT: &str = "::mck::forward::Ext::sext";
 pub const MCK_BITVECTOR_NEW: &str = "::mck::forward::Bitvector::new";
-pub const MCK_BITVECTOR_ARRAY_NEW: &str = "::mck::forward::Array::new_filled";
+/*pub const MCK_BITVECTOR_ARRAY_NEW: &str = "::mck::forward::Array::new_filled";
 
 pub const STD_CLONE: &str = "::std::clone::Clone::clone";
 pub const STD_INTO: &str = "::std::convert::Into::into";
 
 pub const ARRAY_READ: &str = "::mck::forward::ReadWrite::read";
-pub const ARRAY_WRITE: &str = "::mck::forward::ReadWrite::write";
+pub const ARRAY_WRITE: &str = "::mck::forward::ReadWrite::write";*/
 
 pub const PHI: &str = "::mck::forward::PhiArg::phi";
 pub const PHI_TAKEN: &str = "::mck::forward::PhiArg::Taken";
@@ -122,29 +123,14 @@ impl IntoSyn<Expr> for WExprLowCall {
                 let args = Punctuated::from_iter(call.args.iter().map(|arg| arg.into() ));
                 (func, args)*/
             }
-            WExprLowCall::MckUnary(unary) => todo!("unary"),
+            WExprLowCall::MckUnary(unary) => {
+                (unary.op.to_string(), convert_args(vec![unary.operand]))
+            }
             WExprLowCall::MckBinary(binary) => (
                 binary.op.to_string(),
                 convert_args(vec![binary.a, binary.b]),
             ),
             WExprLowCall::MckExt(ext) => {
-                let cbound = Path {
-                    leading_colon: Some(Token![::](span)),
-                    segments: Punctuated::from_iter([
-                        PathSegment {
-                            ident: Ident::new("mck", span),
-                            arguments: PathArguments::None,
-                        },
-                        PathSegment {
-                            ident: Ident::new("forward", span),
-                            arguments: PathArguments::None,
-                        },
-                        PathSegment {
-                            ident: Ident::new("Ext", span),
-                            arguments: PathArguments::None,
-                        },
-                    ]),
-                };
                 let ext_name = if ext.signed { MCK_SEXT } else { MCK_UEXT }.to_string();
                 (
                     ext_name,
@@ -193,14 +179,13 @@ impl IntoSyn<Expr> for WExprLowCall {
                                 }),
                             ]),
                         )
-                    }
-                    WMckNew::BitvectorArray(ir_type_array, wident) => todo!("Mck array"),
+                    } //WMckNew::BitvectorArray(_array, _element) => todo!("Mck array"),
                 }
             }
-            WExprLowCall::BooleanNew(value) => todo!("value"),
+            /*WExprLowCall::BooleanNew(value) => todo!("value"),
             WExprLowCall::StdClone(ident) => todo!("ident"),
             WExprLowCall::ArrayRead(array_read) => todo!("array read"),
-            WExprLowCall::ArrayWrite(array_write) => todo!("array write"),
+            WExprLowCall::ArrayWrite(array_write) => todo!("array write"),*/
             WExprLowCall::Phi(phi) => (
                 PHI.to_string(),
                 convert_args(vec![phi.then_ident, phi.else_ident]),
@@ -251,6 +236,7 @@ fn convert_args(func_args: Vec<WIdent>) -> Punctuated<Expr, Comma> {
     args
 }
 
+/*
 impl WExprLowCall {
     pub fn idents(&self) -> Vec<WIdent> {
         match self {
@@ -259,7 +245,7 @@ impl WExprLowCall {
                 .iter()
                 .filter_map(|arg| match arg {
                     super::WCallArg::Ident(ident) => Some(ident.clone()),
-                    super::WCallArg::Literal(lit) => None,
+                    super::WCallArg::Literal(_lit) => None,
                 })
                 .collect(),
             WExprLowCall::MckUnary(mck_unary) => {
@@ -273,9 +259,9 @@ impl WExprLowCall {
             }
             WExprLowCall::MckNew(mck_new) => match mck_new {
                 WMckNew::Bitvector(_) => vec![],
-                WMckNew::BitvectorArray(_ir_type_array, ident) => vec![ident.clone()],
+                //WMckNew::BitvectorArray(_ir_type_array, ident) => vec![ident.clone()],
             },
-            WExprLowCall::BooleanNew(_) => vec![],
+            /*WExprLowCall::BooleanNew(_) => vec![],
             WExprLowCall::StdClone(ident) => vec![ident.clone()],
             WExprLowCall::ArrayRead(array_read) => {
                 vec![array_read.base.clone(), array_read.index.clone()]
@@ -284,7 +270,7 @@ impl WExprLowCall {
                 array_write.base.clone(),
                 array_write.index.clone(),
                 array_write.element.clone(),
-            ],
+            ],*/
             WExprLowCall::Phi(phi) => vec![
                 phi.condition.clone(),
                 phi.then_ident.clone(),
@@ -297,3 +283,4 @@ impl WExprLowCall {
         }
     }
 }
+*/

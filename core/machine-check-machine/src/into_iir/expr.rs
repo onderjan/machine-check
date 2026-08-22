@@ -9,7 +9,7 @@ use crate::{
 
 use machine_check_common::iir::{
     expr::{
-        call::{IArrayRead, IArrayWrite, IExprCall, IMckNew, IPhi},
+        call::{IExprCall, IMckNew, IPhi},
         op::{IMckBinary, IMckExt, IMckUnary},
         IExpr, IExprField, IExprReference, IExprStruct,
     },
@@ -113,12 +113,12 @@ impl WExpr<WExprLowCall> {
                 }
                 WExprLowCall::MckNew(mck_new) => IExpr::Call(IExprCall::MckNew(match mck_new {
                     WMckNew::Bitvector(bitvector) => IMckNew::Bitvector(bitvector),
-                    WMckNew::BitvectorArray(type_array, element_ident) => {
+                    /*WMckNew::BitvectorArray(type_array, element_ident) => {
                         let element = from_variable_map(element_ident, fn_data)?;
                         IMckNew::BitvectorArray(type_array, element)
-                    }
+                    }*/
                 })),
-                WExprLowCall::BooleanNew(value) => IExpr::Call(IExprCall::BooleanNew(value)),
+                /*WExprLowCall::BooleanNew(value) => IExpr::Call(IExprCall::BooleanNew(value)),
                 WExprLowCall::StdClone(ident) => {
                     let var_id = from_variable_map(ident, fn_data)?;
                     IExpr::Call(IExprCall::StdClone(var_id))
@@ -135,7 +135,7 @@ impl WExpr<WExprLowCall> {
                         index: from_variable_map(array_write.index, fn_data)?,
                         element: from_variable_map(array_write.element, fn_data)?,
                     }))
-                }
+                }*/
                 WExprLowCall::Phi(phi) => {
                     let condition = from_variable_map(phi.condition, fn_data)?;
                     let left = from_variable_map(phi.then_ident, fn_data)?;

@@ -1,18 +1,8 @@
 use std::fmt::Debug;
 
-use crate::wir::{context::typedef::WTypeDefs, WPathArgument, WSignatures, WType, WTypeId};
+use crate::wir::{context::typedef::WTypeDefs, WSignatures, WType, WTypeId};
 
 mod lower;
-
-use indexmap::IndexMap;
-use machine_check_common::{
-    iir::{
-        description::IStructId,
-        ty::{IElementaryType, IGeneralType, IType},
-    },
-    ir_common::IrReference,
-};
-use syn::{Path, Type, TypePath};
 
 #[derive(Debug)]
 pub struct WInferredContext {
@@ -42,11 +32,11 @@ impl WInferredContext {
         }
     }
 
-    fn type_id(&mut self, ty: WType) -> WTypeId {
+    /*fn type_id(&mut self, ty: WType) -> WTypeId {
         let type_id = WTypeId(self.types.len());
         self.types.push(ty);
         type_id
-    }
+    }*/
 
     pub fn boolean_type_id(&self) -> WTypeId {
         self.boolean_type_id.clone()

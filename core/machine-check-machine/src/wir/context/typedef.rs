@@ -1,7 +1,6 @@
 use std::fmt::Debug;
 
 use indexmap::IndexMap;
-use machine_check_common::iir::description::IStructId;
 use quote::quote;
 use syn::Type;
 
