@@ -56,6 +56,10 @@ impl<Y: YStage> WDefinitions<Y> {
         &self.functions
     }
 
+    pub fn datatypes(&self) -> &IndexMap<WUniquePath, WDatatype> {
+        &self.datatypes
+    }
+
     pub fn map_functions<Z: YStage, E>(
         self,
         mut map_fn: impl FnMut(WItemFn<Y>) -> Result<WItemFn<Z>, E>,
@@ -113,7 +117,11 @@ impl<Y: YStage> WDefinitions<Y> {
         self.datatypes.get(path)
     }
 
-    pub fn get_function(&self, mut path: WUniquePath) -> Option<&WItemFn<Y>> {
+    pub fn function_by_id(&self, id: WFnId) -> &WItemFn<Y> {
+        &self.functions[id.0]
+    }
+
+    pub fn function_by_path(&self, mut path: WUniquePath) -> Option<&WItemFn<Y>> {
         // pop the last path segment and find the datatype
         let last = path.segments.pop()?;
         let datatype = self.datatype(&path)?;

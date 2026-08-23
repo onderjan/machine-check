@@ -109,7 +109,7 @@ impl super::FnLowerer<'_> {
         if self
             .ctx
             .definitions()
-            .get_function(without_generics)
+            .function_by_path(without_generics)
             .is_none()
         {
             panic!(

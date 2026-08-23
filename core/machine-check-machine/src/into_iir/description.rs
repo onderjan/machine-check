@@ -1,4 +1,4 @@
-use indexmap::IndexMap;
+/*use indexmap::IndexMap;
 use machine_check_common::iir::description::{IDescription, IStruct, IStructDeclaration, ITrait};
 
 use crate::{
@@ -116,3 +116,4 @@ impl WDescription<YSsa> {
         Ok(IDescription { structs })
     }
 }
+*/

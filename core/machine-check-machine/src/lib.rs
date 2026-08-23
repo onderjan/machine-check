@@ -195,10 +195,11 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
         .expect("SSA machine file should be writable");
     }
 
-    todo!("Process context: {:#?}", ctx);
+    let iir = ctx.clone().into_iir()?;
+
+    todo!("Process context: {:#?}", iir);
 
     /*
-    let iir = description.clone().into_iir(&mut ctx)?;
 
     let (abstract_description, misc_abstract_items) =
         abstr::create_abstract_description(description, &ctx);

@@ -1,8 +1,9 @@
 use crate::{
+    context::WLowContext,
     into_iir::{error, func::WFnData},
     wir::{
-        WExpr, WExprField, WExprLowCall, WExprReference, WExprStruct, WIdent, WMckNew, WSpan,
-        WSpanned,
+        WDatatypeId, WExpr, WExprField, WExprLowCall, WExprReference, WExprStruct, WIdent, WMckNew,
+        WSpan, WSpanned,
     },
     Error,
 };
@@ -18,7 +19,11 @@ use machine_check_common::iir::{
 };
 
 impl WExpr<WExprLowCall> {
-    pub(super) fn into_iir(self, fn_data: &WFnData) -> Result<Option<IExpr>, Error> {
+    pub(super) fn into_iir(
+        self,
+        ctx: &WLowContext,
+        fn_data: &WFnData,
+    ) -> Result<Option<IExpr>, Error> {
         Ok(Some(match self {
             WExpr::Move(ident) => {
                 let var_id = from_variable_map(ident, fn_data)?;
@@ -156,14 +161,14 @@ impl WExpr<WExprLowCall> {
                     return Ok(None);
                 }
             },
-            WExpr::Field(expr_field) => IExpr::Field(expr_field.into_iir(fn_data)?),
-            WExpr::Struct(expr_struct) => IExpr::Struct(expr_struct.into_iir(fn_data)?),
+            WExpr::Field(expr_field) => IExpr::Field(expr_field.into_iir(ctx, fn_data)?),
+            WExpr::Struct(expr_struct) => IExpr::Struct(expr_struct.into_iir(ctx, fn_data)?),
             WExpr::Reference(expr_reference) => IExpr::Reference(match expr_reference {
                 WExprReference::Ident(ident) => {
                     IExprReference::Ident(from_variable_map(ident, fn_data)?)
                 }
                 WExprReference::Field(expr_field) => {
-                    IExprReference::Field(expr_field.into_iir(fn_data)?)
+                    IExprReference::Field(expr_field.into_iir(ctx, fn_data)?)
                 }
             }),
             WExpr::Lit(lit, _neg) => {
@@ -177,7 +182,11 @@ impl WExpr<WExprLowCall> {
 }
 
 impl WExprField {
-    pub(super) fn into_iir(self, fn_data: &WFnData) -> Result<IExprField, Error> {
+    pub(super) fn into_iir(
+        self,
+        ctx: &WLowContext,
+        fn_data: &WFnData,
+    ) -> Result<IExprField, Error> {
         let base_span = self.base.wir_span();
         let base_var_id = from_variable_map(self.base, fn_data)?;
         let base_var_info = fn_data.var_data(base_var_id);
@@ -191,10 +200,13 @@ impl WExprField {
                     return unresolved_base();
                 };
 
-                let Some(base_ty) = fn_data.struct_data_by_id(*base_struct_id) else {
+                let datatype_id = WDatatypeId::from_index(base_struct_id.0);
+
+                let Some((_base_ty_path, base_ty)) = ctx.definitions().datatype_by_id(datatype_id)
+                else {
                     return unresolved_base();
                 };
-                base_ty.fields.clone()
+                base_ty.def.fields.clone()
             }
             IGeneralType::PhiArg(_) => {
                 panic!(
@@ -205,14 +217,13 @@ impl WExprField {
         };
 
         let member_span = self.member.wir_span();
-        let member_ident = self.member.into_iir();
 
         eprintln!(
             "Member ident: {:?}, type: {:?}, fields: {:?}",
-            member_ident, base_var_info.ty, fields
+            self.member, base_var_info.ty, fields
         );
 
-        let Some(member_index) = fields.get_index_of(&member_ident) else {
+        let Some(member_index) = fields.get_index_of(&self.member) else {
             return Err(error(String::from("Unresolved field member"), member_span));
         };
 
@@ -224,7 +235,11 @@ impl WExprField {
 }
 
 impl WExprStruct {
-    pub(super) fn into_iir(self, fn_data: &WFnData) -> Result<IExprStruct, Error> {
+    pub(super) fn into_iir(
+        self,
+        ctx: &WLowContext,
+        fn_data: &WFnData,
+    ) -> Result<IExprStruct, Error> {
         let base_type_span = self.type_path.wir_span();
         let unresolved_struct_type = || {
             Err(error(
@@ -233,24 +248,19 @@ impl WExprStruct {
             ))
         };
 
-        let base_path = self.type_path;
-        let Some(base_ident) = base_path.get_ident() else {
-            return unresolved_struct_type();
-        };
-        let base_ident = base_ident.clone().into_iir();
+        let base_path = self.type_path.clone().without_generics();
 
-        let Some(base_ty) = fn_data.struct_data(&base_ident) else {
+        let Some(base_ty) = ctx.definitions().datatype(&base_path) else {
             return unresolved_struct_type();
         };
 
-        let num_fields = base_ty.fields.len();
+        let num_fields = base_ty.def.fields.len();
 
         let mut fields = vec![None; num_fields];
 
         for (field_key, field_value) in self.fields {
             let field_key_span = field_key.wir_span();
-            let field_key = field_key.into_iir();
-            let Some(member_index) = base_ty.fields.get_index_of(&field_key) else {
+            let Some(member_index) = base_ty.def.fields.get_index_of(&field_key) else {
                 return Err(error(String::from("Field not in struct"), field_key_span));
             };
 

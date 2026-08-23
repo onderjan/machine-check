@@ -1,8 +1,6 @@
 use std::collections::BTreeMap;
 
-use indexmap::IndexMap;
 use machine_check_common::iir::{
-    description::{IStructDeclaration, IStructId},
     func::{IBlock, IFn, IFnDeclaration, IFnOutput, ISignature},
     path::IIdent,
     variable::{IVarId, IVarInfo},
@@ -17,7 +15,6 @@ use crate::{
 pub(super) struct WFnData<'a> {
     ident_var_map: BTreeMap<IIdent, IVarId>,
     variables: &'a BTreeMap<IVarId, IVarInfo>,
-    structs: &'a IndexMap<IIdent, IStructDeclaration>,
 }
 
 impl WFnData<'_> {
@@ -29,16 +26,6 @@ impl WFnData<'_> {
         self.variables
             .get(&var_id)
             .expect("Variable should have data")
-    }
-
-    pub fn struct_data(&self, ident: &IIdent) -> Option<&IStructDeclaration> {
-        self.structs.get(ident)
-    }
-
-    pub fn struct_data_by_id(&self, struct_id: IStructId) -> Option<&IStructDeclaration> {
-        self.structs
-            .get_index(struct_id.0)
-            .map(|(_ident, value)| value)
     }
 }
 
@@ -96,11 +83,7 @@ impl WItemFn<YSsa> {
         })
     }
 
-    pub(super) fn into_iir(
-        self,
-        ctx: &WLowContext,
-        structs: &IndexMap<IIdent, IStructDeclaration>,
-    ) -> Result<IFn, Error> {
+    pub fn into_iir(self, ctx: &WLowContext) -> Result<IFn, Error> {
         let declaration = self.clone().into_declaration(ctx)?;
 
         let mut ident_var_map = BTreeMap::new();
@@ -108,11 +91,13 @@ impl WItemFn<YSsa> {
             ident_var_map.insert(var_data.ident.clone(), *var_id);
         }
 
-        let block = self.body.block.into_iir(&WFnData {
-            ident_var_map,
-            variables: &declaration.variables,
-            structs,
-        })?;
+        let block = self.body.block.into_iir(
+            ctx,
+            &WFnData {
+                ident_var_map,
+                variables: &declaration.variables,
+            },
+        )?;
 
         Ok(IFn {
             signature: declaration.signature,
@@ -123,11 +108,11 @@ impl WItemFn<YSsa> {
 }
 
 impl WBlock<YSsa> {
-    pub(super) fn into_iir(self, fn_data: &WFnData) -> Result<IBlock, Error> {
+    pub(super) fn into_iir(self, ctx: &WLowContext, fn_data: &WFnData) -> Result<IBlock, Error> {
         let mut stmts = Vec::new();
 
         for stmt in self.stmts {
-            if let Some(stmt) = stmt.into_iir(fn_data)? {
+            if let Some(stmt) = stmt.into_iir(ctx, fn_data)? {
                 stmts.push(stmt);
             }
         }

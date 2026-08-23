@@ -311,7 +311,7 @@ impl super::WInferenceContext {
 
         let call_path = call.fn_path.clone().without_generics();
 
-        if let Some(fn_def) = self.definitions.get_function(call_path.clone()) {
+        if let Some(fn_def) = self.definitions.function_by_path(call_path.clone()) {
             let signature = &fn_def.signature;
 
             let num_expected = signature.inputs.len();

@@ -13,6 +13,8 @@ use syn::{
 
 use crate::wir::{WDatatype, WDatatypeId, WDefinitions, WTypeId, YSsa};
 
+mod into_iir;
+
 #[derive(Debug, Clone)]
 pub struct WLowContext {
     definitions: WDefinitions<YSsa>,
@@ -22,6 +24,10 @@ pub struct WLowContext {
 impl WLowContext {
     pub(super) fn new(definitions: WDefinitions<YSsa>, types: Vec<IGeneralType>) -> Self {
         Self { definitions, types }
+    }
+
+    pub fn definitions(&self) -> &WDefinitions<YSsa> {
+        &self.definitions
     }
 
     pub fn num_types(&self) -> usize {
