@@ -6,7 +6,7 @@ use syn::{
 };
 
 use crate::{
-    context::{WContextBuilder, WInferenceContext},
+    context::WContextBuilder,
     into_wir::{
         from_syn::{attribute_disallower::AttributeDisallower, path::fold_partial_path},
         Error, ErrorType, Errors,

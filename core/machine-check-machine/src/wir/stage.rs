@@ -3,8 +3,8 @@ use std::{fmt::Debug, hash::Hash};
 use syn::{Block, Expr, Local, Path, Stmt, Type};
 
 use crate::wir::{
-    IntoSyn, WBlock, WExpr, WExprHighCall, WExprLowCall, WIdent, WIndexedExpr, WIndexedIdent,
-    WItemFnBody, WItemImplTrait, WMacroableStmt, WSsaLocal, WStmt, WSynBlock, WTacLocal, WTypeId,
+    IntoSyn, WExpr, WExprHighCall, WExprLowCall, WIdent, WIndexedExpr, WIndexedIdent, WItemFnBody,
+    WItemImplTrait, WMacroableStmt, WSsaLocal, WStmt, WSynBlock, WTacLocal, WTypeId,
 };
 
 pub trait YStage: Clone {

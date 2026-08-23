@@ -1,4 +1,4 @@
-use std::{any::TypeId, fmt::Debug};
+use std::fmt::Debug;
 
 use machine_check_common::{
     iir::ty::{IElementaryType, IGeneralType, IType},
@@ -11,7 +11,7 @@ use syn::{
     TypePath, TypeReference,
 };
 
-use crate::wir::{WDatatype, WDatatypeId, WDefinitions, WTypeId, YSsa};
+use crate::wir::{WDatatypeId, WDefinitions, WTypeId, YSsa};
 
 mod into_iir;
 

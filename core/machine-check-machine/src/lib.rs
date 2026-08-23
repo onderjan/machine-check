@@ -19,7 +19,7 @@ use util::error_list::ErrorList;
 
 use crate::context::{bitvector_type, bool_type, WContextBuilder};
 use crate::util::{create_item_mod, path_matches_global_names};
-use crate::wir::{WIdent, WSpan};
+use crate::wir::{IntoSyn, WIdent, WSpan};
 
 mod abstr;
 mod concr;
@@ -211,9 +211,8 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
         .expect("Abstract machine file should be writable");
     }
 
-    todo!("Process context: {:#?}", iir);
+    let panic_messages = Vec::new();
 
-    /*
     let mut abstract_description = Description {
         items: abstract_description
             .into_syn(&|type_id| ctx.id_syn_type(type_id))
@@ -236,7 +235,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
             .expect("Full machine file should be writable");
     }
 
-    Ok(())*/
+    Ok(())
 }
 
 fn redirect_mck(items: &mut [Item]) -> Result<(), Error> {

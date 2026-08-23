@@ -8,7 +8,7 @@ use crate::{
     util::{create_angle_bracketed_path_arguments, create_type_path},
     wir::{
         IntoSyn, WDescription, WExpr, WExprLowCall, WIdent, WItemFnBody, WItemImpl, WItemImplTrait,
-        WPath, WSpanned, WSsaLocal, WStmt, WTypeId, YIfPolarity, YSsa, YStage,
+        WPath, WSsaLocal, WStmt, WTypeId, YIfPolarity, YSsa, YStage,
     },
 };
 
@@ -78,17 +78,7 @@ pub(crate) fn create_abstract_description(ctx: &WLowContext) -> (WDescription<YA
     for (datatype_path, datatype) in ctx.definitions().datatypes() {
         let (item_struct, other_impls) = process_item_struct(datatype.def.clone(), ctx);
 
-        let span = item_struct.wir_span().first();
-
         for (trait_, datatype_impl) in &datatype.impls {
-            let mut datatype_path = datatype_path.clone();
-
-            if let Some(WItemImplTrait::Machine(_)) = trait_ {
-                datatype_path
-                    .segments
-                    .insert(0, WIdent::new(String::from("super"), span));
-            }
-
             let mut impl_item_types = Vec::new();
             for (_type_name, impl_type) in &datatype_impl.assoc_types {
                 impl_item_types.push(impl_type.clone());
@@ -101,7 +91,7 @@ pub(crate) fn create_abstract_description(ctx: &WLowContext) -> (WDescription<YA
             }
 
             let item_impl: WItemImpl<YSsa> = WItemImpl {
-                self_ty: datatype_path.into_path(),
+                self_ty: datatype_path.clone().into_path(),
                 trait_: trait_.clone(),
                 impl_item_fns,
                 impl_item_types,

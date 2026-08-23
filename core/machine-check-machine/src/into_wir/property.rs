@@ -9,13 +9,9 @@ use machine_check_common::PropertyMacros;
 use proc_macro2::Span;
 use quote::ToTokens;
 use syn::{
-    punctuated::Punctuated,
-    spanned::Spanned,
-    token::{Brace, Paren},
-    visit_mut::VisitMut,
-    Block, Expr, Generics, Ident, ItemFn, Path, PathArguments, PathSegment, Signature, Stmt, Token,
+    punctuated::Punctuated, spanned::Spanned, visit_mut::VisitMut, Expr, Ident, Path,
+    PathArguments, PathSegment, Token,
 };
-use syn_path::path;
 
 use crate::{
     context::{WContextBuilder, WInferenceContext, WInferredContext, WLowContext},
@@ -23,11 +19,8 @@ use crate::{
         conversion::{expand_macros, resolve_use},
         Errors,
     },
-    util::{create_type_path, path_matches_global_names},
-    wir::{
-        WIdent, WProperty, WSubproperty, WSubpropertyFixedPoint, WSubpropertyNext, WTypeId, YSsa,
-        YTac,
-    },
+    util::path_matches_global_names,
+    wir::{WIdent, WProperty, WSubpropertyFixedPoint, WSubpropertyNext, WTypeId, YSsa, YTac},
 };
 
 #[derive(Clone, Debug, Hash)]

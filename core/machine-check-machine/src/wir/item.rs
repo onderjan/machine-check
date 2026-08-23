@@ -6,12 +6,12 @@ use quote::ToTokens;
 use syn::{
     punctuated::Punctuated,
     token::{Brace, Bracket, Comma, Paren},
-    Attribute, Block, Field, FieldsNamed, Generics, Ident, ImplItem, ImplItemFn, ItemImpl,
-    ItemStruct, MetaList, Path, PathSegment, Token, Type, TypePath, Visibility,
+    Attribute, Field, FieldsNamed, Generics, Ident, ImplItem, ImplItemFn, ItemImpl, ItemStruct,
+    MetaList, Path, PathSegment, Token, Type, TypePath, Visibility,
 };
 use syn_path::path;
 
-use crate::wir::{WBlock, WFnSignature, WPartialPath, WPath, WSpan, WSpanned, WTypeId};
+use crate::wir::{WFnSignature, WPartialPath, WPath, WSpan, WSpanned, WTypeId};
 
 use super::{IntoSyn, WIdent, WImplItemType, YStage};
 

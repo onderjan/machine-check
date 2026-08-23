@@ -1,12 +1,12 @@
 use std::collections::HashMap;
 
-use syn::{Item, Type, TypePath};
+use syn::Item;
 
 use crate::{
     context::{WContextBuilder, WLowContext},
     into_wir::{
         conversion::{expand_macros, resolve_use},
-        from_syn::{self, fold_partial_path},
+        from_syn::{self},
         Error, Errors,
     },
     wir::{WIdent, WPath},
@@ -45,7 +45,7 @@ fn description_from_preprocessed(item_iter: Vec<Item>) -> Result<WLowContext, Er
             }
             Item::Impl(item) => match from_syn::fold_item_impl(&mut builder, item) {
                 Ok(item_impl) => {
-                    builder.add_impl(item_impl);
+                    builder.add_impl(item_impl)?;
                 }
                 Err(err) => errors.push(err),
             },

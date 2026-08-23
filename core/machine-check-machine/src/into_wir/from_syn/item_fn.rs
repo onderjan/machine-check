@@ -1,36 +1,17 @@
-use std::collections::{BTreeMap, HashMap};
-
 use proc_macro2::Span;
 use syn::{
-    spanned::Spanned, visit::Visit, Expr, FnArg, Generics, Ident, ImplItemFn, ItemFn, Pat,
-    Signature, Type, TypeReference,
+    spanned::Spanned, visit::Visit, FnArg, Generics, Ident, ImplItemFn, ItemFn, Pat, Signature,
+    Type, TypeReference,
 };
 
 use crate::{
-    context::{WContextBuilder, WInferenceContext},
+    context::WContextBuilder,
     into_wir::{
-        from_syn::{
-            attribute_disallower::AttributeDisallower, item::fold_visibility,
-            path::fold_partial_path,
-        },
+        from_syn::{attribute_disallower::AttributeDisallower, item::fold_visibility},
         Error, ErrorType, Errors,
     },
-    util::ident_creator::IdentCreator,
-    wir::{WFnArg, WFnSignature, WIdent, WItemFn, WPath, WSpan, WSynBlock, WTypeId, YBuild, YTac},
+    wir::{WFnArg, WFnSignature, WIdent, WItemFn, WPath, WSpan, WSynBlock, YBuild},
 };
-
-/*
-pub fn fold_item_fn(ctx: &mut WInferenceContext, item_fn: ItemFn) -> Result<WItemFn<YTac>, Errors> {
-    FunctionFolder {
-        ctx,
-        self_ty: None,
-        ident_creator: IdentCreator::new(String::from("")),
-        scopes: Vec::new(),
-        local_types: BTreeMap::new(),
-        next_scope_id: 0,
-    }
-    .fold(item_fn)
-}*/
 
 pub fn fold_impl_item_fn(
     ctx: &mut WContextBuilder,
