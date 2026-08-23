@@ -3,8 +3,7 @@ mod description;
 mod from_syn;
 mod property;
 
-use std::collections::BTreeMap;
-
+use indexmap::IndexMap;
 use machine_check_common::PropertyMacros;
 use quote::ToTokens;
 use syn::Item;
@@ -14,7 +13,7 @@ pub use from_syn::{fold_partial_path, fold_type};
 use crate::{
     context::{WContextBuilder, WLowContext},
     util::error_list::ErrorList,
-    wir::{WIdent, WProperty, WSpan, WTypeId, YSsa},
+    wir::{WIdent, WProperty, WSpan, WTypeId},
 };
 
 pub fn create_description(items: Vec<Item>) -> Result<WLowContext, crate::Errors> {
@@ -24,7 +23,7 @@ pub fn create_description(items: Vec<Item>) -> Result<WLowContext, crate::Errors
 pub fn create_property<D>(
     ctx: WContextBuilder,
     expr: syn::Expr,
-    globals: &BTreeMap<WIdent, WTypeId>,
+    globals: &IndexMap<WIdent, WTypeId>,
     property_macros: &PropertyMacros<D>,
 ) -> Result<WProperty, crate::Errors> {
     property::create_from_syn(ctx, expr, globals, property_macros).map_err(Errors::convert_inner)

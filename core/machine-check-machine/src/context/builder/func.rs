@@ -4,7 +4,9 @@ use syn::Expr;
 use crate::{
     context::builder::{FunctionFolder, FunctionScope},
     into_wir::{fold_partial_path, Error, Errors},
-    wir::{WIdent, WItemFn, WItemFnBody, WSpan, WSpanned, WTacLocal, WTypeId, YBuild, YTac},
+    wir::{
+        WFnArg, WIdent, WItemFn, WItemFnBody, WSpan, WSpanned, WTacLocal, WTypeId, YBuild, YTac,
+    },
 };
 
 impl FunctionFolder<'_> {
@@ -45,6 +47,15 @@ impl FunctionFolder<'_> {
             });
         }
 
+        let mut signature = impl_item.signature;
+        eprintln!("Adding params: {:?}", self.added_params);
+        for (param_ident, param_ty) in self.added_params {
+            signature.inputs.push(WFnArg {
+                ident: param_ident,
+                ty: param_ty,
+            });
+        }
+
         let body = WItemFnBody {
             locals,
             block,
@@ -53,7 +64,7 @@ impl FunctionFolder<'_> {
 
         Ok(WItemFn {
             visibility: impl_item.visibility,
-            signature: impl_item.signature,
+            signature,
             body,
         })
     }
@@ -82,6 +93,9 @@ impl FunctionFolder<'_> {
                     if let Some(local_ident) = self.lookup_local_ident(&ident) {
                         return Ok(local_ident.clone());
                     } else {
+                        if let Some(param_ty) = self.optional_params.swap_remove(&ident) {
+                            self.added_params.insert(ident.clone(), param_ty);
+                        }
                         return Ok(ident);
                     }
                 }

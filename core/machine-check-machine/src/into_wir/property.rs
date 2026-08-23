@@ -1,34 +1,30 @@
 mod macros;
 
-use std::{
-    collections::{BTreeMap, HashMap},
-    hash::Hash,
-};
+use std::{collections::HashMap, hash::Hash};
 
+use indexmap::IndexMap;
 use machine_check_common::PropertyMacros;
 use proc_macro2::Span;
 use quote::ToTokens;
 use syn::{
     punctuated::Punctuated,
     spanned::Spanned,
-    token::{Brace, Paren},
     visit_mut::VisitMut,
     Block,
     Expr::{self},
-    ExprBlock, Generics, Ident, ItemFn, Path, PathArguments, PathSegment, Signature, Stmt, Token,
+    Ident, Path, PathArguments, PathSegment, Stmt, Token,
 };
-use syn_path::path;
 
 use crate::{
-    context::{WContextBuilder, WInferenceContext, WInferredContext},
+    context::WContextBuilder,
     into_wir::{
         conversion::{expand_macros, resolve_use},
         Errors,
     },
-    util::{create_type_path, path_matches_global_names},
+    util::path_matches_global_names,
     wir::{
         WFnSignature, WIdent, WItemFn, WProperty, WSpan, WSubproperty, WSubpropertyFixedPoint,
-        WSubpropertyFunc, WSubpropertyNext, WSynBlock, WTypeId, WVisibility, YTac,
+        WSubpropertyFunc, WSubpropertyNext, WSynBlock, WTypeId, WVisibility,
     },
 };
 
@@ -76,7 +72,7 @@ impl ExprProperty {
 pub fn create_from_syn<D>(
     ctx: WContextBuilder,
     expr: syn::Expr,
-    globals: &BTreeMap<WIdent, WTypeId>,
+    globals: &IndexMap<WIdent, WTypeId>,
     property_macros: &PropertyMacros<D>,
 ) -> Result<WProperty, Errors> {
     let span = expr.span();
@@ -166,20 +162,28 @@ pub fn create_from_syn<D>(
 
 fn property_from_exprs(
     mut ctx: WContextBuilder,
-    globals: &BTreeMap<WIdent, WTypeId>,
+    globals: &IndexMap<WIdent, WTypeId>,
     property: ExprProperty,
 ) -> Result<WProperty, Errors> {
     let mut subproperties = Vec::new();
+    let mut optional_params = globals.clone();
 
     for (index, subproperty) in property.subproperties.into_iter().enumerate() {
+        let subproperty_ident =
+            WIdent::new(format!("__mck_subproperty_{}", index), Span::call_site());
+        optional_params.insert(subproperty_ident, ctx.bool_type_id());
+
         let subproperty = match subproperty {
             ExprSubproperty::Expr(subproperty_func) => {
                 let span = WSpan::from_syn(&subproperty_func.expr);
 
+                let subproperty_fn_ident =
+                    WIdent::new(format!("__mck_subfn_{}", index), span.first());
+
                 let item_fn = WItemFn {
                     visibility: WVisibility::Public(span),
                     signature: WFnSignature {
-                        ident: WIdent::new(format!("__mck_subfn_{}", index), span.first()),
+                        ident: subproperty_fn_ident,
                         inputs: vec![],
                         output: ctx.bool_type_id(),
                     },
@@ -209,8 +213,11 @@ fn property_from_exprs(
 
     eprintln!("Subproperties: {:#?}", subproperties);
 
-    let ctx = ctx.build()?;
-    let ctx = ctx.infer_subproperties(globals, subproperties.as_slice())?;
+    eprintln!("Optional params: {:?}", optional_params);
+
+    let ctx = ctx.build(&optional_params)?;
+    let ctx = ctx.infer()?;
+    //let ctx = ctx.infer_subproperties(globals, subproperties.as_slice())?;
     eprintln!("Inferred context: {:#?}", ctx);
     let ctx = ctx.lower()?;
 

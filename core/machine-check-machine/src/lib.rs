@@ -1,8 +1,8 @@
 #![doc = include_str!("../README.md")]
 
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 
+use indexmap::IndexMap;
 use machine_check_common::iir::description::IMachine;
 use machine_check_common::iir::property::IProperty;
 use machine_check_common::iir::ty::IElementaryType;
@@ -101,7 +101,7 @@ pub fn process_property<M: FullMachine, D>(
         IElementaryType::Bitvector(32),
     );*/
 
-    let mut global_basic_types = BTreeMap::new();
+    let mut global_basic_types = IndexMap::new();
 
     let mut builder = WContextBuilder::new();
 

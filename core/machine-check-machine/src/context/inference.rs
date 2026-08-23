@@ -4,7 +4,6 @@ use std::{
 };
 
 use indexmap::IndexMap;
-use proc_macro2::Span;
 use syn::Type;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind};
 
@@ -12,12 +11,13 @@ use crate::{
     context::{bitvector_type, bool_type, WInferredContext},
     into_wir::{fold_type, Error, ErrorType},
     wir::{
-        WDefinitions, WIdent, WPartialArgument, WPartialGenerics, WPartialPath, WPartialSegment,
-        WPartialType, WSpan, WSubproperty, WTypeId, YTac,
+        WDefinitions, WPartialArgument, WPartialGenerics, WPartialPath, WPartialSegment,
+        WPartialType, WSpan, WTypeId, YTac,
     },
 };
 
 mod constraints;
+mod undefined;
 
 #[derive(Debug)]
 pub struct WInferenceContext {
@@ -101,7 +101,7 @@ impl WInferenceContext {
         self.unify()
     }
 
-    pub fn infer_subproperties(
+    /*pub fn infer_subproperties(
         mut self,
         globals: &BTreeMap<WIdent, WTypeId>,
         subproperties: &[WSubproperty],
@@ -142,7 +142,7 @@ impl WInferenceContext {
         }
 
         self.unify()
-    }
+    }*/
 
     fn unify(mut self) -> Result<WInferredContext, Error> {
         eprintln!("Unifying {:?}", self);

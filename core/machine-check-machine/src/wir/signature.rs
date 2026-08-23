@@ -128,6 +128,10 @@ impl<Y: YStage> WDefinitions<Y> {
         &self.functions[id.0]
     }
 
+    pub fn function_by_id_mut(&mut self, id: WFnId) -> &mut WItemFn<Y> {
+        &mut self.functions[id.0]
+    }
+
     pub fn function_by_path(&self, mut path: WUniquePath) -> Option<&WItemFn<Y>> {
         // pop the last path segment and find the datatype
         let last = path.segments.pop()?;

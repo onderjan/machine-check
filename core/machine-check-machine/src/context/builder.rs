@@ -13,8 +13,8 @@ use crate::{
     into_wir::{fold_type, Error, Errors},
     util::ident_creator::IdentCreator,
     wir::{
-        WDefinitions, WFnId, WIdent, WItemFn, WItemImpl, WItemStruct, WPartialType, WPath,
-        WPathSegment, WSpan, WSpanned, WTypeId, WUniquePath, YBuild, YTac,
+        WDefinitions, WFnId, WIdent, WItemFn, WItemImpl, WItemStruct, WPartialType, WPath, WSpan,
+        WSpanned, WTypeId, WUniquePath, YBuild, YTac,
     },
 };
 
@@ -109,11 +109,14 @@ impl WContextBuilder {
             .expect("Bool type should be assigned a type id")
     }
 
-    pub fn build(mut self) -> Result<WInferenceContext, Errors> {
+    pub fn build(
+        mut self,
+        optional_params: &IndexMap<WIdent, WTypeId>,
+    ) -> Result<WInferenceContext, Errors> {
         let definitions = self
             .definitions
             .clone()
-            .map_functions(|func| self.build_function(func))?;
+            .map_functions(|func| self.build_function(func, optional_params.clone()))?;
         /*let mut definitions = Vec::new();
 
         for (path, def) in self.definitions.clone().into_inner() {
@@ -130,7 +133,11 @@ impl WContextBuilder {
         Ok(WInferenceContext::new(definitions, self.types))
     }
 
-    fn build_function(&mut self, item_fn: WItemFn<YBuild>) -> Result<WItemFn<YTac>, Errors> {
+    fn build_function(
+        &mut self,
+        item_fn: WItemFn<YBuild>,
+        optional_params: IndexMap<WIdent, WTypeId>,
+    ) -> Result<WItemFn<YTac>, Errors> {
         FunctionFolder {
             ctx: self,
             self_ty: None,
@@ -138,6 +145,8 @@ impl WContextBuilder {
             scopes: Vec::new(),
             local_types: IndexMap::new(),
             next_scope_id: 0,
+            optional_params,
+            added_params: IndexMap::new(),
         }
         .fold(item_fn)
     }
@@ -157,4 +166,6 @@ struct FunctionFolder<'a> {
     local_types: IndexMap<WIdent, WTypeId>,
     scopes: Vec<FunctionScope>,
     next_scope_id: u32,
+    optional_params: IndexMap<WIdent, WTypeId>,
+    added_params: IndexMap<WIdent, WTypeId>,
 }

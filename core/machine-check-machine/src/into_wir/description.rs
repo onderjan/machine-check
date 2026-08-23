@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use indexmap::IndexMap;
 use syn::Item;
 
 use crate::{
@@ -55,5 +56,5 @@ fn description_from_preprocessed(item_iter: Vec<Item>) -> Result<WLowContext, Er
 
     Errors::errors_vec_to_result(errors)?;
 
-    builder.build()?.infer()?.lower()
+    builder.build(&IndexMap::new())?.infer()?.lower()
 }
