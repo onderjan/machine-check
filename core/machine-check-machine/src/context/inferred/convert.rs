@@ -1,13 +1,11 @@
-use std::borrow::Cow;
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::context::WInferredContext;
 use crate::into_wir::{Error, ErrorType, Errors};
 use crate::wir::WItemFn;
 use crate::wir::{
-    WBlock, WCallArg, WExpr, WExprLowCall, WFnArg, WFnSignature, WIdent, WItemFnBody, WMckNew,
-    WPhi, WPhiTaken, WSpan, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf, WSubproperty,
-    WSubpropertyFunc, WTypeId, YLowered, YSsa,
+    WBlock, WCallArg, WExpr, WExprLowCall, WFnSignature, WIdent, WItemFnBody, WMckNew, WPhi,
+    WPhiTaken, WSpan, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf, WTypeId, YLowered, YSsa,
 };
 
 pub fn convert_item_fn(
@@ -94,6 +92,7 @@ pub fn convert_property(
     })
 }*/
 
+/*
 struct SubpropertyConverter<'a> {
     ctx: &'a mut WInferredContext,
     global_ident_types: &'a BTreeMap<WIdent, WTypeId>,
@@ -135,7 +134,7 @@ impl SubpropertyConverter<'_> {
         let subproperty = match subproperty {
             WSubproperty::Func(subproperty_func) => {
                 let (mut func, nonlocal_idents) =
-                    process_fn(self.ctx, subproperty_func.func, &global_rewrites)?;
+                    process_fn(self.ctx, subproperty_func.fn_id, &global_rewrites)?;
 
                 // add all non-local idents to the function arguments if possible
                 let mut errors = Vec::new();
@@ -173,7 +172,7 @@ impl SubpropertyConverter<'_> {
                 Errors::iter_to_result(errors)?;
                 WSubproperty::Func(WSubpropertyFunc {
                     parent: subproperty_func.parent,
-                    func,
+                    fn_id: func,
                     children: subproperty_func.children,
                     display: subproperty_func.display,
                 })
@@ -188,7 +187,7 @@ impl SubpropertyConverter<'_> {
         Ok(())
     }
 }
-
+*/
 fn process_fn(
     ctx: &mut WInferredContext,
     item_fn: WItemFn<YLowered>,

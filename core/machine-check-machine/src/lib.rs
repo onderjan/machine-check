@@ -126,10 +126,8 @@ pub fn process_property<M: FullMachine, D>(
     }
 
     // TODO: do something with the panic messages
-    let (ctx, property, _panic_messages) =
-        into_wir::create_property_description(builder, expr, &global_basic_types, property_macros)?;
-
-    let property = property.into_iir(&ctx);
+    let property = into_wir::create_property(builder, expr, &global_basic_types, property_macros)?;
+    let property = property.into_iir();
 
     Ok(property?)
 }

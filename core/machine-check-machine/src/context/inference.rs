@@ -4,6 +4,7 @@ use std::{
 };
 
 use indexmap::IndexMap;
+use proc_macro2::Span;
 use syn::Type;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind};
 
@@ -11,8 +12,8 @@ use crate::{
     context::{bitvector_type, bool_type, WInferredContext},
     into_wir::{fold_type, Error, ErrorType},
     wir::{
-        WDefinitions, WPartialArgument, WPartialGenerics, WPartialPath, WPartialSegment,
-        WPartialType, WSpan, WTypeId, YTac,
+        WDefinitions, WIdent, WPartialArgument, WPartialGenerics, WPartialPath, WPartialSegment,
+        WPartialType, WSpan, WSubproperty, WTypeId, YTac,
     },
 };
 
@@ -100,33 +101,10 @@ impl WInferenceContext {
         self.unify()
     }
 
-    /*pub fn infer_impls(mut self, impls: &[WItemImpl<YTac>]) -> Result<WInferredContext, Error> {
-        for item_impl in impls.iter() {
-            for item_fn in &item_impl.impl_item_fns {
-                let mut types = BTreeMap::new();
-
-                for arg in &item_fn.signature.inputs {
-                    types.insert(arg.ident.clone(), arg.ty.clone());
-                }
-                types.extend(
-                    item_fn
-                        .body
-                        .locals
-                        .iter()
-                        .map(|local| (local.ident.clone(), local.ty.clone())),
-                );
-
-                self.add_block_constraints(&types, &item_fn.body.block)?;
-            }
-        }
-
-        self.unify()
-    }
-
     pub fn infer_subproperties(
         mut self,
         globals: &BTreeMap<WIdent, WTypeId>,
-        subproperties: &[WSubproperty<YTac>],
+        subproperties: &[WSubproperty],
     ) -> Result<WInferredContext, Error> {
         let mut globals_with_results = globals.clone();
         for (index, _) in subproperties.iter().enumerate() {
@@ -145,7 +123,9 @@ impl WInferenceContext {
         for subproperty in subproperties.iter() {
             match subproperty {
                 WSubproperty::Func(subproperty_func) => {
-                    let func = &subproperty_func.func;
+                    let fn_id = &subproperty_func.fn_id;
+                    let func = self.definitions.function_by_id(*fn_id);
+
                     let mut types = globals_with_results.clone();
                     types.extend(
                         func.body
@@ -154,7 +134,7 @@ impl WInferenceContext {
                             .map(|local| (local.ident.clone(), local.ty.clone())),
                     );
 
-                    self.add_block_constraints(&types, &func.body.block)?;
+                    self.add_block_constraints(&types, &func.body.block.clone())?;
                 }
                 WSubproperty::FixedPoint(_) => {}
                 WSubproperty::Next(_) => {}
@@ -162,7 +142,7 @@ impl WInferenceContext {
         }
 
         self.unify()
-    }*/
+    }
 
     fn unify(mut self) -> Result<WInferredContext, Error> {
         eprintln!("Unifying {:?}", self);

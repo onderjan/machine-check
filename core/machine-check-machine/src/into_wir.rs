@@ -21,12 +21,12 @@ pub fn create_description(items: Vec<Item>) -> Result<WLowContext, crate::Errors
     description::description_from_syn(items).map_err(Errors::convert_inner)
 }
 
-pub fn create_property_description<D>(
+pub fn create_property<D>(
     ctx: WContextBuilder,
     expr: syn::Expr,
     globals: &BTreeMap<WIdent, WTypeId>,
     property_macros: &PropertyMacros<D>,
-) -> Result<(WLowContext, WProperty<YSsa>, Vec<String>), crate::Errors> {
+) -> Result<WProperty, crate::Errors> {
     property::create_from_syn(ctx, expr, globals, property_macros).map_err(Errors::convert_inner)
 }
 

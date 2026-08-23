@@ -2,25 +2,29 @@ use std::collections::BTreeSet;
 
 use syn::Type;
 
-use crate::wir::{WIdent, WItemFn, WTypeId, YSsa, YStage};
+use crate::{
+    context::WLowContext,
+    wir::{WFnId, WIdent, WTypeId},
+};
 
-#[derive(Clone, Debug, Hash)]
-pub struct WProperty<Y: YStage> {
-    pub subproperties: Vec<WSubproperty<Y>>,
+#[derive(Clone, Debug)]
+pub struct WProperty {
+    pub ctx: WLowContext,
+    pub subproperties: Vec<WSubproperty>,
 }
 
 #[derive(Clone, Debug, Hash)]
-pub enum WSubproperty<Y: YStage> {
-    Func(WSubpropertyFunc<Y>),
+pub enum WSubproperty {
+    Func(WSubpropertyFunc),
     FixedPoint(WSubpropertyFixedPoint),
     Next(WSubpropertyNext),
 }
 
 #[derive(Clone, Debug, Hash)]
-pub struct WSubpropertyFunc<Y: YStage> {
+pub struct WSubpropertyFunc {
     pub parent: Option<usize>,
-    pub func: WItemFn<Y>,
     pub children: Vec<usize>,
+    pub fn_id: WFnId,
     pub display: Option<String>,
 }
 
@@ -41,7 +45,7 @@ pub struct WSubpropertyNext {
     pub display: Option<String>,
 }
 
-impl<Y: YStage> WSubproperty<Y> {
+impl WSubproperty {
     pub fn children(&self) -> &[usize] {
         match self {
             WSubproperty::Func(subprop) => &subprop.children,
@@ -51,12 +55,13 @@ impl<Y: YStage> WSubproperty<Y> {
     }
 }
 
-impl WSubproperty<YSsa> {
-    pub fn dependencies(&self) -> BTreeSet<usize> {
+impl WSubproperty {
+    pub fn dependencies(&self, ctx: &WLowContext) -> BTreeSet<usize> {
         match self {
             WSubproperty::Func(subprop) => {
+                let func = ctx.definitions().function_by_id(subprop.fn_id);
                 let mut dependencies = BTreeSet::new();
-                for input_arg in &subprop.func.signature.inputs {
+                for input_arg in &func.signature.inputs {
                     let input_var_name = input_arg.ident.name();
                     if let Some(stripped) = input_var_name.strip_prefix("__mck_subproperty_") {
                         let Ok(input_subproperty_index) = stripped.parse::<usize>() else {

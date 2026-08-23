@@ -5,20 +5,19 @@ use machine_check_common::iir::property::{
 };
 
 use crate::{
-    context::WLowContext,
-    wir::{WProperty, WSubproperty, YSsa},
+    wir::{WProperty, WSubproperty},
     Error,
 };
 
-impl WProperty<YSsa> {
-    pub fn into_iir(self, ctx: &WLowContext) -> Result<IProperty, Error> {
+impl WProperty {
+    pub fn into_iir(self) -> Result<IProperty, Error> {
         let mut subproperties = Vec::new();
 
         let mut subproperty_dependencies = BTreeMap::<usize, BTreeSet<usize>>::new();
 
         let mut subproperty_dependents = BTreeMap::<usize, Vec<usize>>::new();
         for (subproperty_index, subproperty) in self.subproperties.iter().enumerate() {
-            subproperty_dependencies.insert(subproperty_index, subproperty.dependencies());
+            subproperty_dependencies.insert(subproperty_index, subproperty.dependencies(&self.ctx));
             if let WSubproperty::FixedPoint(_) = subproperty {
                 subproperty_dependents.insert(subproperty_index, Vec::new());
             }
@@ -41,15 +40,19 @@ impl WProperty<YSsa> {
 
         for (subproperty_index, subproperty) in self.subproperties.into_iter().enumerate() {
             let subproperty = match subproperty {
-                WSubproperty::Func(subproperty) => ISubproperty::Func(ISubpropertyFunc {
-                    parent: subproperty.parent,
-                    func: subproperty.func.into_iir(ctx)?,
-                    children: subproperty.children,
-                    dependencies: subproperty_dependencies
-                        .remove(&subproperty_index)
-                        .expect("Subproperty should have dependencies available"),
-                    display: subproperty.display,
-                }),
+                WSubproperty::Func(subproperty) => {
+                    let func = self.ctx.definitions().function_by_id(subproperty.fn_id);
+
+                    ISubproperty::Func(ISubpropertyFunc {
+                        parent: subproperty.parent,
+                        func: func.clone().into_iir(&self.ctx)?,
+                        children: subproperty.children,
+                        dependencies: subproperty_dependencies
+                            .remove(&subproperty_index)
+                            .expect("Subproperty should have dependencies available"),
+                        display: subproperty.display,
+                    })
+                }
                 WSubproperty::FixedPoint(subproperty) => {
                     let dependents = subproperty_dependents
                         .remove(&subproperty_index)

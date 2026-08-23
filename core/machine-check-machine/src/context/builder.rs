@@ -1,7 +1,8 @@
 use std::fmt::Debug;
 
 use indexmap::IndexMap;
-use syn::Type;
+use proc_macro2::Span;
+use syn::{punctuated::Punctuated, Ident, Path, PathArguments, PathSegment, Type, TypePath};
 
 mod expr;
 mod func;
@@ -12,8 +13,8 @@ use crate::{
     into_wir::{fold_type, Error, Errors},
     util::ident_creator::IdentCreator,
     wir::{
-        WDefinitions, WIdent, WItemFn, WItemImpl, WItemStruct, WPartialType, WPath, WSpan,
-        WSpanned, WTypeId, WUniquePath, YBuild, YTac,
+        WDefinitions, WFnId, WIdent, WItemFn, WItemImpl, WItemStruct, WPartialType, WPath,
+        WPathSegment, WSpan, WSpanned, WTypeId, WUniquePath, YBuild, YTac,
     },
 };
 
@@ -57,10 +58,15 @@ impl WContextBuilder {
         for impl_fn in item_impl.impl_item_fns {
             let fn_name = impl_fn.signature.ident.clone();
             self.definitions
-                .add_fn(self_datatype, item_impl.trait_.clone(), fn_name, impl_fn);
+                .add_impl_fn(self_datatype, item_impl.trait_.clone(), fn_name, impl_fn);
         }
 
         Ok(())
+    }
+
+    pub fn add_fn(&mut self, item_fn: WItemFn<YBuild>) -> WFnId {
+        let fn_name = item_fn.signature.ident.clone();
+        self.definitions.add_fn(fn_name.into_path(), item_fn)
     }
 
     pub fn noninferred_id(&mut self, ty: &Type) -> Result<WTypeId, Error> {
@@ -86,6 +92,21 @@ impl WContextBuilder {
     pub fn type_id(&mut self, ty: &Type) -> Result<WTypeId, Error> {
         let ty = fold_type(ty.clone())?;
         Ok(self.partial_type_id(ty))
+    }
+
+    pub fn bool_type_id(&mut self) -> WTypeId {
+        let ty = &Type::Path(TypePath {
+            qself: None,
+            path: Path {
+                leading_colon: None,
+                segments: Punctuated::from_iter([PathSegment {
+                    ident: Ident::new("bool", Span::call_site()),
+                    arguments: PathArguments::None,
+                }]),
+            },
+        });
+        self.type_id(ty)
+            .expect("Bool type should be assigned a type id")
     }
 
     pub fn build(mut self) -> Result<WInferenceContext, Errors> {

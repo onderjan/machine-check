@@ -9,18 +9,27 @@ use machine_check_common::PropertyMacros;
 use proc_macro2::Span;
 use quote::ToTokens;
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, visit_mut::VisitMut, Expr, Ident, Path,
-    PathArguments, PathSegment, Token,
+    punctuated::Punctuated,
+    spanned::Spanned,
+    token::{Brace, Paren},
+    visit_mut::VisitMut,
+    Block,
+    Expr::{self},
+    ExprBlock, Generics, Ident, ItemFn, Path, PathArguments, PathSegment, Signature, Stmt, Token,
 };
+use syn_path::path;
 
 use crate::{
-    context::{WContextBuilder, WInferenceContext, WInferredContext, WLowContext},
+    context::{WContextBuilder, WInferenceContext, WInferredContext},
     into_wir::{
         conversion::{expand_macros, resolve_use},
         Errors,
     },
-    util::path_matches_global_names,
-    wir::{WIdent, WProperty, WSubpropertyFixedPoint, WSubpropertyNext, WTypeId, YSsa, YTac},
+    util::{create_type_path, path_matches_global_names},
+    wir::{
+        WFnSignature, WIdent, WItemFn, WProperty, WSpan, WSubproperty, WSubpropertyFixedPoint,
+        WSubpropertyFunc, WSubpropertyNext, WSynBlock, WTypeId, WVisibility, YTac,
+    },
 };
 
 #[derive(Clone, Debug, Hash)]
@@ -69,7 +78,7 @@ pub fn create_from_syn<D>(
     expr: syn::Expr,
     globals: &BTreeMap<WIdent, WTypeId>,
     property_macros: &PropertyMacros<D>,
-) -> Result<(WLowContext, WProperty<YSsa>, Vec<String>), Errors> {
+) -> Result<WProperty, Errors> {
     let span = expr.span();
     /*println!(
         "Original syn string:\n{}",
@@ -138,7 +147,9 @@ pub fn create_from_syn<D>(
 
     eprintln!("Property exprs: {:#?}", property);
 
-    todo!("Build property");
+    property_from_exprs(ctx, globals, property)
+
+    //todo!("Build property");
 
     /*
     let (ctx, property) = property_from_exprs(ctx, globals, property)?;
@@ -154,55 +165,38 @@ pub fn create_from_syn<D>(
 }
 
 fn property_from_exprs(
-    mut ctx: WInferenceContext,
+    mut ctx: WContextBuilder,
     globals: &BTreeMap<WIdent, WTypeId>,
     property: ExprProperty,
-) -> Result<(WInferredContext, WProperty<YTac>), Errors> {
-    todo!("Property from exprs");
-    /*let mut subproperties = Vec::new();
+) -> Result<WProperty, Errors> {
+    let mut subproperties = Vec::new();
 
     for (index, subproperty) in property.subproperties.into_iter().enumerate() {
         let subproperty = match subproperty {
             ExprSubproperty::Expr(subproperty_func) => {
-                let span = subproperty_func.expr.span();
+                let span = WSpan::from_syn(&subproperty_func.expr);
 
-                // the inputs will be added later
-                let signature = Signature {
-                    constness: None,
-                    asyncness: None,
-                    unsafety: None,
-                    abi: None,
-                    fn_token: Token![fn](span),
-                    ident: Ident::new(&format!("__mck_subfn_{}", index), span),
-                    generics: Generics::default(),
-                    paren_token: Paren::default(),
-                    inputs: Punctuated::default(),
-                    variadic: None,
-                    output: syn::ReturnType::Type(
-                        Token![->](span),
-                        Box::new(create_type_path(path!(bool))),
-                    ),
-                };
-
-                let func = ItemFn {
-                    attrs: Vec::new(),
-                    vis: syn::Visibility::Inherited,
-                    sig: signature,
-                    block: Box::new(Block {
-                        brace_token: Brace::default(),
+                let item_fn = WItemFn {
+                    visibility: WVisibility::Public(span),
+                    signature: WFnSignature {
+                        ident: WIdent::new(format!("__mck_subfn_{}", index), span.first()),
+                        inputs: vec![],
+                        output: ctx.bool_type_id(),
+                    },
+                    body: WSynBlock(Block {
+                        brace_token: Default::default(),
                         stmts: vec![Stmt::Expr(subproperty_func.expr, None)],
                     }),
                 };
 
-                todo!("Fold subproperty func");
-                /*let func = from_syn::fold_item_fn(&mut ctx, func)?;
+                let fn_id = ctx.add_fn(item_fn);
 
                 WSubproperty::Func(WSubpropertyFunc {
                     parent: subproperty_func.parent,
-                    func,
+                    fn_id,
                     children: subproperty_func.dependencies,
                     display: subproperty_func.display,
-                })*/
+                })
             }
             ExprSubproperty::Next(next_operator) => WSubproperty::Next(next_operator),
             ExprSubproperty::FixedPoint(fixed_point_operator) => {
@@ -213,9 +207,16 @@ fn property_from_exprs(
         subproperties.push(subproperty);
     }
 
-    let ctx = ctx.infer_subproperties(globals, subproperties.as_slice())?;
+    eprintln!("Subproperties: {:#?}", subproperties);
 
-    Ok((ctx, WProperty { subproperties }))*/
+    let ctx = ctx.build()?;
+    let ctx = ctx.infer_subproperties(globals, subproperties.as_slice())?;
+    eprintln!("Inferred context: {:#?}", ctx);
+    let ctx = ctx.lower()?;
+
+    let property = WProperty { ctx, subproperties };
+    eprintln!("Property: {:#?}", property);
+    Ok(property)
 }
 
 fn property_use_map(span: Span) -> HashMap<Ident, Path> {
