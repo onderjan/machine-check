@@ -18,7 +18,6 @@ mod ty;
 
 pub fn lower_item_fn(
     ctx: &mut WInferredContext,
-    //self_path: Option<&WPath>,
     impl_item: WItemFn<YTac>,
 ) -> Result<WItemFn<YLowered>, Errors> {
     let signature = WFnSignature {
@@ -62,7 +61,6 @@ pub fn lower_item_fn(
 
     let mut fn_lowerer = FnLowerer {
         ctx,
-        //self_path,
         local_types,
         next_panic_num: 0,
         ident_creator: IdentCreator::new(String::from("panic")),
@@ -92,7 +90,6 @@ pub fn lower_item_fn(
 
 struct FnLowerer<'a> {
     ctx: &'a mut WInferredContext,
-    //self_path: Option<&'a WPath>,
     local_types: IndexMap<WIdent, WTypeId>,
     // TODO: just use a str for panics
     next_panic_num: u32,

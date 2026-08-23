@@ -45,6 +45,7 @@ pub struct WSubpropertyNext {
     pub display: Option<String>,
 }
 
+/*
 impl WSubproperty {
     pub fn children(&self) -> &[usize] {
         match self {
@@ -53,7 +54,7 @@ impl WSubproperty {
             WSubproperty::Next(next) => std::slice::from_ref(&next.inner),
         }
     }
-}
+}*/
 
 impl WSubproperty {
     pub fn dependencies(&self, ctx: &WLowContext) -> BTreeSet<usize> {

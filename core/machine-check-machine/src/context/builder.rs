@@ -117,18 +117,6 @@ impl WContextBuilder {
             .definitions
             .clone()
             .map_functions(|func| self.build_function(func, optional_params.clone()))?;
-        /*let mut definitions = Vec::new();
-
-        for (path, def) in self.definitions.clone().into_inner() {
-            let def = match def {
-                WDefinition::Struct(item_struct) => Ok(WDefinition::Struct(item_struct)),
-                WDefinition::Fn(item_fn) => self.build_function(item_fn).map(WDefinition::Fn),
-                WDefinition::Type(item_type) => Ok(WDefinition::Type(item_type)),
-            };
-            definitions.push(def.map(|def| (path, def)));
-        }
-        let definitions = Errors::flat_result(definitions)?;
-        let definitions = IndexMap::from_iter(definitions);*/
 
         Ok(WInferenceContext::new(definitions, self.types))
     }

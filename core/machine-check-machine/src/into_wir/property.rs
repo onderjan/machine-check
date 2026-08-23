@@ -76,11 +76,6 @@ pub fn create_from_syn<D>(
     property_macros: &PropertyMacros<D>,
 ) -> Result<WProperty, Errors> {
     let span = expr.span();
-    /*println!(
-        "Original syn string:\n{}",
-        quote::ToTokens::into_token_stream(expr.clone())
-    );
-    println!("---");*/
 
     // use the property use map
     let use_map = property_use_map(span);
@@ -141,23 +136,7 @@ pub fn create_from_syn<D>(
         }
     }
 
-    eprintln!("Property exprs: {:#?}", property);
-
     property_from_exprs(ctx, globals, property)
-
-    //todo!("Build property");
-
-    /*
-    let (ctx, property) = property_from_exprs(ctx, globals, property)?;
-    eprintln!("Property from exprs: {:#?}", property);
-    eprintln!("Inferred context: {:#?}", ctx);
-    //let (property, panic_messages) = convert_total::convert_property(&mut ctx, property);
-    let panic_messages = Vec::new();
-    let (mut ctx, property) = lower::lower_property(ctx, property)?;
-    let property = convert_to_ssa::convert_property(&mut ctx, property, globals)?;
-
-    Ok((ctx, property, panic_messages))
-    */
 }
 
 fn property_from_exprs(
@@ -211,18 +190,8 @@ fn property_from_exprs(
         subproperties.push(subproperty);
     }
 
-    eprintln!("Subproperties: {:#?}", subproperties);
-
-    eprintln!("Optional params: {:?}", optional_params);
-
-    let ctx = ctx.build(&optional_params)?;
-    let ctx = ctx.infer()?;
-    //let ctx = ctx.infer_subproperties(globals, subproperties.as_slice())?;
-    eprintln!("Inferred context: {:#?}", ctx);
-    let ctx = ctx.lower()?;
-
+    let ctx = ctx.build(&optional_params)?.infer()?.lower()?;
     let property = WProperty { ctx, subproperties };
-    eprintln!("Property: {:#?}", property);
     Ok(property)
 }
 

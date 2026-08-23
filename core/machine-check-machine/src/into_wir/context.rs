@@ -13,7 +13,7 @@ use crate::{
     wir::{WIdent, WPath},
 };
 
-pub fn description_from_syn(mut items: Vec<Item>) -> Result<WLowContext, Errors> {
+pub fn context_from_syn(mut items: Vec<Item>) -> Result<WLowContext, Errors> {
     let mut use_map = HashMap::new();
     loop {
         use_map.extend(resolve_use::extract_use_map(&mut items)?);
@@ -24,15 +24,10 @@ pub fn description_from_syn(mut items: Vec<Item>) -> Result<WLowContext, Errors>
     }
     resolve_use::remove_use(&mut items)?;
 
-    description_from_preprocessed(items)
-}
-
-fn description_from_preprocessed(item_iter: Vec<Item>) -> Result<WLowContext, Errors> {
     let mut builder = WContextBuilder::new();
-
     let mut errors = Vec::new();
 
-    for item in item_iter {
+    for item in items {
         match item {
             Item::Struct(item) => {
                 let path = WPath::from_ident(WIdent::from_syn_ident(item.ident.clone()))

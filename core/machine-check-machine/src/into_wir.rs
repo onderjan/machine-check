@@ -1,5 +1,5 @@
+mod context;
 mod conversion;
-mod description;
 mod from_syn;
 mod property;
 
@@ -16,8 +16,8 @@ use crate::{
     wir::{WIdent, WProperty, WSpan, WTypeId},
 };
 
-pub fn create_description(items: Vec<Item>) -> Result<WLowContext, crate::Errors> {
-    description::description_from_syn(items).map_err(Errors::convert_inner)
+pub fn create_context(items: Vec<Item>) -> Result<WLowContext, crate::Errors> {
+    context::context_from_syn(items).map_err(Errors::convert_inner)
 }
 
 pub fn create_property<D>(
@@ -47,8 +47,6 @@ pub(super) enum ErrorType {
     CallConversionError(&'static str),
     #[error("Unknown call function '{0}'")]
     UnknownCallFunction(String),
-    #[error("Type cannot be called")]
-    NotCallable,
     #[error("Expected {0} arguments, got {1}")]
     WrongNumberOfArguments(usize, usize),
 }

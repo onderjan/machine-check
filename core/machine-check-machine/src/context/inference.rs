@@ -12,12 +12,11 @@ use crate::{
     into_wir::{fold_type, Error, ErrorType},
     wir::{
         WDefinitions, WPartialArgument, WPartialGenerics, WPartialPath, WPartialSegment,
-        WPartialType, WSpan, WTypeId, YTac,
+        WPartialType, WTypeId, YTac,
     },
 };
 
 mod constraints;
-mod undefined;
 
 #[derive(Debug)]
 pub struct WInferenceContext {
@@ -46,33 +45,6 @@ impl WInferenceContext {
         Ok(self.partial_type_id(ty))
     }
 
-    pub fn noninferred_id(&mut self, ty: &Type) -> Result<WTypeId, Error> {
-        let span = WSpan::from_syn(&ty);
-        let ty = fold_type(ty.clone())?;
-        if !ty.is_fully_inferred() {
-            return Err(Error::new(
-                crate::into_wir::ErrorType::IllegalConstruct(String::from(
-                    "Interference not allowed here",
-                )),
-                span,
-            ));
-        }
-        Ok(self.partial_type_id(ty))
-    }
-
-    pub fn wildcard_id(&mut self, span: WSpan) -> WTypeId {
-        self.partial_type_id(WPartialType::Infer(span))
-    }
-
-    /*pub fn add_struct_def(&mut self, ty: Type, def: &WItemStruct) {
-        let fields = def
-            .fields
-            .iter()
-            .map(|field| (field.ident.clone(), field.ty.clone()))
-            .collect();
-        self.type_defs.add(ty, WContextTypeDef::Struct(fields));
-    }*/
-
     fn add_eq_constraint(&mut self, a: WTypeId, b: WTypeId) {
         let max = a.0.max(b.0);
         while max >= self.eq_constraints.size() {
@@ -100,49 +72,6 @@ impl WInferenceContext {
         }
         self.unify()
     }
-
-    /*pub fn infer_subproperties(
-        mut self,
-        globals: &BTreeMap<WIdent, WTypeId>,
-        subproperties: &[WSubproperty],
-    ) -> Result<WInferredContext, Error> {
-        let mut globals_with_results = globals.clone();
-        for (index, _) in subproperties.iter().enumerate() {
-            globals_with_results.insert(
-                WIdent::new(format!("__mck_subproperty_{}", index), Span::call_site()),
-                self.partial_type_id(WPartialType::Path(WPartialPath {
-                    leading_colon: None,
-                    segments: vec![WPartialSegment {
-                        ident: WIdent::new(String::from("bool"), Span::call_site()),
-                        generics: None,
-                    }],
-                })),
-            );
-        }
-
-        for subproperty in subproperties.iter() {
-            match subproperty {
-                WSubproperty::Func(subproperty_func) => {
-                    let fn_id = &subproperty_func.fn_id;
-                    let func = self.definitions.function_by_id(*fn_id);
-
-                    let mut types = globals_with_results.clone();
-                    types.extend(
-                        func.body
-                            .locals
-                            .iter()
-                            .map(|local| (local.ident.clone(), local.ty.clone())),
-                    );
-
-                    self.add_block_constraints(&types, &func.body.block.clone())?;
-                }
-                WSubproperty::FixedPoint(_) => {}
-                WSubproperty::Next(_) => {}
-            }
-        }
-
-        self.unify()
-    }*/
 
     fn unify(mut self) -> Result<WInferredContext, Error> {
         eprintln!("Unifying {:?}", self);

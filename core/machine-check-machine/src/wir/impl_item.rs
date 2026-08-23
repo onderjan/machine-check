@@ -231,20 +231,7 @@ impl IntoSyn<Local> for WTacLocal {
 
 impl IntoSyn<Local> for WSsaLocal {
     fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Local {
-        let local = ident_type_local(self.ident, Some(self.ty), false, type_fn);
-        /*let span = local.span();
-        local.attrs = vec![Attribute {
-            pound_token: Token![#](span),
-            style: syn::AttrStyle::Outer,
-            bracket_token: Bracket::default(),
-            meta: syn::Meta::NameValue(MetaNameValue {
-                path: path!(::mck::attr::tmp_original),
-                eq_token: Token![=](span),
-                value: create_expr_path(create_path_from_ident(self.original.into())),
-            }),
-        }];*/
-
-        local
+        ident_type_local(self.ident, Some(self.ty), false, type_fn)
     }
 }
 

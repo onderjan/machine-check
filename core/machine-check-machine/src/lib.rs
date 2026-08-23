@@ -178,10 +178,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
         None
     };
 
-    let ctx = into_wir::create_description(items.clone())?;
-
-    eprintln!("Description context: {:#?}", ctx);
-    eprintln!("Num context types: {}", ctx.num_types());
+    let ctx = into_wir::create_context(items.clone())?;
 
     if let Some(out_dir) = &out_dir {
         eprintln!("Writing machine files to directory {:?}", out_dir);
