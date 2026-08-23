@@ -1,14 +1,14 @@
 mod item_impl;
 mod item_struct;
 
-use syn::{GenericArgument, Item, Path, Type};
+use syn::{GenericArgument, ImplItem, Item, Path, Type};
 
 use crate::{
     context::WLowContext,
     util::{create_angle_bracketed_path_arguments, create_type_path},
     wir::{
-        IntoSyn, WBlock, WDescription, WExpr, WExprLowCall, WIdent, WItemFnBody, WItemImplTrait,
-        WPath, WSsaLocal, WStmt, WTypeId, YIfPolarity, YSsa, YStage,
+        IntoSyn, WDescription, WExpr, WExprLowCall, WIdent, WItemFnBody, WItemImpl, WItemImplTrait,
+        WPath, WSpanned, WSsaLocal, WStmt, WTypeId, YIfPolarity, YSsa, YStage,
     },
 };
 
@@ -66,34 +66,73 @@ impl IntoSyn<Path> for WAbstrItemImplTrait {
     }
 }
 
-pub(crate) fn create_abstract_description(
-    description: WDescription<YSsa>,
-    ctx: &WLowContext,
-) -> (WDescription<YAbstr>, Vec<Item>) {
+pub(crate) fn create_abstract_description(ctx: &WLowContext) -> (WDescription<YAbstr>, Vec<Item>) {
     let mut machine_types = Vec::new();
-    for item_impl in description.impls.iter() {
-        if let Some(ty) = preprocess_item_impl(item_impl) {
-            machine_types.push(ty);
-        }
-    }
-
+    let mut structs = Vec::new();
     let mut misc_items = Vec::new();
 
-    let mut abstract_description = WDescription::<YAbstr> {
-        structs: Vec::new(),
-        impls: Vec::new(),
-    };
+    let type_fn = |type_id| ctx.id_syn_type(type_id);
 
-    for item_struct in description.structs {
-        let (item_struct, other_impls) = process_item_struct(item_struct, ctx);
-        abstract_description.structs.push(item_struct);
+    let mut concrete_impls = Vec::new();
+
+    for (datatype_path, datatype) in ctx.definitions().datatypes() {
+        let (item_struct, other_impls) = process_item_struct(datatype.def.clone(), ctx);
+
+        let span = item_struct.wir_span().first();
+
+        for (trait_, datatype_impl) in &datatype.impls {
+            let mut datatype_path = datatype_path.clone();
+
+            if let Some(WItemImplTrait::Machine(_)) = trait_ {
+                datatype_path
+                    .segments
+                    .insert(0, WIdent::new(String::from("super"), span));
+            }
+
+            let mut impl_item_types = Vec::new();
+            for (_type_name, impl_type) in &datatype_impl.assoc_types {
+                impl_item_types.push(impl_type.clone());
+            }
+
+            let mut impl_item_fns = Vec::new();
+            for (_fn_name, fn_id) in &datatype_impl.functions {
+                let func = ctx.definitions().function_by_id(*fn_id);
+                impl_item_fns.push(func.clone());
+            }
+
+            let item_impl: WItemImpl<YSsa> = WItemImpl {
+                self_ty: datatype_path.into_path(),
+                trait_: trait_.clone(),
+                impl_item_fns,
+                impl_item_types,
+            };
+
+            if let Some(ty) = preprocess_item_impl(&item_impl) {
+                machine_types.push(ty);
+            }
+
+            let mut impl_item_fns = Vec::new();
+
+            for (_fn_name, fn_id) in &datatype_impl.functions {
+                let func = ctx.definitions().function_by_id(*fn_id);
+
+                let func = func.clone().into_syn(&type_fn);
+                impl_item_fns.push(ImplItem::Fn(func));
+            }
+
+            concrete_impls.push(item_impl);
+        }
+
+        structs.push(item_struct);
         misc_items.extend(other_impls.into_iter().map(Item::Impl));
     }
 
-    for item_impl in description.impls {
-        let item_impls = process_item_impl(item_impl, &machine_types);
-        abstract_description.impls.extend(item_impls);
+    let mut impls = Vec::new();
+
+    for item_impl in concrete_impls {
+        let item_impl = process_item_impl(item_impl, &machine_types);
+        impls.extend(item_impl);
     }
 
-    (abstract_description, misc_items)
+    (WDescription { structs, impls }, misc_items)
 }

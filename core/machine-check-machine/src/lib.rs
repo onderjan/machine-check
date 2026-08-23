@@ -16,7 +16,6 @@ use syn::visit_mut::{self, VisitMut};
 use syn::{parse_quote, Attribute, Expr, Item, ItemFn, ItemMod, Meta, MetaList, PathSegment, Type};
 use syn_path::path;
 use util::error_list::ErrorList;
-use wir::IntoSyn;
 
 use crate::context::{bitvector_type, bool_type, WContextBuilder};
 use crate::util::{create_item_mod, path_matches_global_names};
@@ -197,12 +196,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
 
     let iir = ctx.clone().into_iir()?;
 
-    todo!("Process context: {:#?}", iir);
-
-    /*
-
-    let (abstract_description, misc_abstract_items) =
-        abstr::create_abstract_description(description, &ctx);
+    let (abstract_description, misc_abstract_items) = abstr::create_abstract_description(&ctx);
 
     if let Some(out_dir) = &out_dir {
         std::fs::write(
@@ -217,6 +211,9 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
         .expect("Abstract machine file should be writable");
     }
 
+    todo!("Process context: {:#?}", iir);
+
+    /*
     let mut abstract_description = Description {
         items: abstract_description
             .into_syn(&|type_id| ctx.id_syn_type(type_id))
