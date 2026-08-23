@@ -1,13 +1,13 @@
 use syn::{
     visit_mut::{self, VisitMut},
-    Attribute, Meta,
+    Attribute, Item, Meta,
 };
 
-use crate::{Description, Error};
+use crate::Error;
 
-pub fn strip_machine(machine: &mut Description) -> Result<(), Error> {
+pub fn strip_machine(items: &mut [Item]) -> Result<(), Error> {
     let mut visitor = BlockVisitor {};
-    for item in machine.items.iter_mut() {
+    for item in items.iter_mut() {
         visitor.visit_item_mut(item);
     }
     Ok(())

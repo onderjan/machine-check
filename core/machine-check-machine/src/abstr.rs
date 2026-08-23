@@ -66,7 +66,7 @@ impl IntoSyn<Path> for WAbstrItemImplTrait {
     }
 }
 
-pub(crate) fn create_abstract_description(ctx: &WLowContext) -> (WDescription<YAbstr>, Vec<Item>) {
+pub(crate) fn create_abstract_items(ctx: &WLowContext) -> Vec<Item> {
     let mut machine_types = Vec::new();
     let mut structs = Vec::new();
     let mut misc_items = Vec::new();
@@ -124,5 +124,8 @@ pub(crate) fn create_abstract_description(ctx: &WLowContext) -> (WDescription<YA
         impls.extend(item_impl);
     }
 
-    (WDescription { structs, impls }, misc_items)
+    let mut inner_items = WDescription { structs, impls }.into_syn(&type_fn).items;
+    inner_items.extend(misc_items);
+
+    inner_items
 }

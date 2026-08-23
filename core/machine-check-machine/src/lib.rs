@@ -19,7 +19,7 @@ use util::error_list::ErrorList;
 
 use crate::context::{bitvector_type, bool_type, WContextBuilder};
 use crate::util::{create_item_mod, path_matches_global_names};
-use crate::wir::{IntoSyn, WIdent, WSpan};
+use crate::wir::{WIdent, WSpan};
 
 mod abstr;
 mod concr;
@@ -32,11 +32,6 @@ mod wir;
 pub use util::machine_error::{Error, ErrorType};
 
 pub type Errors = ErrorList<Error>;
-
-#[derive(Clone)]
-struct Description {
-    pub items: Vec<Item>,
-}
 
 pub fn process_file(mut file: syn::File) -> Result<syn::File, Errors> {
     process_items(&mut file.items)?;
@@ -191,38 +186,21 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
 
     let iir = ctx.clone().into_iir()?;
 
-    let (abstract_description, misc_abstract_items) = abstr::create_abstract_description(&ctx);
+    let mut abstract_items = abstr::create_abstract_items(&ctx);
 
     if let Some(out_dir) = &out_dir {
         std::fs::write(
             out_dir.join("description_abstr.rs"),
-            unparse(
-                wir::IntoSyn::into_syn(abstract_description.clone(), &|type_id| {
-                    ctx.id_syn_type(type_id)
-                })
-                .items,
-            ),
+            unparse(abstract_items.clone()),
         )
         .expect("Abstract machine file should be writable");
     }
 
     let panic_messages = Vec::new();
 
-    let mut abstract_description = Description {
-        items: abstract_description
-            .into_syn(&|type_id| ctx.id_syn_type(type_id))
-            .items,
-    };
-
-    abstract_description.items.extend(misc_abstract_items);
-
-    util::strip_machine::strip_machine(&mut abstract_description)?;
-
+    util::strip_machine::strip_machine(&mut abstract_items)?;
     concr::process_items(items, &panic_messages, iir)?;
-
-    let abstract_module = create_machine_module("__mck_mod_abstr", abstract_description);
-    items.push(abstract_module);
-
+    items.push(create_machine_module("__mck_mod_abstr", abstract_items));
     redirect_mck(items)?;
 
     if let Some(out_dir) = &out_dir {
@@ -281,11 +259,11 @@ impl VisitMut for RedirectVisitor {
     }
 }
 
-fn create_machine_module(name: &str, machine: Description) -> Item {
+fn create_machine_module(name: &str, items: Vec<Item>) -> Item {
     let mut module = create_item_mod(
         syn::Visibility::Public(Default::default()),
         Ident::new(name, Span::call_site()),
-        machine.items,
+        items,
     );
     // Turn off some warnings due to the form of the rewritten modules.
     // Note that they can still fire for the original code.
