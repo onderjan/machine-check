@@ -7,8 +7,8 @@ use crate::{
     context::WLowContext,
     util::{create_angle_bracketed_path_arguments, create_type_path},
     wir::{
-        IntoSyn, WDescription, WExpr, WExprLowCall, WIdent, WItemFnBody, WItemImpl, WItemImplTrait,
-        WPath, WSsaLocal, WStmt, WTypeId, YIfPolarity, YSsa, YStage,
+        IntoSyn, WExpr, WExprLowCall, WIdent, WItemFnBody, WItemImpl, WItemImplTrait, WPath,
+        WSsaLocal, WStmt, WTypeId, YIfPolarity, YSsa, YStage,
     },
 };
 
@@ -68,8 +68,7 @@ impl IntoSyn<Path> for WAbstrItemImplTrait {
 
 pub(crate) fn create_abstract_items(ctx: &WLowContext) -> Vec<Item> {
     let mut machine_types = Vec::new();
-    let mut structs = Vec::new();
-    let mut misc_items = Vec::new();
+    let mut items = Vec::new();
 
     let type_fn = |type_id| ctx.id_syn_type(type_id);
 
@@ -113,19 +112,16 @@ pub(crate) fn create_abstract_items(ctx: &WLowContext) -> Vec<Item> {
             concrete_impls.push(item_impl);
         }
 
-        structs.push(item_struct);
-        misc_items.extend(other_impls.into_iter().map(Item::Impl));
+        items.push(Item::Struct(item_struct.into_syn(&type_fn)));
+        items.extend(other_impls.into_iter().map(Item::Impl));
     }
-
-    let mut impls = Vec::new();
 
     for item_impl in concrete_impls {
-        let item_impl = process_item_impl(item_impl, &machine_types);
-        impls.extend(item_impl);
+        let item_impls = process_item_impl(item_impl, &machine_types);
+        for item_impl in item_impls {
+            items.push(Item::Impl(item_impl.into_syn(&type_fn)));
+        }
     }
 
-    let mut inner_items = WDescription { structs, impls }.into_syn(&type_fn).items;
-    inner_items.extend(misc_items);
-
-    inner_items
+    items
 }

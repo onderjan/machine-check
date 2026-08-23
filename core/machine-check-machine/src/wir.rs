@@ -9,7 +9,6 @@ mod span;
 mod stmt;
 mod ty;
 
-mod description;
 mod property;
 mod signature;
 mod stage;
@@ -25,7 +24,6 @@ pub use span::*;
 pub use stmt::*;
 pub use ty::*;
 
-pub use description::*;
 pub use property::*;
 pub use signature::*;
 pub use stage::*;
