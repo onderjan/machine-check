@@ -11,7 +11,7 @@ use syn::{
 };
 use syn_path::path;
 
-use crate::wir::{WFnSignature, WPartialPath, WSpan, WSpanned, WTotalPath, WTypeId};
+use crate::wir::{WFnSignature, WPartialPath, WSpan, WTotalPath, WTypeId};
 
 use super::{IntoTypedSyn, WIdent, WImplItemType, YStage};
 
@@ -77,14 +77,6 @@ impl IntoTypedSyn<Path> for WItemImplTrait {
     }
 }
 
-impl WSpanned for WItemImplTrait {
-    fn wir_span(&self) -> WSpan {
-        match self {
-            WItemImplTrait::Machine(span) => *span,
-        }
-    }
-}
-
 impl IntoTypedSyn<ItemStruct> for WItemStruct {
     fn into_typed_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> ItemStruct {
         let span = Span::call_site();
@@ -143,9 +135,9 @@ impl IntoTypedSyn<ItemStruct> for WItemStruct {
     }
 }
 
-impl WSpanned for WItemStruct {
-    fn wir_span(&self) -> WSpan {
-        self.ident.wir_span()
+impl WItemStruct {
+    pub fn span(&self) -> WSpan {
+        self.ident.span()
     }
 }
 
@@ -186,12 +178,12 @@ where
     }
 }
 
-impl<Y: YStage> WSpanned for WItemImpl<Y>
+impl<Y: YStage> WItemImpl<Y>
 where
     WItemFn<Y>: IntoTypedSyn<ImplItemFn>,
 {
-    fn wir_span(&self) -> WSpan {
-        self.self_ty.wir_span()
+    pub fn span(&self) -> WSpan {
+        self.self_ty.span()
     }
 }
 
@@ -200,15 +192,6 @@ impl IntoTypedSyn<Visibility> for WVisibility {
         match self {
             WVisibility::Public(span) => Visibility::Public(Token![pub](span.first())),
             WVisibility::Inherited => Visibility::Inherited,
-        }
-    }
-}
-
-impl WSpanned for WVisibility {
-    fn wir_span(&self) -> WSpan {
-        match self {
-            WVisibility::Public(span) => *span,
-            WVisibility::Inherited => WSpan::call_site(),
         }
     }
 }

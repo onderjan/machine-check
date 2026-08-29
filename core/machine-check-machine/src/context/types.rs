@@ -1,5 +1,3 @@
-use proc_macro2::Span;
-
 use crate::wir::{
     WIdent, WPartialPath, WPartialPathArgument, WPartialPathGenerics, WPartialPathSegment,
     WPartialType, WSpan,
@@ -26,11 +24,11 @@ fn bitvector_like_type(name: &str, width: Option<u32>) -> WPartialType {
         leading_colon: Some(WSpan::call_site()),
         segments: vec![
             WPartialPathSegment {
-                ident: WIdent::new(String::from("machine_check"), Span::call_site()),
+                ident: WIdent::new(String::from("machine_check"), WSpan::call_site()),
                 generics: None,
             },
             WPartialPathSegment {
-                ident: WIdent::new(String::from(name), Span::call_site()),
+                ident: WIdent::new(String::from(name), WSpan::call_site()),
                 generics,
             },
         ],
@@ -41,7 +39,7 @@ pub fn bool_type() -> WPartialType {
     WPartialType::Path(WPartialPath {
         leading_colon: None,
         segments: vec![WPartialPathSegment {
-            ident: WIdent::new(String::from("bool"), Span::call_site()),
+            ident: WIdent::new(String::from("bool"), WSpan::call_site()),
             generics: None,
         }],
     })

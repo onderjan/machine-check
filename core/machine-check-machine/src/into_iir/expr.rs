@@ -3,7 +3,7 @@ use crate::{
     into_iir::{error, func::WFnData},
     wir::{
         WDatatypeId, WExpr, WExprField, WExprLowCall, WExprReference, WExprStruct, WIdent, WMckNew,
-        WSpan, WSpanned,
+        WSpan, 
     },
     Error,
 };
@@ -53,7 +53,7 @@ impl WExpr<WExprLowCall> {
                 let unresolved_fn = || {
                 Err(error(
                 String::from("Unresolved function call"),
-                call.fn_path.wir_span(),
+                call.fn_path.span(),
                 ))
                 };
 
@@ -187,7 +187,7 @@ impl WExprField {
         ctx: &WLowContext,
         fn_data: &WFnData,
     ) -> Result<IExprField, Error> {
-        let base_span = self.base.wir_span();
+        let base_span = self.base.span();
         let base_var_id = from_variable_map(self.base, fn_data)?;
         let base_var_info = fn_data.var_data(base_var_id);
 
@@ -216,7 +216,7 @@ impl WExprField {
             }
         };
 
-        let member_span = self.member.wir_span();
+        let member_span = self.member.span();
 
         eprintln!(
             "Member ident: {:?}, type: {:?}, fields: {:?}",
@@ -247,7 +247,7 @@ impl WExprStruct {
         let mut fields = vec![None; num_fields];
 
         for (field_key, field_value) in self.fields {
-            let field_key_span = field_key.wir_span();
+            let field_key_span = field_key.span();
             let Some(member_index) = base_ty.def.fields.get_index_of(&field_key) else {
                 return Err(error(String::from("Field not in struct"), field_key_span));
             };
@@ -274,7 +274,7 @@ impl WExprStruct {
 }
 
 fn from_variable_map(ident: WIdent, fn_data: &WFnData) -> Result<IVarId, Error> {
-    let span = ident.wir_span();
+    let span = ident.span();
     let ident = ident.into_iir();
     if let Some(local_var_id) = fn_data.ident_var(&ident) {
         Ok(local_var_id)

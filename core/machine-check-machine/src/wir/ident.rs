@@ -1,19 +1,18 @@
 use machine_check_common::iir::path::IIdent;
-use proc_macro2::Span;
 use std::fmt::Debug;
 use std::hash::Hash;
 use syn::{punctuated::Punctuated, Expr, ExprPath, Ident, Path, PathArguments, PathSegment, Type};
 
-use crate::wir::{IntoTypedSyn, WSpan, WSpanned, WTotalPath, WTypeId};
+use crate::wir::{IntoTypedSyn, WSpan, WTotalPath, WTypeId};
 
 #[derive(Clone)]
 pub struct WIdent {
     name: String,
-    span: Span,
+    span: WSpan,
 }
 
 impl WIdent {
-    pub fn new(name: String, span: Span) -> Self {
+    pub fn new(name: String, span: WSpan) -> Self {
         Self { name, span }
     }
 
@@ -21,7 +20,7 @@ impl WIdent {
         &self.name
     }
 
-    pub fn span(&self) -> Span {
+    pub fn span(&self) -> WSpan {
         self.span
     }
 
@@ -29,14 +28,14 @@ impl WIdent {
         self.name = name;
     }
 
-    pub fn set_span(&mut self, span: Span) {
+    pub fn set_span(&mut self, span: WSpan) {
         self.span = span;
     }
 
     pub fn from_syn_ident(ident: Ident) -> Self {
         Self {
             name: ident.to_string(),
-            span: ident.span(),
+            span: WSpan::from_span(ident.span()),
         }
     }
 
@@ -44,8 +43,8 @@ impl WIdent {
         WTotalPath::from_ident(self)
     }
 
-    pub fn to_syn_ident(&self) -> Ident {
-        Ident::new(&self.name, self.span)
+    pub fn to_syn(&self) -> Ident {
+        Ident::new(&self.name, self.span.first())
     }
 
     pub fn mck_prefixed(&self, prefix: &str) -> WIdent {
@@ -62,7 +61,7 @@ impl WIdent {
     }
 
     pub fn into_iir(self) -> IIdent {
-        IIdent::new(self.name, WSpan::from_span(self.span).into_iir())
+        IIdent::new(self.name, self.span.into_iir())
     }
 }
 
@@ -106,7 +105,7 @@ impl Ord for WIdent {
 
 impl From<WIdent> for Ident {
     fn from(ident: WIdent) -> Self {
-        Ident::new(&ident.name, ident.span)
+        Ident::new(&ident.name, ident.span.first())
     }
 }
 
@@ -123,11 +122,5 @@ impl IntoTypedSyn<Expr> for WIdent {
                 }]),
             },
         })
-    }
-}
-
-impl WSpanned for WIdent {
-    fn wir_span(&self) -> super::WSpan {
-        WSpan::from_span(self.span)
     }
 }

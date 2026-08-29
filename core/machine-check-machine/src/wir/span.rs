@@ -4,10 +4,6 @@ use quote::ToTokens;
 use std::hash::Hash;
 use syn::Token;
 
-pub trait WSpanned {
-    fn wir_span(&self) -> WSpan;
-}
-
 /// WIR span structure for nice error spans.
 ///
 /// The syn `Span` structure currently cannot produce spans for more than
@@ -61,10 +57,6 @@ impl WSpan {
     pub(crate) fn into_iir(self) -> ISpan {
         // TODO: convert to IIR span
         ISpan::Unspecified
-    }
-
-    pub(crate) fn from_delimiters(first: Span, last: Span) -> Self {
-        WSpan { first, last }
     }
 
     pub(crate) fn call_site() -> Self {

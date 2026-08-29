@@ -7,8 +7,8 @@ use syn::{
 };
 
 use crate::wir::{
-    ident::WIdent, WPartialType, WSpan, WSpanned, WTotalPath, WTotalPathArgument,
-    WTotalPathGenerics, WTotalPathSegment, WStrippedPath,
+    ident::WIdent, WPartialType, WSpan, WStrippedPath, WTotalPath, WTotalPathArgument,
+    WTotalPathGenerics, WTotalPathSegment,
 };
 
 #[derive(Clone, Hash)]
@@ -143,7 +143,7 @@ impl WPartialPath {
                     Some(generics) => {
                         let span = segment.ident.span();
                         let colon2_token = if generics.turbofish.is_some() {
-                            Some(Token![::](span))
+                            Some(Token![::](span.first()))
                         } else {
                             None
                         };
@@ -155,9 +155,9 @@ impl WPartialPath {
                         );
                         PathArguments::AngleBracketed(AngleBracketedGenericArguments {
                             colon2_token,
-                            lt_token: Token![<](span),
+                            lt_token: Token![<](span.first()),
                             args,
-                            gt_token: Token![>](span),
+                            gt_token: Token![>](span.first()),
                         })
                     }
                     None => PathArguments::None,
@@ -180,7 +180,7 @@ impl WPartialPath {
         };
 
         if first_segment.ident.name() == "Self" && first_segment.generics.is_none() {
-            let span = first_segment.ident.wir_span();
+            let span = first_segment.ident.span();
             let mut result = self_path.clone().into_partial();
             result.set_span(span);
             result.segments.extend(self.segments.into_iter().skip(1));
@@ -194,7 +194,7 @@ impl WPartialPath {
     pub fn set_span(&mut self, span: WSpan) {
         self.leading_colon.map(|_| span);
         for segment in &mut self.segments {
-            segment.ident.set_span(span.first());
+            segment.ident.set_span(span);
             if let Some(generics) = &mut segment.generics {
                 generics.set_span(span);
             }
@@ -232,22 +232,15 @@ impl WPartialPath {
         }
     }
 
-    pub fn wir_span(&self) -> WSpan {
-        let first = if let Some(leading_colon) = self.leading_colon {
-            leading_colon.first()
+    pub fn span(&self) -> WSpan {
+        if let Some(leading_colon) = self.leading_colon {
+            leading_colon
         } else {
             self.segments
                 .first()
                 .map(|first| first.ident.span())
-                .unwrap_or(Span::call_site())
-        };
-        WSpan::from_delimiters(
-            first,
-            self.segments
-                .last()
-                .map(|last| last.ident.span())
-                .unwrap_or(Span::call_site()),
-        )
+                .unwrap_or(WSpan::call_site())
+        }
     }
 
     pub fn get_ident(&self) -> Option<&WIdent> {

@@ -5,7 +5,7 @@ use crate::into_wir::{Error, ErrorType, Errors};
 use crate::wir::WItemFn;
 use crate::wir::{
     WBlock, WCallArg, WExpr, WExprLowCall, WFnSignature, WIdent, WItemFnBody, WMckNew, WPhi,
-    WPhiTaken, WSpan, WSpanned, WSsaLocal, WStmt, WStmtAssign, WStmtIf, WTypeId, YLowered, YSsa,
+    WPhiTaken, WSsaLocal, WStmt, WStmtAssign, WStmtIf, WTypeId, YLowered, YSsa,
 };
 
 pub fn convert_item_fn(
@@ -17,7 +17,7 @@ pub fn convert_item_fn(
     for nonlocal_ident in nonlocal_idents {
         errors.push(Error::new(
             ErrorType::UndefinedVariable(nonlocal_ident.name().to_string()),
-            WSpan::from_span(nonlocal_ident.span()),
+            nonlocal_ident.span(),
         ));
     }
     Errors::iter_to_result(errors)?;
@@ -369,7 +369,7 @@ impl LocalVisitor<'_> {
                     ErrorType::IllegalConstruct(String::from(
                         "Variable used before being assigned",
                     )),
-                    ident.wir_span(),
+                    ident.span(),
                 ));
                 return;
             };

@@ -2,8 +2,8 @@ use std::str::FromStr;
 
 use machine_check_common::ir_common::{IrStdBinaryOp, IrStdUnaryOp};
 use syn::{
-    punctuated::Punctuated, spanned::Spanned, token::Comma, Expr, ExprBinary, ExprCall, ExprField,
-    ExprIndex, ExprReference, ExprStruct, ExprUnary, Member, Path, UnOp,
+    punctuated::Punctuated, token::Comma, Expr, ExprBinary, ExprCall, ExprField, ExprIndex,
+    ExprReference, ExprStruct, ExprUnary, Member, Path, UnOp,
 };
 use syn_path::path;
 
@@ -609,7 +609,7 @@ impl RightExprFolder<'_, '_, '_> {
     }
 
     fn move_through_temp(&mut self, expr: Expr) -> Result<WIdent, Error> {
-        let expr_span = expr.span();
+        let expr_span = WSpan::from_syn(&expr);
         // process the expression first before moving it through temporary
         let expr = match expr {
             syn::Expr::Path(_) => {
@@ -651,10 +651,11 @@ impl RightExprFolder<'_, '_, '_> {
 
     fn force_assign_to_temp(&mut self, expr: Expr) -> Result<WIdent, Error> {
         // create a temporary variable
+        let expr_span = WSpan::from_syn(&expr);
         let tmp_ident = self
             .fn_folder
             .ident_creator
-            .create_temporary_ident(expr.span(), ());
+            .create_temporary_ident(expr_span, ());
         // fold expression
         let expr = self.fold_right_expr(expr)?;
         // add assignment statement; the temporary is only assigned to once here
@@ -777,7 +778,7 @@ impl RightExprFolder<'_, '_, '_> {
         //}
 
         // the temporary must be force-assigned
-        let tmp_result = self.force_assign_to_temp(create_expr_ident(left.to_syn_ident()))?;
+        let tmp_result = self.force_assign_to_temp(create_expr_ident(left.to_syn()))?;
 
         let right_assign = WMacroableStmt::Assign(WStmtAssign {
             left: WIndexedIdent::NonIndexed(tmp_result.clone()),

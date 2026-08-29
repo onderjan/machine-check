@@ -1,7 +1,6 @@
 use proc_macro2::Span;
 use syn::{
-    spanned::Spanned, visit::Visit, FnArg, Generics, Ident, ImplItemFn, ItemFn, Pat, Signature,
-    Type, TypeReference,
+    visit::Visit, FnArg, Generics, Ident, ImplItemFn, ItemFn, Pat, Signature, Type, TypeReference,
 };
 
 use crate::{
@@ -10,7 +9,7 @@ use crate::{
         from_syn::{attribute_disallower::AttributeDisallower, item::fold_visibility},
         Error, ErrorType, Errors,
     },
-    wir::{WFnArg, WFnSignature, WIdent, WItemFn, WTotalPath, WSpan, WSynBlock, YBuild},
+    wir::{WFnArg, WFnSignature, WIdent, WItemFn, WSpan, WSynBlock, WTotalPath, YBuild},
 };
 
 pub fn fold_impl_item_fn(
@@ -185,7 +184,7 @@ fn fold_fn_arg(
                 ));
             };
 
-            let receiver_span = receiver.span();
+            let receiver_span = WSpan::from_syn(receiver);
 
             // do not scope self, it is unnecessary
             let self_ident = WIdent::new(String::from("self"), receiver_span);

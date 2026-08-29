@@ -1,6 +1,4 @@
-use proc_macro2::Span;
-
-use crate::wir::{WIdent, WSpan, WSpanned, WTotalPath, WTotalPathSegment};
+use crate::wir::{WIdent, WSpan, WTotalPath, WTotalPathSegment};
 use std::fmt::Debug;
 
 #[derive(Clone, Hash, PartialEq, Eq)]
@@ -23,6 +21,17 @@ impl WStrippedPath {
                 .collect(),
         }
     }
+
+    pub fn span(&self) -> WSpan {
+        if let Some(leading_colon) = self.leading_colon {
+            leading_colon
+        } else {
+            self.segments
+                .first()
+                .map(|first| first.span())
+                .unwrap_or(WSpan::call_site())
+        }
+    }
 }
 
 impl Debug for WStrippedPath {
@@ -41,25 +50,5 @@ impl Debug for WStrippedPath {
             Debug::fmt(&ident, f)?;
         }
         Ok(())
-    }
-}
-
-impl WSpanned for WStrippedPath {
-    fn wir_span(&self) -> WSpan {
-        let first = if let Some(leading_colon) = self.leading_colon {
-            leading_colon.first()
-        } else {
-            self.segments
-                .first()
-                .map(|first| first.span())
-                .unwrap_or(Span::call_site())
-        };
-        WSpan::from_delimiters(
-            first,
-            self.segments
-                .last()
-                .map(|last| last.span())
-                .unwrap_or(Span::call_site()),
-        )
     }
 }

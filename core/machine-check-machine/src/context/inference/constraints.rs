@@ -8,7 +8,7 @@ use crate::{
     into_wir::{Error, ErrorType},
     wir::{
         WBlock, WCall, WCallArg, WExpr, WExprHighCall, WIdent, WIndexedExpr, WIndexedIdent,
-        WMacroableStmt, WPartialPathArgument, WPartialPathGenerics, WPartialType, WSpanned,
+        WMacroableStmt, WPartialPathArgument, WPartialPathGenerics, WPartialType, 
         WTypeId, YTac,
     },
 };
@@ -217,7 +217,7 @@ impl super::WInferenceContext {
                         }
                     }
                 }
-                let span = call.fn_path.wir_span();
+                let span = call.fn_path.span();
                 if call.args.len() != 1 {
                     return Err(Error::new(
                         ErrorType::IllegalConstruct(String::from("Expected exactly 1 argument")),
@@ -282,7 +282,7 @@ impl super::WInferenceContext {
                 && segments[3].ident.name() == "into"
             {
                 eprintln!("Processing Into");
-                let span = call.fn_path.wir_span();
+                let span = call.fn_path.span();
                 let WCallArg::Ident(_ident) = &call.args[0] else {
                     return Err(Error::new(
                         ErrorType::IllegalConstruct(String::from("Expected ident in argument")),
@@ -318,7 +318,7 @@ impl super::WInferenceContext {
             if num_expected != num_provided {
                 return Err(Error::new(
                     ErrorType::WrongNumberOfArguments(num_expected, num_provided),
-                    call_path.wir_span(),
+                    call_path.span(),
                 ));
             }
 
@@ -350,7 +350,7 @@ impl super::WInferenceContext {
             // not found
             Err(Error::new(
                 ErrorType::UnknownCallFunction(format!("{:?}", call_path)),
-                call_path.wir_span(),
+                call_path.span(),
             ))
         }
     }
@@ -363,6 +363,6 @@ fn get_type(types: &BTreeMap<WIdent, WTypeId>, ident: &WIdent) -> Result<WTypeId
 
     Err(Error::new(
         ErrorType::UndefinedVariable(ident.name().to_string()),
-        ident.wir_span(),
+        ident.span(),
     ))
 }

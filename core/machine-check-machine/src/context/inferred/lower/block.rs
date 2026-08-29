@@ -1,12 +1,12 @@
 use machine_check_common::ir_common::IrMckBinaryOp;
-use proc_macro2::Span;
 
 use crate::{
     context::inferred::lower::create_panic_call,
     into_wir::Errors,
     wir::{
         WBlock, WExpr, WExprHighCall, WExprLowCall, WIfCondition, WIndexedExpr, WIndexedIdent,
-        WMacroableStmt, WMckBinary, WNoIfPolarity, WStmt, WStmtAssign, WStmtIf, YLowered, YTac,
+        WMacroableStmt, WMckBinary, WNoIfPolarity, WSpan, WStmt, WStmtAssign, WStmtIf, YLowered,
+        YTac,
     },
 };
 
@@ -78,7 +78,7 @@ impl super::FnLowerer<'_> {
     fn replace_panic_if_zero(
         &mut self,
         panic_expr: WExpr<WExprLowCall>,
-        span: Span,
+        span: WSpan,
     ) -> Vec<WStmt<YLowered>> {
         // assign to the panic variable if it is currently zero
         let panic_is_zero_ident = self

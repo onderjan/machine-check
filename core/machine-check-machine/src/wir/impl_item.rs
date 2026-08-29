@@ -241,7 +241,7 @@ pub fn ident_type_local(
     mutable: bool,
     type_fn: &impl Fn(WTypeId) -> Type,
 ) -> Local {
-    let span = ident.span();
+    let span = ident.span().first();
 
     let mut pat = Pat::Ident(PatIdent {
         attrs: Vec::new(),

@@ -4,9 +4,7 @@ use syn::Expr;
 use crate::{
     context::builder::{FunctionFolder, FunctionScope},
     into_wir::{fold_partial_path, Error, Errors},
-    wir::{
-        WFnArg, WIdent, WItemFn, WItemFnBody, WSpan, WSpanned, WTacLocal, WTypeId, YBuild, YTac,
-    },
+    wir::{WFnArg, WIdent, WItemFn, WItemFnBody, WSpan, WTacLocal, WTypeId, YBuild, YTac},
 };
 
 impl FunctionFolder<'_> {
@@ -33,7 +31,7 @@ impl FunctionFolder<'_> {
         assert_eq!(self.scopes.len(), 1);
 
         for (temporary_ident, ()) in self.ident_creator.drain_created_temporaries() {
-            let span = temporary_ident.wir_span();
+            let span = temporary_ident.span();
             self.local_types
                 .insert(temporary_ident, self.ctx.wildcard_id(span));
         }

@@ -17,7 +17,7 @@ pub fn phi_impl(item_struct: &WItemStruct, ctx: &WLowContext) -> ItemImpl {
 
     create_item_impl(
         Some(path!(::mck::forward::Phi)),
-        create_path_from_ident(item_struct.ident.to_syn_ident()),
+        create_path_from_ident(item_struct.ident.to_syn()),
         vec![ImplItem::Fn(phi_fn)],
     )
 }
@@ -34,10 +34,10 @@ fn phi_fn(s: &WItemStruct, ctx: &WLowContext) -> ImplItemFn {
 
     for (index, (field_name, field)) in s.fields.iter().enumerate() {
         // assign our field to a temporary as calls can only take ident arguments
-        let self_field_expr = create_expr_field_named(create_self(), field_name.to_syn_ident());
+        let self_field_expr = create_expr_field_named(create_self(), field_name.to_syn());
         let other_field_expr = create_expr_field_named(
             create_expr_ident(other_ident.clone()),
-            field_name.to_syn_ident(),
+            field_name.to_syn(),
         );
         let self_field_temp_ident = create_ident(&format!("__mck_phi_self_{}", index));
         local_stmts.push(create_let_bare(
@@ -97,7 +97,7 @@ fn phi_fn(s: &WItemStruct, ctx: &WLowContext) -> ImplItemFn {
             true,
         ));
         struct_field_values.push(create_field_value_ident(
-            field_name.to_syn_ident(),
+            field_name.to_syn(),
             create_expr_ident(phi_result_ident),
         ));
     }

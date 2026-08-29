@@ -122,7 +122,7 @@ impl WInferenceContext {
 
         let mut types = Vec::new();
         for ty in self.types {
-            let span = ty.wir_span();
+            let span = ty.span();
             match ty.try_into_total() {
                 Ok(ty) => types.push(ty),
                 Err(()) => return Err(Error::new(ErrorType::InferenceFailure, span)),
@@ -140,7 +140,7 @@ impl WInferenceContext {
 
 fn join_types(previous: &WPartialType, current: WPartialType) -> Result<WPartialType, Error> {
     eprintln!("Joining types {:?} and {:?}", previous, current);
-    let span = current.wir_span();
+    let span = current.span();
     Ok(match (previous, current) {
         (WPartialType::Infer(_), current) => current,
         (previous, WPartialType::Infer(_)) => previous.clone(),

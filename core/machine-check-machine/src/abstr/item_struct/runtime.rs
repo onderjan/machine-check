@@ -12,11 +12,11 @@ use crate::{
         create_expr_reference, create_ident, create_impl_item_fn, create_let, create_let_bare,
         create_type_path, create_type_reference, ArgType,
     },
-    wir::{IntoTypedSyn, WItemStruct, WSpanned},
+    wir::{IntoTypedSyn, WItemStruct},
 };
 
 pub fn from_runtime_fn(item_struct: &WItemStruct, ctx: &WLowContext) -> ImplItemFn {
-    let span = item_struct.wir_span().first();
+    let span = item_struct.span().first();
     let runtime_ident = Ident::new("__mck_runtime", span);
     let runtime_ty =
         create_type_reference(false, create_type_path(path!(::mck::abstr::AbstractValue)));
@@ -72,7 +72,7 @@ pub fn from_runtime_fn(item_struct: &WItemStruct, ctx: &WLowContext) -> ImplItem
 
         struct_field_values.push(FieldValue {
             attrs: Vec::new(),
-            member: syn::Member::Named(field_name.to_syn_ident()),
+            member: syn::Member::Named(field_name.to_syn()),
             colon_token: Some(Token![:](span)),
             expr: create_expr_ident(our_field_temp_ident),
         });
@@ -98,7 +98,7 @@ pub fn from_runtime_fn(item_struct: &WItemStruct, ctx: &WLowContext) -> ImplItem
 }
 
 pub fn to_runtime_fn(item_struct: &WItemStruct) -> ImplItemFn {
-    let span = item_struct.wir_span().first();
+    let span = item_struct.span().first();
 
     let self_ident = Ident::new("self", span);
 
@@ -120,7 +120,7 @@ pub fn to_runtime_fn(item_struct: &WItemStruct) -> ImplItemFn {
             attrs: Vec::new(),
             base: Box::new(create_expr_ident(self_ident.clone())),
             dot_token: Token![.](span),
-            member: syn::Member::Named(field_name.to_syn_ident()),
+            member: syn::Member::Named(field_name.to_syn()),
         });
 
         let reference_expr = create_expr_reference(false, field_expr);

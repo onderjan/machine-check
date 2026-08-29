@@ -60,7 +60,7 @@ impl IntoTypedSyn<Path> for WAbstrItemImplTrait {
             vec![GenericArgument::Type(create_type_path(
                 self.machine_type.clone().into_syn(),
             ))],
-            self.machine_type.span(),
+            self.machine_type.span().first(),
         );
         trait_path
     }

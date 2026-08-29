@@ -14,7 +14,7 @@ use crate::{
     util::ident_creator::IdentCreator,
     wir::{
         WDefinitions, WFnId, WIdent, WItemFn, WItemImpl, WItemStruct, WPartialType, WSpan,
-        WSpanned, WTotalPath, WTypeId, WStrippedPath, YBuild, YTac,
+        WStrippedPath, WTotalPath, WTypeId, YBuild, YTac,
     },
 };
 
@@ -41,7 +41,7 @@ impl WContextBuilder {
         let Some(self_datatype) = self.definitions.datatype_id(&datatype_path) else {
             return Err(Error::new(
                 crate::into_wir::ErrorType::IllegalConstruct(String::from("Unknown self type")),
-                item_impl.wir_span(),
+                item_impl.span(),
             ));
         };
 

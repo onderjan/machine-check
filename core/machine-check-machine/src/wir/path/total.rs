@@ -5,7 +5,7 @@ use syn::{punctuated::Punctuated, Path, PathArguments, PathSegment, Token};
 
 use crate::wir::{
     ident::WIdent, WPartialPath, WPartialPathArgument, WPartialPathGenerics, WPartialPathSegment,
-    WSpan, WSpanned, WStrippedPath, WTotalType,
+    WSpan, WStrippedPath, WTotalType,
 };
 
 #[derive(Clone, Hash, PartialEq, Eq)]
@@ -141,12 +141,12 @@ impl WTotalPath {
         }
     }
 
-    pub fn span(&self) -> Span {
+    pub fn span(&self) -> WSpan {
         // TODO: correct span
         if let Some(last_segment) = self.segments.last() {
             last_segment.ident.span()
         } else {
-            Span::call_site()
+            WSpan::call_site()
         }
     }
 
@@ -185,26 +185,6 @@ impl WTotalPath {
                 .map(|segment| segment.ident)
                 .collect(),
         }
-    }
-}
-
-impl WSpanned for WTotalPath {
-    fn wir_span(&self) -> WSpan {
-        let first = if let Some(leading_colon) = self.leading_colon {
-            leading_colon.first()
-        } else {
-            self.segments
-                .first()
-                .map(|first| first.ident.span())
-                .unwrap_or(Span::call_site())
-        };
-        WSpan::from_delimiters(
-            first,
-            self.segments
-                .last()
-                .map(|last| last.ident.span())
-                .unwrap_or(Span::call_site()),
-        )
     }
 }
 

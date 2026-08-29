@@ -9,7 +9,7 @@ use crate::{
     into_wir::{Error, ErrorType},
     wir::{
         WCall, WCallArg, WExpr, WExprHighCall, WExprLowCall, WIdent, WMckBinary, WMckExt, WMckNew,
-        WMckUnary, WPartialPathArgument, WSpanned, WStdBinary, WStdUnary, WTotalType,
+        WMckUnary, WPartialPathArgument, WStdBinary, WStdUnary, WTotalType,
     },
 };
 
@@ -35,7 +35,8 @@ impl super::FnLowerer<'_> {
                 if generics.arguments.len() == 1 {
                     if let WCallArg::Literal(Lit::Int(lit_int)) = &call.args[0] {
                         if let Ok(value) = lit_int.base10_parse() {
-                            if let WPartialPathArgument::Uint(width, _span) = &generics.arguments[0] {
+                            if let WPartialPathArgument::Uint(width, _span) = &generics.arguments[0]
+                            {
                                 let bound = RBound::new(*width);
                                 let bitvector = ConcreteBitvector::new(value, bound);
                                 return Ok(WExpr::Call(WExprLowCall::MckNew(WMckNew::Bitvector(
@@ -148,7 +149,7 @@ impl super::FnLowerer<'_> {
                 _ => {
                     return Err(Error::new(
                         ErrorType::CallConversionError("Cannot determine right shift signedness"),
-                        left_arg.wir_span(),
+                        left_arg.span(),
                     ))
                 }
             },
@@ -170,7 +171,7 @@ impl super::FnLowerer<'_> {
                 else {
                     return Err(Error::new(
                         ErrorType::CallConversionError("Cannot determine comparison signedness"),
-                        left_arg.wir_span(),
+                        left_arg.span(),
                     ));
                 };
                 if left_signedness != right_signedness {
@@ -178,7 +179,7 @@ impl super::FnLowerer<'_> {
                         ErrorType::CallConversionError(
                             "Signedness of compared types does not match",
                         ),
-                        left_arg.wir_span(),
+                        left_arg.span(),
                     ));
                 }
 
@@ -188,7 +189,7 @@ impl super::FnLowerer<'_> {
                             ErrorType::CallConversionError(
                                 "Cannot compare bitvectors without signedness",
                             ),
-                            left_arg.wir_span(),
+                            left_arg.span(),
                         ))
                     }
                     Signedness::Unsigned => {
@@ -213,7 +214,7 @@ impl super::FnLowerer<'_> {
                 _ => {
                     return Err(Error::new(
                         ErrorType::CallConversionError("Cannot determine division signedness"),
-                        left_arg.wir_span(),
+                        left_arg.span(),
                     ))
                 }
             },
@@ -223,7 +224,7 @@ impl super::FnLowerer<'_> {
                 _ => {
                     return Err(Error::new(
                         ErrorType::CallConversionError("Cannot determine remainder signedness"),
-                        left_arg.wir_span(),
+                        left_arg.span(),
                     ))
                 }
             },
@@ -247,7 +248,7 @@ impl super::FnLowerer<'_> {
             _ => {
                 return Err(Error::new(
                     ErrorType::CallConversionError("Cannot determine bit extension signedness"),
-                    call.from.wir_span(),
+                    call.from.span(),
                 ))
             }
         };

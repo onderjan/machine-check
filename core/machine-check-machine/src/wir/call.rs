@@ -1,4 +1,3 @@
-use proc_macro2::Span;
 use std::fmt::Debug;
 use syn::{punctuated::Punctuated, token::Paren, Expr, ExprCall, ExprLit, ExprPath, Lit, Type};
 
@@ -61,7 +60,7 @@ impl IntoTypedSyn<Expr> for WCall {
 }
 
 fn construct_call_fn_path(fn_operand: String) -> WPartialPath {
-    let span = Span::call_site();
+    let span = WSpan::call_site();
     let without_leading = fn_operand
         .strip_prefix("::")
         .expect("Special function operand should have a leading prefix");
@@ -73,7 +72,7 @@ fn construct_call_fn_path(fn_operand: String) -> WPartialPath {
         })
         .collect();
     WPartialPath {
-        leading_colon: Some(WSpan::from_span(span)),
+        leading_colon: Some(span),
         segments,
     }
 }

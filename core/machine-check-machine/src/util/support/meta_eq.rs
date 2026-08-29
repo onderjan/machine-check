@@ -14,7 +14,7 @@ pub fn meta_eq_impl(item_struct: &WItemStruct) -> ItemImpl {
     let span = item_struct.ident.span();
 
     // two underscores to avoid unused variable warning if there are no fields
-    let other_ident = Ident::new("__other", span);
+    let other_ident = Ident::new("__other", span.first());
 
     let mut result_expr = None;
 
@@ -38,7 +38,7 @@ pub fn meta_eq_impl(item_struct: &WItemStruct) -> ItemImpl {
     }
 
     let eq_fn = create_impl_item_fn(
-        Ident::new("meta_eq", span),
+        Ident::new("meta_eq", span.first()),
         vec![
             create_self_arg(ArgType::Reference),
             create_arg(ArgType::Reference, other_ident, None),

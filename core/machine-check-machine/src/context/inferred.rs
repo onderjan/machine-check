@@ -84,21 +84,21 @@ impl WInferredContext {
 
     fn new_phi_arg_id(&mut self, inner: WTypeId) -> WTypeId {
         let inner = self.types[inner.index()].clone();
-        let span = inner.wir_span();
+        let span = inner.span();
 
         let ty = WTotalType::Path(WTotalPath {
             leading_colon: Some(span),
             segments: vec![
                 WTotalPathSegment {
-                    ident: WIdent::new(String::from("mck"), span.first()),
+                    ident: WIdent::new(String::from("mck"), span),
                     generics: None,
                 },
                 WTotalPathSegment {
-                    ident: WIdent::new(String::from("forward"), span.first()),
+                    ident: WIdent::new(String::from("forward"), span),
                     generics: None,
                 },
                 WTotalPathSegment {
-                    ident: WIdent::new(String::from("PhiArg"), span.first()),
+                    ident: WIdent::new(String::from("PhiArg"), span),
                     generics: Some(WTotalPathGenerics {
                         turbofish: Some(span),
                         arguments: vec![WTotalPathArgument::Type(inner)],

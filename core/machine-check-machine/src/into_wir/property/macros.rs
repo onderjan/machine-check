@@ -1,5 +1,4 @@
 use machine_check_common::PropertyMacros;
-use proc_macro2::Span;
 use quote::ToTokens;
 use syn::{
     punctuated::Punctuated,
@@ -182,7 +181,7 @@ impl<D> Visitor<'_, D> {
     }
 
     fn expand_next(&mut self, universal: bool, mac: Macro) -> Result<Expr, Error> {
-        let span = mac.span();
+        let span = WSpan::from_syn(&mac);
         let inner_expr = parse_uni_argument_macro(&mac)?;
         let outer_display = make_machine_check_macro_display(&mac);
 
@@ -210,7 +209,7 @@ impl<D> Visitor<'_, D> {
     }
 
     fn expand_fixed_point(&mut self, universal: bool, mac: Macro) -> Result<Expr, Error> {
-        let span = mac.span();
+        let span = WSpan::from_syn(&mac);
         let (variable, inner_expr) = parse_bi_argument_macro(&mac)?;
         let outer_display = make_machine_check_macro_display(&mac);
 
@@ -266,7 +265,7 @@ impl<D> Visitor<'_, D> {
         mac: Macro,
     ) -> Result<Expr, Error> {
         let fixed_point_display = make_machine_check_macro_display(&mac);
-        let span = mac.span();
+        let span = WSpan::from_syn(&mac);
         let (permitting, sufficient) = if bi_argument {
             let (permitting, sufficient) = parse_bi_argument_macro(&mac)?;
             (Some(permitting), sufficient)
@@ -305,11 +304,11 @@ impl<D> Visitor<'_, D> {
 
         // create the outer function, it will not be displayed
 
-        fn logical_bi_operator(is_and: bool, span: Span) -> BinOp {
+        fn logical_bi_operator(is_and: bool, span: WSpan) -> BinOp {
             if is_and {
-                BinOp::BitAnd(Token![&](span))
+                BinOp::BitAnd(Token![&](span.first()))
             } else {
-                BinOp::BitOr(Token![|](span))
+                BinOp::BitOr(Token![|](span.first()))
             }
         }
 
@@ -435,8 +434,8 @@ fn parse_punctuated_in_macro(mac: &Macro) -> Result<Punctuated<Expr, Token![,]>,
         })
 }
 
-fn subproperty_ident(index: usize, span: Span) -> Ident {
-    Ident::new(&format!("__mck_subproperty_{}", index), span)
+fn subproperty_ident(index: usize, span: WSpan) -> Ident {
+    Ident::new(&format!("__mck_subproperty_{}", index), span.first())
 }
 
 fn make_machine_check_macro_display(mac: &Macro) -> String {

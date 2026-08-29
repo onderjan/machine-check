@@ -1,6 +1,4 @@
-use proc_macro2::Span;
-
-use crate::wir::WIdent;
+use crate::wir::{WIdent, WSpan};
 
 pub struct IdentCreator<T> {
     prefix: String,
@@ -17,7 +15,7 @@ impl<T> IdentCreator<T> {
         }
     }
 
-    pub fn create_temporary_ident(&mut self, span: Span, ty: T) -> WIdent {
+    pub fn create_temporary_ident(&mut self, span: WSpan, ty: T) -> WIdent {
         let tmp_ident = WIdent::new(
             format!("__mck_{}tmp_{}", self.prefix, self.next_temp_counter),
             span,

@@ -14,7 +14,7 @@ use crate::{
 
 impl WInferredContext {
     pub fn lower_type(&self, ty: WTotalType) -> Result<IGeneralType, Error> {
-        let span = ty.wir_span();
+        let span = ty.span();
         eprintln!("Lowering type {:?}", ty);
         match ty {
             WTotalType::Path(path) => {
@@ -22,7 +22,7 @@ impl WInferredContext {
                     || path.matches_absolute(&["machine_check", "Unsigned"])
                     || path.matches_absolute(&["machine_check", "Signed"])
                 {
-                    /*let span = path.segments[0].ident.wir_span();
+                    /*let span = path.segments[0].ident.span();
                     path.segments[0].ident.set_name(String::from("mck"));
                     path.segments.insert(
                         1,

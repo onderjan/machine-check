@@ -2,7 +2,7 @@ use proc_macro2::Span;
 use std::fmt::Debug;
 use syn::{Path, Token, Type, TypeInfer, TypePath, TypeReference};
 
-use crate::wir::{WPartialPath, WPartialPathArgument, WSpan, WSpanned, WTotalType};
+use crate::wir::{WPartialPath, WPartialPathArgument, WSpan, WTotalType};
 
 #[derive(Clone, Hash)]
 pub enum WPartialType {
@@ -12,16 +12,16 @@ pub enum WPartialType {
 }
 
 impl WPartialType {
-    pub fn wir_span(&self) -> WSpan {
+    pub fn span(&self) -> WSpan {
         match self {
             WPartialType::Path(path) => {
                 if let Some(last) = path.segments.last() {
-                    last.ident.wir_span()
+                    last.ident.span()
                 } else {
                     WSpan::call_site()
                 }
             }
-            WPartialType::Reference(inner) => inner.wir_span(),
+            WPartialType::Reference(inner) => inner.span(),
             WPartialType::Infer(span) => *span,
         }
     }
@@ -70,7 +70,7 @@ impl WPartialType {
                 Type::Path(TypePath { qself: None, path })
             }
             WPartialType::Reference(ty) => {
-                let span: Span = ty.wir_span().first();
+                let span: Span = ty.span().first();
                 let elem = Box::new(ty.into_syn());
                 Type::Reference(TypeReference {
                     and_token: Token![&](span),

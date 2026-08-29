@@ -142,7 +142,7 @@ fn into_member(member_ident: WIdent) -> syn::Member {
     };
     syn::Member::Unnamed(Index {
         index: parsed,
-        span: member_ident.span(),
+        span: member_ident.span().first(),
     })
 }
 
@@ -155,7 +155,7 @@ impl<CF: IntoTypedSyn<Expr>> IntoTypedSyn<Expr> for WIndexedExpr<CF> {
                     WArrayBaseExpr::Field(field) => Expr::Field(ExprField {
                         attrs: Vec::new(),
                         base: Box::new(field.base.into_typed_syn(type_fn)),
-                        dot_token: Token![.](index.span()),
+                        dot_token: Token![.](index.span().first()),
                         member: syn::Member::Named(field.member.into()),
                     }),
                 };

@@ -10,7 +10,7 @@ use crate::{
     util::{create_expr_ident, path_matches_global_names},
     wir::{
         WBlock, WIdent, WIfCondition, WIndexedIdent, WMacroableStmt, WNoIfPolarity,
-        WPanicMacroKind, WSpan, WSpanned, WStmtAssign, WStmtIf, WStmtPanicMacro, YTac,
+        WPanicMacroKind, WSpan,  WStmtAssign, WStmtIf, WStmtPanicMacro, YTac,
     },
 };
 
@@ -178,7 +178,7 @@ impl<'a> super::FunctionFolder<'a> {
                 if let Some(result) = result {
                     return Err(Errors::single(Error::unsupported_construct(
                         "Block statements with result",
-                        result.wir_span(),
+                        result.span(),
                     )));
                 };
                 assert!(result.is_none());

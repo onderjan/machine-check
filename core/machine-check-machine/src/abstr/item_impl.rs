@@ -1,13 +1,11 @@
 use std::collections::HashMap;
 
-use proc_macro2::Span;
-
 use crate::{
     abstr::{WAbstrItemImplTrait, YAbstr, YAbstrIfPolarity},
     wir::{
         WBlock, WExpr, WExprLowCall, WFnSignature, WIdent, WIfCondition, WItemFn, WItemFnBody,
-        WItemImpl, WItemImplTrait, WTotalPath, WTotalPathSegment, WSsaLocal, WStmt, WStmtAssign, WStmtIf,
-        YSsa,
+        WItemImpl, WItemImplTrait, WSpan, WSsaLocal, WStmt, WStmtAssign, WStmtIf, WTotalPath,
+        WTotalPathSegment, YSsa,
     },
 };
 
@@ -19,7 +17,7 @@ pub fn preprocess_item_impl(item_impl: &WItemImpl<YSsa>) -> Option<WTotalPath> {
     };
 
     let mut ty = item_impl.self_ty.clone();
-    let span = Span::call_site();
+    let span = WSpan::call_site();
     ty.segments.insert(
         0,
         WTotalPathSegment {

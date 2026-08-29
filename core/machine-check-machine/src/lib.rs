@@ -115,7 +115,7 @@ pub fn process_property<M: FullMachine, D>(
             .type_id(&ty)
             .expect("Global ident type id should be put into context");
         global_basic_types.insert(
-            WIdent::new(global_ident.name().to_string(), Span::call_site()),
+            WIdent::new(global_ident.name().to_string(), WSpan::call_site()),
             type_id,
         );
     }

@@ -149,15 +149,14 @@ fn property_from_exprs(
 
     for (index, subproperty) in property.subproperties.into_iter().enumerate() {
         let subproperty_ident =
-            WIdent::new(format!("__mck_subproperty_{}", index), Span::call_site());
+            WIdent::new(format!("__mck_subproperty_{}", index), WSpan::call_site());
         optional_params.insert(subproperty_ident, ctx.bool_type_id());
 
         let subproperty = match subproperty {
             ExprSubproperty::Expr(subproperty_func) => {
                 let span = WSpan::from_syn(&subproperty_func.expr);
 
-                let subproperty_fn_ident =
-                    WIdent::new(format!("__mck_subfn_{}", index), span.first());
+                let subproperty_fn_ident = WIdent::new(format!("__mck_subfn_{}", index), span);
 
                 let item_fn = WItemFn {
                     visibility: WVisibility::Public(span),

@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use syn::Type;
 
-use crate::wir::{WPartialType, WSpan, WSpanned, WTotalPath};
+use crate::wir::{WPartialType, WSpan, WTotalPath};
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub enum WTotalType {
@@ -10,16 +10,16 @@ pub enum WTotalType {
 }
 
 impl WTotalType {
-    pub fn wir_span(&self) -> WSpan {
+    pub fn span(&self) -> WSpan {
         match self {
             WTotalType::Path(path) => {
                 if let Some(last) = path.segments.last() {
-                    last.ident.wir_span()
+                    last.ident.span()
                 } else {
                     WSpan::call_site()
                 }
             }
-            WTotalType::Reference(inner) => inner.wir_span(),
+            WTotalType::Reference(inner) => inner.span(),
         }
     }
 

@@ -1,4 +1,3 @@
-use proc_macro2::Ident;
 use syn::{punctuated::Punctuated, Generics, ImplItem, ItemImpl, Path, Token};
 use syn_path::path;
 
@@ -9,7 +8,7 @@ use crate::{
         create_path_from_ident, create_path_segment, create_path_with_last_generic_type,
         create_type_path, meta_eq::meta_eq_impl,
     },
-    wir::WItemStruct,
+    wir::{WIdent, WItemStruct},
 };
 
 use self::from_concrete::from_concrete_fn;
@@ -71,8 +70,10 @@ fn create_abstr(item_struct: &WItemStruct, ctx: &WLowContext) -> ItemImpl {
     let span = item_struct.ident.span();
 
     let mut concr_segments = Punctuated::new();
-    concr_segments.push(create_path_segment(Ident::new("super", span)));
-    concr_segments.push(create_path_segment(item_struct.ident.to_syn_ident()));
+    concr_segments.push(create_path_segment(
+        WIdent::new(String::from("super"), span).to_syn(),
+    ));
+    concr_segments.push(create_path_segment(item_struct.ident.to_syn()));
     let concr_path = Path {
         leading_colon: None,
         segments: concr_segments,
@@ -89,11 +90,11 @@ fn create_abstr(item_struct: &WItemStruct, ctx: &WLowContext) -> ItemImpl {
         attrs: vec![],
         defaultness: None,
         unsafety: None,
-        impl_token: Token![impl](span),
+        impl_token: Token![impl](span.first()),
         generics: Generics::default(),
-        trait_: Some((None, abstr_path, Token![for](span))),
+        trait_: Some((None, abstr_path, Token![for](span.first()))),
         self_ty: Box::new(create_type_path(create_path_from_ident(
-            item_struct.ident.to_syn_ident(),
+            item_struct.ident.to_syn(),
         ))),
         brace_token: Default::default(),
         items: vec![from_concrete_fn, from_runtime_fn, to_runtime_fn],
