@@ -13,7 +13,7 @@ use quote::{quote, ToTokens};
 use syn::punctuated::Punctuated;
 use syn::spanned::Spanned;
 use syn::visit_mut::{self, VisitMut};
-use syn::{parse_quote, Attribute, Expr, Item, ItemFn, ItemMod, Meta, MetaList, PathSegment, Type};
+use syn::{parse_quote, Attribute, Expr, Item, ItemFn, ItemMod, Meta, MetaList, PathSegment};
 use syn_path::path;
 use util::error_list::ErrorList;
 
@@ -109,10 +109,7 @@ pub fn process_property<M: FullMachine, D>(
                 todo!("Support nested structs")
             }
         };
-        let ty: Type = ty.into_syn();
-        let type_id = builder
-            .type_id(&ty)
-            .expect("Global ident type id should be put into context");
+        let type_id = builder.partial_type_id(ty);
         global_basic_types.insert(
             WIdent::new(global_ident.name().to_string(), WSpan::call_site()),
             type_id,

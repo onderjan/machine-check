@@ -8,8 +8,8 @@ use syn::{
 use syn_path::path;
 
 use crate::{
-    context::builder::build::FunctionFolder,
-    into_wir::{fold_partial_path, Error, ErrorType},
+    context::builder::{build::FunctionFolder, path::fold_partial_path},
+    into_wir::{Error, ErrorType},
     util::{create_expr_call, create_expr_ident, create_expr_path, ArgType},
     wir::{
         WArrayBaseExpr, WBlock, WCall, WCallArg, WExpr, WExprField, WExprHighCall, WExprReference,

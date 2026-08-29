@@ -96,7 +96,7 @@ impl<'a> super::FunctionFolder<'a> {
             Stmt::Local(local) => {
                 let mut pat = local.pat.clone();
                 let ty = if let Pat::Type(pat_type) = pat {
-                    let ty = self.ctx.type_id(&pat_type.ty)?;
+                    let ty = self.ctx.partial_syn_type_id(*pat_type.ty)?;
                     pat = *pat_type.pat;
                     ty
                 } else {

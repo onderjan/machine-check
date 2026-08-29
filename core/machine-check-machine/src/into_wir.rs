@@ -1,14 +1,11 @@
 mod context;
 mod conversion;
-mod from_syn;
 mod property;
 
 use indexmap::IndexMap;
 use machine_check_common::PropertyMacros;
 use quote::ToTokens;
 use syn::Item;
-
-pub use from_syn::{fold_partial_path, fold_type};
 
 use crate::{
     context::{WContextBuilder, WLowContext},

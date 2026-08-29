@@ -1,11 +1,12 @@
 use syn::Type;
 
 use crate::{
-    into_wir::{from_syn::path::fold_partial_path, Error},
-    wir::{WPartialType, WSpan},
+    context::builder::path::fold_partial_path,
+    into_wir::Error,
+    wir::{WPartialType, WSpan, WTotalType},
 };
 
-pub fn fold_type(ty: Type) -> Result<WPartialType, Error> {
+pub fn fold_partial_type(ty: Type) -> Result<WPartialType, Error> {
     let ty_span = WSpan::from_syn(&ty);
     match ty {
         Type::Path(type_path) => fold_partial_path(type_path.path).map(WPartialType::Path),
@@ -22,9 +23,23 @@ pub fn fold_type(ty: Type) -> Result<WPartialType, Error> {
                     ty_span,
                 ));
             }
-            let inner = fold_type(*type_reference.elem)?;
+            let inner = fold_partial_type(*type_reference.elem)?;
             Ok(WPartialType::Reference(Box::new(inner)))
         }
         _ => Err(Error::unsupported_construct("Type", ty_span)),
+    }
+}
+
+pub fn fold_total_type(ty: Type) -> Result<WTotalType, Error> {
+    let ty = fold_partial_type(ty)?;
+    let span = ty.span();
+    match ty.try_into_total() {
+        Ok(ty) => Ok(ty),
+        Err(()) => Err(Error::new(
+            crate::into_wir::ErrorType::IllegalConstruct(String::from(
+                "Interference not allowed here",
+            )),
+            span,
+        )),
     }
 }

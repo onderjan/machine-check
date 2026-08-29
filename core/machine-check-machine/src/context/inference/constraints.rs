@@ -1,15 +1,13 @@
 use std::collections::BTreeMap;
 
 use machine_check_common::ir_common::IrStdBinaryOp;
-use syn::{Type, TypePath};
 
 use crate::{
     context::{bitvector_type, bool_type, signed_type, unsigned_type},
     into_wir::{Error, ErrorType},
     wir::{
         WBlock, WCall, WCallArg, WExpr, WExprHighCall, WIdent, WIndexedExpr, WIndexedIdent,
-        WMacroableStmt, WPartialPathArgument, WPartialPathGenerics, WPartialType, 
-        WTypeId, YTac,
+        WMacroableStmt, WPartialPathArgument, WPartialPathGenerics, WPartialType, WTypeId, YTac,
     },
 };
 
@@ -255,11 +253,10 @@ impl super::WInferenceContext {
                                 None
                             };
 
-                            let constraint_ty = self.type_id(&Type::Path(TypePath {
-                                qself: None,
-                                path: path.into_syn(),
-                            }))?;
-                            self.add_eq_constraint(left_ty.clone(), constraint_ty);
+                            let ty = WPartialType::Path(path);
+                            let type_id = self.partial_type_id(ty);
+
+                            self.add_eq_constraint(left_ty.clone(), type_id);
                         }
                     }
                     WPartialType::Reference(_reference) => {

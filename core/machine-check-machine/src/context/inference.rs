@@ -4,12 +4,11 @@ use std::{
 };
 
 use indexmap::IndexMap;
-use syn::Type;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind};
 
 use crate::{
     context::{bitvector_type, bool_type, WInferredContext},
-    into_wir::{fold_type, Error, ErrorType},
+    into_wir::{Error, ErrorType},
     wir::{
         WDefinitions, WPartialPath, WPartialPathArgument, WPartialPathGenerics,
         WPartialPathSegment, WPartialType, WTypeId, YTac,
@@ -38,11 +37,6 @@ impl WInferenceContext {
         let id = WTypeId::from_index(self.types.len());
         self.types.push(ty);
         id
-    }
-
-    pub fn type_id(&mut self, ty: &Type) -> Result<WTypeId, Error> {
-        let ty = fold_type(ty.clone())?;
-        Ok(self.partial_type_id(ty))
     }
 
     fn add_eq_constraint(&mut self, a: WTypeId, b: WTypeId) {
@@ -117,8 +111,8 @@ impl WInferenceContext {
     }
 
     pub fn into_total(mut self) -> Result<WInferredContext, Error> {
-        let boolean_type_id = self.type_id(&bool_type().into_syn())?;
-        let panic_type_id = self.type_id(&bitvector_type(Some(32)).into_syn())?;
+        let boolean_type_id = self.partial_type_id(bool_type());
+        let panic_type_id = self.partial_type_id(bitvector_type(Some(32)));
 
         let mut types = Vec::new();
         for ty in self.types {

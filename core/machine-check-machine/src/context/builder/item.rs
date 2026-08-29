@@ -6,11 +6,11 @@ use syn::{
 };
 
 use crate::{
-    context::WContextBuilder,
-    into_wir::{
-        from_syn::{attribute_disallower::AttributeDisallower, path::fold_partial_path},
-        Error, ErrorType, Errors,
+    context::{
+        builder::{attribute::AttributeDisallower, path::fold_partial_path},
+        WContextBuilder,
     },
+    into_wir::{Error, ErrorType, Errors},
     util::path_matches_global_names,
     wir::{
         WField, WIdent, WImplItemType, WItemImpl, WItemImplTrait, WItemStruct, WSpan, WVisibility,
@@ -126,7 +126,7 @@ pub fn fold_item_struct(
         let visibility = fold_visibility(field.vis)?;
         let field_ident = WIdent::from_syn_ident(field_ident);
         let field = ctx
-            .noninferred_id(&field.ty)
+            .total_syn_type_id(field.ty)
             .map(|ty| (field_ident, WField { visibility, ty }));
 
         fields.push(field);

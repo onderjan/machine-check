@@ -1,15 +1,24 @@
 use std::fmt::Debug;
 
-use proc_macro2::Span;
-use syn::{punctuated::Punctuated, Ident, Path, PathArguments, PathSegment, Type, TypePath};
+mod attribute;
+mod item;
+mod item_fn;
+mod path;
+mod ty;
 
 mod build;
 
+use syn::{Item, Type};
+
 use crate::{
-    into_wir::{fold_type, Error},
+    context::builder::{
+        item::{fold_item_impl, fold_item_struct},
+        ty::{fold_partial_type, fold_total_type},
+    },
+    into_wir::{Error, Errors},
     wir::{
-        WDefinitions, WFnId, WItemFn, WItemImpl, WItemStruct, WPartialType, WSpan, WStrippedPath,
-        WTypeId, YBuild,
+        WDefinitions, WFnId, WIdent, WItemFn, WItemImpl, WItemStruct, WPartialType, WSpan,
+        WStrippedPath, WTotalPath, WTotalPathSegment, WTotalType, WTypeId, YBuild,
     },
 };
 
@@ -27,11 +36,90 @@ impl WContextBuilder {
         }
     }
 
-    pub fn add_struct(&mut self, path: WStrippedPath, item_struct: WItemStruct) {
+    pub fn add_fn(&mut self, item_fn: WItemFn<YBuild>) -> WFnId {
+        let fn_name = item_fn.signature.ident.clone();
+        self.definitions.add_fn(fn_name.into_path(), item_fn)
+    }
+
+    pub fn total_syn_type_id(&mut self, ty: Type) -> Result<WTypeId, Error> {
+        let ty = fold_total_type(ty)?;
+        Ok(self.partial_type_id(ty.into_partial()))
+    }
+
+    fn partial_syn_type_id(&mut self, ty: Type) -> Result<WTypeId, Error> {
+        let ty = fold_partial_type(ty)?;
+        Ok(self.partial_type_id(ty))
+    }
+
+    pub fn partial_type_id(&mut self, ty: WPartialType) -> WTypeId {
+        let id = WTypeId::from_index(self.types.len());
+        self.types.push(ty);
+        id
+    }
+
+    pub fn bool_type_id(&mut self) -> WTypeId {
+        let ty = WTotalType::Path(WTotalPath {
+            leading_colon: None,
+            segments: vec![WTotalPathSegment {
+                ident: WIdent::new(String::from("bool"), WSpan::call_site()),
+                generics: None,
+            }],
+        });
+        self.partial_type_id(ty.into_partial())
+    }
+
+    fn wildcard_id(&mut self, span: WSpan) -> WTypeId {
+        self.partial_type_id(WPartialType::Infer(span))
+    }
+
+    pub fn add_syn_items(&mut self, items: Vec<Item>) -> Result<(), Errors> {
+        let mut errors = Vec::new();
+
+        for item in items {
+            match self.add_syn_item(item) {
+                Ok(()) => {}
+                Err(errs) => errors.push(errs),
+            }
+        }
+
+        Errors::errors_vec_to_result(errors)?;
+
+        Ok(())
+    }
+
+    pub fn add_syn_item(&mut self, item: Item) -> Result<(), Errors> {
+        let mut errors = Vec::new();
+
+        match item {
+            Item::Struct(item) => {
+                let path = WTotalPath::from_ident(WIdent::from_syn_ident(item.ident.clone()))
+                    .without_generics();
+                match fold_item_struct(self, item) {
+                    Ok(item_struct) => {
+                        self.add_struct(path, item_struct);
+                    }
+                    Err(err) => errors.push(err),
+                }
+            }
+            Item::Impl(item) => match fold_item_impl(self, item) {
+                Ok(item_impl) => {
+                    self.add_impl(item_impl)?;
+                }
+                Err(err) => errors.push(err),
+            },
+            _ => errors.push(Error::unsupported_syn_construct("Item kind", &item).into()),
+        }
+
+        Errors::errors_vec_to_result(errors)?;
+
+        Ok(())
+    }
+
+    fn add_struct(&mut self, path: WStrippedPath, item_struct: WItemStruct) {
         self.definitions.add_struct(path, item_struct);
     }
 
-    pub fn add_impl(&mut self, item_impl: WItemImpl<YBuild>) -> Result<(), Error> {
+    fn add_impl(&mut self, item_impl: WItemImpl<YBuild>) -> Result<(), Error> {
         let datatype_path = item_impl.self_ty.clone().without_generics();
         let Some(self_datatype) = self.definitions.datatype_id(&datatype_path) else {
             return Err(Error::new(
@@ -57,54 +145,5 @@ impl WContextBuilder {
         }
 
         Ok(())
-    }
-
-    pub fn add_fn(&mut self, item_fn: WItemFn<YBuild>) -> WFnId {
-        let fn_name = item_fn.signature.ident.clone();
-        self.definitions.add_fn(fn_name.into_path(), item_fn)
-    }
-
-    pub fn noninferred_id(&mut self, ty: &Type) -> Result<WTypeId, Error> {
-        let span = WSpan::from_syn(&ty);
-        let ty = fold_type(ty.clone())?;
-        if !ty.is_fully_inferred() {
-            return Err(Error::new(
-                crate::into_wir::ErrorType::IllegalConstruct(String::from(
-                    "Interference not allowed here",
-                )),
-                span,
-            ));
-        }
-        Ok(self.partial_type_id(ty))
-    }
-
-    fn partial_type_id(&mut self, ty: WPartialType) -> WTypeId {
-        let id = WTypeId::from_index(self.types.len());
-        self.types.push(ty);
-        id
-    }
-
-    pub fn type_id(&mut self, ty: &Type) -> Result<WTypeId, Error> {
-        let ty = fold_type(ty.clone())?;
-        Ok(self.partial_type_id(ty))
-    }
-
-    pub fn bool_type_id(&mut self) -> WTypeId {
-        let ty = &Type::Path(TypePath {
-            qself: None,
-            path: Path {
-                leading_colon: None,
-                segments: Punctuated::from_iter([PathSegment {
-                    ident: Ident::new("bool", Span::call_site()),
-                    arguments: PathArguments::None,
-                }]),
-            },
-        });
-        self.type_id(ty)
-            .expect("Bool type should be assigned a type id")
-    }
-
-    fn wildcard_id(&mut self, span: WSpan) -> WTypeId {
-        self.partial_type_id(WPartialType::Infer(span))
     }
 }

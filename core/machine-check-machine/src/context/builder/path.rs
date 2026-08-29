@@ -1,7 +1,8 @@
 use syn::{AngleBracketedGenericArguments, Expr, GenericArgument, Lit, Path, PathArguments, Type};
 
 use crate::{
-    into_wir::{fold_type, Error},
+    context::builder::ty::fold_partial_type,
+    into_wir::Error,
     wir::{
         WIdent, WPartialPath, WPartialPathArgument, WPartialPathGenerics, WPartialPathSegment,
         WSpan,
@@ -84,7 +85,7 @@ fn fold_partial_path_arguments(
                 WPartialPathArgument::Infer(WSpan::from_syn(&infer))
             }
             GenericArgument::Type(ty) => {
-                let ty = fold_type(ty)?;
+                let ty = fold_partial_type(ty)?;
                 WPartialPathArgument::Type(ty)
             }
             _ => {

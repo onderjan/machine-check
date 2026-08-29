@@ -4,11 +4,11 @@ use syn::{
 };
 
 use crate::{
-    context::WContextBuilder,
-    into_wir::{
-        from_syn::{attribute_disallower::AttributeDisallower, item::fold_visibility},
-        Error, ErrorType, Errors,
+    context::{
+        builder::{attribute::AttributeDisallower, item::fold_visibility},
+        WContextBuilder,
     },
+    into_wir::{Error, ErrorType, Errors},
     wir::{WFnArg, WFnSignature, WIdent, WItemFn, WSpan, WSynBlock, WTotalPath, YBuild},
 };
 
@@ -114,7 +114,7 @@ fn fold_signature(
                 signature_span,
             )))
         }
-        syn::ReturnType::Type(_rarrow, ty) => ctx.noninferred_id(&ty)?,
+        syn::ReturnType::Type(_rarrow, ty) => ctx.total_syn_type_id(*ty)?,
     };
     Ok(WFnSignature {
         ident: WIdent::from_syn_ident(signature.ident),
@@ -167,11 +167,12 @@ fn fold_fn_arg(
 
             // do not scope self, it is unnecessary
             let self_ident = WIdent::new(String::from("self"), receiver_span);
-            let self_type = ctx.noninferred_id(&self_ty)?;
+
+            let self_ty = ctx.total_syn_type_id(self_ty)?;
 
             WFnArg {
                 ident: self_ident,
-                ty: self_type,
+                ty: self_ty,
             }
         }
         syn::FnArg::Typed(pat_type) => {
@@ -184,7 +185,7 @@ fn fold_fn_arg(
             };
 
             let original_ident = WIdent::from_syn_ident(pat_ident.ident);
-            let ty = ctx.noninferred_id(&pat_type.ty)?;
+            let ty = ctx.total_syn_type_id(*pat_type.ty)?;
 
             WFnArg {
                 ident: original_ident,
