@@ -1,8 +1,7 @@
 use machine_check_common::iir::stmt::{IAssignStmt, IIfStmt, IStmt};
 
 use crate::{
-    context::WLowContext,
-    into_iir::func::WFnData,
+    context::{low::func::WFnData, WLowContext},
     wir::{WStmt, YSsa},
     Error,
 };

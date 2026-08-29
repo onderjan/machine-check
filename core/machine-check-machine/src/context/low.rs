@@ -1,7 +1,11 @@
 use std::fmt::Debug;
 
+use indexmap::IndexMap;
 use machine_check_common::{
-    iir::ty::{IElementaryType, IGeneralType, IType},
+    iir::{
+        description::{IDescription, IStruct, ITrait},
+        ty::{IElementaryType, IGeneralType, IType},
+    },
     ir_common::IrReference,
 };
 use proc_macro2::Span;
@@ -11,9 +15,16 @@ use syn::{
     TypePath, TypeReference,
 };
 
-use crate::wir::{WDatatype, WDatatypeId, WDefinitions, WTypeId, YSsa};
+use crate::{
+    wir::{WDatatype, WDatatypeId, WDefinitions, WItemImplTrait, WTypeId, YSsa},
+    Error,
+};
 
-mod into_iir;
+mod expr;
+mod func;
+mod path;
+mod property;
+mod stmt;
 
 #[derive(Debug, Clone)]
 pub struct WLowContext {
@@ -199,5 +210,52 @@ impl WLowContext {
                 eprintln!("Type: {:?}", ty);
                 ty
             })
+    }
+
+    pub fn into_iir(self) -> Result<IDescription, Error> {
+        eprintln!("Converting into IIR: {:#?}", self);
+
+        let mut structs = IndexMap::new();
+
+        for (_path, datatype) in self.definitions.datatypes() {
+            let item_struct = &datatype.def;
+            let mut fields = IndexMap::new();
+            let mut fns = IndexMap::new();
+
+            for (field_name, field) in &item_struct.fields {
+                fields.insert(
+                    field_name.clone().into_iir(),
+                    self.id_elementary_type(field.ty.clone()),
+                );
+            }
+
+            for (impl_trait, datatype_impl) in &datatype.impls {
+                let trait_ = match impl_trait {
+                    None => ITrait::Inherent,
+                    Some(WItemImplTrait::Machine(_)) => ITrait::Machine,
+                };
+
+                for (_fn_name, fn_id) in &datatype_impl.functions {
+                    let func = self.definitions.function_by_id(*fn_id).clone();
+                    let func = func.into_iir(&self)?;
+
+                    fns.insert((trait_, func.signature.ident.clone()), func);
+                }
+            }
+
+            structs.insert(
+                item_struct.ident.clone().into_iir(),
+                IStruct { fields, fns },
+            );
+        }
+
+        Ok(IDescription { structs })
+    }
+}
+
+fn error(msg: String, span: crate::wir::WSpan) -> crate::Error {
+    crate::Error {
+        ty: crate::ErrorType::IIRConversionError(msg),
+        span,
     }
 }

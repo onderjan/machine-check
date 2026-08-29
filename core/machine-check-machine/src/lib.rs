@@ -24,7 +24,6 @@ use crate::wir::{WIdent, WSpan};
 mod abstr;
 mod concr;
 mod context;
-mod into_iir;
 mod into_wir;
 mod util;
 mod wir;

@@ -1,9 +1,11 @@
 use crate::{
-    context::WLowContext,
-    into_iir::{error, func::WFnData},
+    context::{
+        low::{error, func::WFnData},
+        WLowContext,
+    },
     wir::{
         WDatatypeId, WExpr, WExprField, WExprLowCall, WExprReference, WExprStruct, WIdent, WMckNew,
-        WSpan, 
+        WSpan,
     },
     Error,
 };
