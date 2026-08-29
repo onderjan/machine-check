@@ -7,7 +7,7 @@ use crate::{
     context::WLowContext,
     util::{create_angle_bracketed_path_arguments, create_type_path},
     wir::{
-        IntoSyn, WExpr, WExprLowCall, WIdent, WItemFnBody, WItemImpl, WItemImplTrait, WPath,
+        IntoSyn, WExpr, WExprLowCall, WIdent, WItemFnBody, WItemImpl, WItemImplTrait, WTotalPath,
         WSsaLocal, WStmt, WTypeId, YIfPolarity, YSsa, YStage,
     },
 };
@@ -48,7 +48,7 @@ impl YIfPolarity for YAbstrIfPolarity {}
 
 #[derive(Clone, Debug, Hash)]
 pub struct WAbstrItemImplTrait {
-    pub machine_type: WPath,
+    pub machine_type: WTotalPath,
     pub trait_: WItemImplTrait,
 }
 

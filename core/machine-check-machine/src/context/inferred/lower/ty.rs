@@ -9,7 +9,7 @@ use machine_check_common::{
 use super::WInferredContext;
 use crate::{
     into_wir::{Error, ErrorType},
-    wir::{WPathArgument, WType},
+    wir::{WTotalPathArgument, WType},
 };
 
 impl WInferredContext {
@@ -35,7 +35,7 @@ impl WInferredContext {
 
                     if let Some(generics) = &path.segments[1].generics {
                         if generics.arguments.len() == 1 {
-                            if let WPathArgument::Uint(width, _span) = generics.arguments[0] {
+                            if let WTotalPathArgument::Uint(width, _span) = generics.arguments[0] {
                                 return Ok(IGeneralType::Normal(IType {
                                     reference: IrReference::None,
                                     inner: IElementaryType::Bitvector(width),
@@ -48,7 +48,7 @@ impl WInferredContext {
                 if path.matches_absolute(&["mck", "forward", "PhiArg"]) {
                     if let Some(generics) = &path.segments[2].generics {
                         if generics.arguments.len() == 1 {
-                            if let WPathArgument::Type(ty) = &generics.arguments[0] {
+                            if let WTotalPathArgument::Type(ty) = &generics.arguments[0] {
                                 let inner = self.lower_type(ty.clone())?;
                                 let inner = match inner {
                                     IGeneralType::Normal(ty) => ty,

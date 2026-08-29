@@ -9,7 +9,7 @@ use crate::{
     into_wir::{Error, ErrorType},
     wir::{
         WCall, WCallArg, WExpr, WExprHighCall, WExprLowCall, WIdent, WMckBinary, WMckExt, WMckNew,
-        WMckUnary, WPartialArgument, WSpanned, WStdBinary, WStdUnary, WType,
+        WMckUnary, WPartialPathArgument, WSpanned, WStdBinary, WStdUnary, WType,
     },
 };
 
@@ -35,7 +35,7 @@ impl super::FnLowerer<'_> {
                 if generics.arguments.len() == 1 {
                     if let WCallArg::Literal(Lit::Int(lit_int)) = &call.args[0] {
                         if let Ok(value) = lit_int.base10_parse() {
-                            if let WPartialArgument::Uint(width, _span) = &generics.arguments[0] {
+                            if let WPartialPathArgument::Uint(width, _span) = &generics.arguments[0] {
                                 let bound = RBound::new(*width);
                                 let bitvector = ConcreteBitvector::new(value, bound);
                                 return Ok(WExpr::Call(WExprLowCall::MckNew(WMckNew::Bitvector(
@@ -88,7 +88,7 @@ impl super::FnLowerer<'_> {
 
                 if let Some(generics) = &call.fn_path.segments[1].generics {
                     if generics.arguments.len() == 1 {
-                        if let WPartialArgument::Uint(width, _span) = &generics.arguments[0] {
+                        if let WPartialPathArgument::Uint(width, _span) = &generics.arguments[0] {
                             return Ok(WExpr::Call(WExprLowCall::MckExt(WMckExt {
                                 signed,
                                 width: *width,

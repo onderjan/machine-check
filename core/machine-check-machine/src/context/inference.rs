@@ -11,7 +11,7 @@ use crate::{
     context::{bitvector_type, bool_type, WInferredContext},
     into_wir::{fold_type, Error, ErrorType},
     wir::{
-        WDefinitions, WPartialArgument, WPartialGenerics, WPartialPath, WPartialSegment,
+        WDefinitions, WPartialPathArgument, WPartialPathGenerics, WPartialPath, WPartialPathSegment,
         WPartialType, WTypeId, YTac,
     },
 };
@@ -167,19 +167,19 @@ fn join_types(previous: &WPartialType, current: WPartialType) -> Result<WPartial
                         let mut arguments = Vec::new();
                         for (lhs, rhs) in lhs.arguments.iter().zip(rhs.arguments) {
                             let arg = match (lhs, rhs) {
-                                (WPartialArgument::Infer(_), rhs) => rhs,
-                                (lhs, WPartialArgument::Infer(_)) => lhs.clone(),
+                                (WPartialPathArgument::Infer(_), rhs) => rhs,
+                                (lhs, WPartialPathArgument::Infer(_)) => lhs.clone(),
                                 (
-                                    WPartialArgument::Uint(lhs_num, _lhs_span),
-                                    WPartialArgument::Uint(rhs_num, rhs_span),
+                                    WPartialPathArgument::Uint(lhs_num, _lhs_span),
+                                    WPartialPathArgument::Uint(rhs_num, rhs_span),
                                 ) => {
                                     if *lhs_num != rhs_num {
                                         return Err(Error::new(ErrorType::InferenceFailure, span));
                                     }
-                                    WPartialArgument::Uint(rhs_num, rhs_span)
+                                    WPartialPathArgument::Uint(rhs_num, rhs_span)
                                 }
-                                (WPartialArgument::Type(lhs), WPartialArgument::Type(rhs)) => {
-                                    WPartialArgument::Type(join_types(lhs, rhs)?)
+                                (WPartialPathArgument::Type(lhs), WPartialPathArgument::Type(rhs)) => {
+                                    WPartialPathArgument::Type(join_types(lhs, rhs)?)
                                 }
                                 _ => {
                                     return Err(Error::new(ErrorType::InferenceFailure, span));
@@ -187,13 +187,13 @@ fn join_types(previous: &WPartialType, current: WPartialType) -> Result<WPartial
                             };
                             arguments.push(arg);
                         }
-                        Some(WPartialGenerics {
+                        Some(WPartialPathGenerics {
                             turbofish: rhs.turbofish,
                             arguments,
                         })
                     }
                 };
-                segments.push(WPartialSegment {
+                segments.push(WPartialPathSegment {
                     ident: rhs.ident,
                     generics,
                 });

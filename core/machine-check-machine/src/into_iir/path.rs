@@ -1,8 +1,8 @@
 use machine_check_common::iir::path::{IPath, IPathSegment};
 
-use crate::wir::WPath;
+use crate::wir::WTotalPath;
 
-impl WPath {
+impl WTotalPath {
     pub fn into_iir(self) -> IPath {
         IPath {
             leading_colon: self.leading_colon.map(|span| span.into_iir()),

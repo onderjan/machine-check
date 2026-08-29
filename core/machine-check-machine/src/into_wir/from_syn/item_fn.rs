@@ -10,13 +10,13 @@ use crate::{
         from_syn::{attribute_disallower::AttributeDisallower, item::fold_visibility},
         Error, ErrorType, Errors,
     },
-    wir::{WFnArg, WFnSignature, WIdent, WItemFn, WPath, WSpan, WSynBlock, YBuild},
+    wir::{WFnArg, WFnSignature, WIdent, WItemFn, WTotalPath, WSpan, WSynBlock, YBuild},
 };
 
 pub fn fold_impl_item_fn(
     ctx: &mut WContextBuilder,
     mut impl_item_fn: ImplItemFn,
-    self_ty: (&Type, &WPath),
+    self_ty: (&Type, &WTotalPath),
 ) -> Result<WItemFn<YBuild>, Errors> {
     if impl_item_fn.defaultness.is_some() {
         return Err(Errors::single(Error::unsupported_syn_construct(
@@ -70,7 +70,7 @@ pub fn fold_impl_item_fn(
 
 fn fold_signature(
     ctx: &mut WContextBuilder,
-    self_ty: Option<(&Type, &WPath)>,
+    self_ty: Option<(&Type, &WTotalPath)>,
     signature: Signature,
 ) -> Result<WFnSignature, Errors> {
     if signature.constness.is_some() {
@@ -147,7 +147,7 @@ fn fold_signature(
 
 fn fold_fn_arg(
     ctx: &mut WContextBuilder,
-    self_ty: Option<(&Type, &WPath)>,
+    self_ty: Option<(&Type, &WTotalPath)>,
     fn_arg: FnArg,
 ) -> Result<WFnArg, Error> {
     let fn_arg = match &fn_arg {

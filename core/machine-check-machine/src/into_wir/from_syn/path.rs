@@ -2,7 +2,10 @@ use syn::{AngleBracketedGenericArguments, Expr, GenericArgument, Lit, Path, Path
 
 use crate::{
     into_wir::{fold_type, Error},
-    wir::{WIdent, WPartialArgument, WPartialGenerics, WPartialPath, WPartialSegment, WSpan},
+    wir::{
+        WIdent, WPartialPath, WPartialPathArgument, WPartialPathGenerics, WPartialPathSegment,
+        WSpan,
+    },
 };
 
 pub fn fold_partial_path(path: Path) -> Result<WPartialPath, Error> {
@@ -29,7 +32,7 @@ pub fn fold_partial_path(path: Path) -> Result<WPartialPath, Error> {
             }
         };
 
-        segments.push(WPartialSegment {
+        segments.push(WPartialPathSegment {
             ident: WIdent::from_syn_ident(segment.ident),
             generics,
         })
@@ -43,11 +46,11 @@ pub fn fold_partial_path(path: Path) -> Result<WPartialPath, Error> {
 
 fn fold_partial_path_arguments(
     generics: AngleBracketedGenericArguments,
-) -> Result<WPartialGenerics, Error> {
+) -> Result<WPartialPathGenerics, Error> {
     let turbofish = generics
         .colon2_token
         .map(|turbofish| WSpan::from_syn(&turbofish));
-    let mut arguments: Vec<WPartialArgument> = Vec::new();
+    let mut arguments: Vec<WPartialPathArgument> = Vec::new();
     for argument in generics.args {
         let arg_span = WSpan::from_syn(&argument);
         let arg_result = match argument {
@@ -60,7 +63,7 @@ fn fold_partial_path_arguments(
                                 arg_span,
                             ));
                         };
-                        WPartialArgument::Uint(num, WSpan::from_syn(&lit_int))
+                        WPartialPathArgument::Uint(num, WSpan::from_syn(&lit_int))
                     }
                     _ => {
                         return Err(Error::unsupported_construct(
@@ -69,7 +72,7 @@ fn fold_partial_path_arguments(
                         ))
                     }
                 },
-                Expr::Infer(infer) => WPartialArgument::Infer(WSpan::from_syn(&infer)),
+                Expr::Infer(infer) => WPartialPathArgument::Infer(WSpan::from_syn(&infer)),
                 _ => {
                     return Err(Error::unsupported_construct(
                         "Non-literal const generic argument",
@@ -78,11 +81,11 @@ fn fold_partial_path_arguments(
                 }
             },
             GenericArgument::Type(Type::Infer(infer)) => {
-                WPartialArgument::Infer(WSpan::from_syn(&infer))
+                WPartialPathArgument::Infer(WSpan::from_syn(&infer))
             }
             GenericArgument::Type(ty) => {
                 let ty = fold_type(ty)?;
-                WPartialArgument::Type(ty)
+                WPartialPathArgument::Type(ty)
             }
             _ => {
                 return Err(Error::unsupported_construct(
@@ -94,7 +97,7 @@ fn fold_partial_path_arguments(
 
         arguments.push(arg_result);
     }
-    Ok(WPartialGenerics {
+    Ok(WPartialPathGenerics {
         turbofish,
         arguments,
     })

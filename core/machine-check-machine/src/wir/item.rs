@@ -11,7 +11,7 @@ use syn::{
 };
 use syn_path::path;
 
-use crate::wir::{WFnSignature, WPartialPath, WPath, WSpan, WSpanned, WTypeId};
+use crate::wir::{WFnSignature, WPartialPath, WTotalPath, WSpan, WSpanned, WTypeId};
 
 use super::{IntoSyn, WIdent, WImplItemType, YStage};
 
@@ -50,7 +50,7 @@ pub struct WField {
 
 #[derive(Clone, Debug, Hash)]
 pub struct WItemImpl<Y: YStage> {
-    pub self_ty: WPath,
+    pub self_ty: WTotalPath,
     pub trait_: Option<Y::ItemImplTrait>,
     pub impl_item_fns: Vec<WItemFn<Y>>,
     pub impl_item_types: Vec<WImplItemType>,

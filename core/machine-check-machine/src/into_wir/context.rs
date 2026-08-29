@@ -10,7 +10,7 @@ use crate::{
         from_syn::{self},
         Error, Errors,
     },
-    wir::{WIdent, WPath},
+    wir::{WIdent, WTotalPath},
 };
 
 pub fn context_from_syn(mut items: Vec<Item>) -> Result<WLowContext, Errors> {
@@ -30,7 +30,7 @@ pub fn context_from_syn(mut items: Vec<Item>) -> Result<WLowContext, Errors> {
     for item in items {
         match item {
             Item::Struct(item) => {
-                let path = WPath::from_ident(WIdent::from_syn_ident(item.ident.clone()))
+                let path = WTotalPath::from_ident(WIdent::from_syn_ident(item.ident.clone()))
                     .without_generics();
                 match from_syn::fold_item_struct(&mut builder, item) {
                     Ok(item_struct) => {

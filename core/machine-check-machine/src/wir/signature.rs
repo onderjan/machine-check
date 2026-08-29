@@ -3,7 +3,7 @@ use proc_macro2::Span;
 use syn::{ImplItem, Item, ItemImpl, Token, Type, TypePath};
 
 use crate::wir::{
-    IntoSyn, WIdent, WImplItemType, WItemFn, WItemImplTrait, WItemStruct, WPath, WTypeId,
+    IntoSyn, WIdent, WImplItemType, WItemFn, WItemImplTrait, WItemStruct, WTotalPath, WTypeId,
     WUniquePath, YStage,
 };
 
@@ -87,7 +87,7 @@ impl<Y: YStage> WDefinitions<Y> {
         );
     }
 
-    pub fn add_fn(&mut self, _fn_path: WPath, def: WItemFn<Y>) -> WFnId {
+    pub fn add_fn(&mut self, _fn_path: WTotalPath, def: WItemFn<Y>) -> WFnId {
         // TODO: add fn path
         let fn_id = WFnId(self.functions.len());
         self.functions.push(def);

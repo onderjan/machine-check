@@ -6,14 +6,14 @@ use crate::{
     abstr::{WAbstrItemImplTrait, YAbstr, YAbstrIfPolarity},
     wir::{
         WBlock, WExpr, WExprLowCall, WFnSignature, WIdent, WIfCondition, WItemFn, WItemFnBody,
-        WItemImpl, WItemImplTrait, WPath, WPathSegment, WSsaLocal, WStmt, WStmtAssign, WStmtIf,
+        WItemImpl, WItemImplTrait, WTotalPath, WTotalPathSegment, WSsaLocal, WStmt, WStmtAssign, WStmtIf,
         YSsa,
     },
 };
 
 mod used_open;
 
-pub fn preprocess_item_impl(item_impl: &WItemImpl<YSsa>) -> Option<WPath> {
+pub fn preprocess_item_impl(item_impl: &WItemImpl<YSsa>) -> Option<WTotalPath> {
     let Some(WItemImplTrait::Machine(_)) = item_impl.trait_ else {
         return None;
     };
@@ -22,7 +22,7 @@ pub fn preprocess_item_impl(item_impl: &WItemImpl<YSsa>) -> Option<WPath> {
     let span = Span::call_site();
     ty.segments.insert(
         0,
-        WPathSegment {
+        WTotalPathSegment {
             ident: WIdent::new(String::from("super"), span),
             generics: None,
         },
@@ -33,7 +33,7 @@ pub fn preprocess_item_impl(item_impl: &WItemImpl<YSsa>) -> Option<WPath> {
 
 pub fn process_item_impl(
     item_impl: WItemImpl<YSsa>,
-    machine_types: &[WPath],
+    machine_types: &[WTotalPath],
 ) -> Vec<WItemImpl<YAbstr>> {
     let mut impl_item_fns = Vec::new();
     for impl_item_fn in item_impl.impl_item_fns {

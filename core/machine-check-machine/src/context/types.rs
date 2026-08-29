@@ -1,7 +1,8 @@
 use proc_macro2::Span;
 
 use crate::wir::{
-    WIdent, WPartialArgument, WPartialGenerics, WPartialPath, WPartialSegment, WPartialType, WSpan,
+    WIdent, WPartialPath, WPartialPathArgument, WPartialPathGenerics, WPartialPathSegment,
+    WPartialType, WSpan,
 };
 
 pub fn bitvector_type(width: Option<u32>) -> WPartialType {
@@ -17,18 +18,18 @@ pub fn signed_type(width: Option<u32>) -> WPartialType {
 }
 
 fn bitvector_like_type(name: &str, width: Option<u32>) -> WPartialType {
-    let generics = width.map(|width| WPartialGenerics {
+    let generics = width.map(|width| WPartialPathGenerics {
         turbofish: None,
-        arguments: vec![WPartialArgument::Uint(width, WSpan::call_site())],
+        arguments: vec![WPartialPathArgument::Uint(width, WSpan::call_site())],
     });
     WPartialType::Path(WPartialPath {
         leading_colon: Some(WSpan::call_site()),
         segments: vec![
-            WPartialSegment {
+            WPartialPathSegment {
                 ident: WIdent::new(String::from("machine_check"), Span::call_site()),
                 generics: None,
             },
-            WPartialSegment {
+            WPartialPathSegment {
                 ident: WIdent::new(String::from(name), Span::call_site()),
                 generics,
             },
@@ -39,7 +40,7 @@ fn bitvector_like_type(name: &str, width: Option<u32>) -> WPartialType {
 pub fn bool_type() -> WPartialType {
     WPartialType::Path(WPartialPath {
         leading_colon: None,
-        segments: vec![WPartialSegment {
+        segments: vec![WPartialPathSegment {
             ident: WIdent::new(String::from("bool"), Span::call_site()),
             generics: None,
         }],

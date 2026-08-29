@@ -7,8 +7,8 @@ use crate::{
     },
     into_wir::Errors,
     wir::{
-        WDefinitions, WIdent, WItemFn, WPath, WPathArgument, WPathGenerics, WPathSegment, WType,
-        WTypeId, YSsa, YTac,
+        WDefinitions, WIdent, WItemFn, WTotalPath, WTotalPathArgument, WTotalPathGenerics,
+        WTotalPathSegment, WType, WTypeId, YSsa, YTac,
     },
 };
 
@@ -86,22 +86,22 @@ impl WInferredContext {
         let inner = self.types[inner.0].clone();
         let span = inner.wir_span();
 
-        let ty = WType::Path(WPath {
+        let ty = WType::Path(WTotalPath {
             leading_colon: Some(span),
             segments: vec![
-                WPathSegment {
+                WTotalPathSegment {
                     ident: WIdent::new(String::from("mck"), span.first()),
                     generics: None,
                 },
-                WPathSegment {
+                WTotalPathSegment {
                     ident: WIdent::new(String::from("forward"), span.first()),
                     generics: None,
                 },
-                WPathSegment {
+                WTotalPathSegment {
                     ident: WIdent::new(String::from("PhiArg"), span.first()),
-                    generics: Some(WPathGenerics {
+                    generics: Some(WTotalPathGenerics {
                         turbofish: Some(span),
-                        arguments: vec![WPathArgument::Type(inner)],
+                        arguments: vec![WTotalPathArgument::Type(inner)],
                     }),
                 },
             ],

@@ -1,6 +1,6 @@
 use proc_macro2::Span;
 
-use crate::wir::{WIdent, WPath, WPathSegment, WSpan, WSpanned};
+use crate::wir::{WIdent, WSpan, WSpanned, WTotalPath, WTotalPathSegment};
 use std::fmt::Debug;
 
 #[derive(Clone, Hash, PartialEq, Eq)]
@@ -10,13 +10,13 @@ pub struct WUniquePath {
 }
 
 impl WUniquePath {
-    pub fn into_path(self) -> WPath {
-        WPath {
+    pub fn into_path(self) -> WTotalPath {
+        WTotalPath {
             leading_colon: self.leading_colon,
             segments: self
                 .segments
                 .into_iter()
-                .map(|ident| WPathSegment {
+                .map(|ident| WTotalPathSegment {
                     ident,
                     generics: None,
                 })

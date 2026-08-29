@@ -2,7 +2,7 @@ use proc_macro2::Span;
 use std::fmt::Debug;
 use syn::{Path, Token, Type, TypeInfer, TypePath, TypeReference};
 
-use crate::wir::{WPartialArgument, WPartialPath, WPath, WSpan, WSpanned};
+use crate::wir::{WPartialPathArgument, WPartialPath, WTotalPath, WSpan, WSpanned};
 
 use super::IntoSyn;
 
@@ -57,7 +57,7 @@ impl WPartialType {
                 for segment in &path.segments {
                     if let Some(generics) = &segment.generics {
                         for argument in &generics.arguments {
-                            if let WPartialArgument::Infer(_) = argument {
+                            if let WPartialPathArgument::Infer(_) = argument {
                                 return false;
                             }
                         }
@@ -118,7 +118,7 @@ impl Debug for WPartialType {
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub enum WType {
-    Path(WPath),
+    Path(WTotalPath),
     Reference(Box<WType>),
 }
 

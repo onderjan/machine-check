@@ -8,7 +8,7 @@ use crate::{
     into_wir::{Error, ErrorType},
     wir::{
         WBlock, WCall, WCallArg, WExpr, WExprHighCall, WIdent, WIndexedExpr, WIndexedIdent,
-        WMacroableStmt, WPartialArgument, WPartialGenerics, WPartialType, WSpanned, WTypeId, YTac,
+        WMacroableStmt, WPartialPathArgument, WPartialPathGenerics, WPartialType, WSpanned, WTypeId, YTac,
     },
 };
 
@@ -183,7 +183,7 @@ impl super::WInferenceContext {
                 let mut width = None;
                 if let Some(generics) = &segments[1].generics {
                     if generics.arguments.len() == 1 {
-                        if let WPartialArgument::Uint(width_arg, _span) = generics.arguments[0] {
+                        if let WPartialPathArgument::Uint(width_arg, _span) = generics.arguments[0] {
                             width = Some(width_arg)
                         }
                     }
@@ -210,7 +210,7 @@ impl super::WInferenceContext {
                 let mut width = None;
                 if let Some(generics) = &segments[1].generics {
                     if generics.arguments.len() == 1 {
-                        if let WPartialArgument::Uint(width_arg, span) = generics.arguments[0] {
+                        if let WPartialPathArgument::Uint(width_arg, span) = generics.arguments[0] {
                             width = Some((width_arg, span))
                         }
                     }
@@ -245,9 +245,9 @@ impl super::WInferenceContext {
                             let mut path = path.clone();
 
                             path.segments[1].generics = if let Some((width_arg, span)) = width {
-                                Some(WPartialGenerics {
+                                Some(WPartialPathGenerics {
                                     turbofish: None,
-                                    arguments: vec![WPartialArgument::Uint(width_arg, span)],
+                                    arguments: vec![WPartialPathArgument::Uint(width_arg, span)],
                                 })
                             } else {
                                 None
@@ -292,7 +292,7 @@ impl super::WInferenceContext {
 
                 if let Some(generics) = &segments[2].generics {
                     if generics.arguments.len() == 1 {
-                        if let WPartialArgument::Type(into_ty) = &generics.arguments[0] {
+                        if let WPartialPathArgument::Type(into_ty) = &generics.arguments[0] {
                             // add constraint for the left type
                             let into_ty = self.partial_type_id(into_ty.clone());
                             eprintln!("Adding Into constraint: {:?} == {:?}", left_ty, into_ty);

@@ -4,7 +4,7 @@ use syn::{punctuated::Punctuated, token::Paren, Expr, ExprCall, ExprLit, ExprPat
 
 use crate::{
     util::{create_expr_ident, create_expr_path, path_matches_global_names},
-    wir::{WPartialPath, WPartialSegment, WSpan, WTypeId},
+    wir::{WPartialPath, WPartialPathSegment, WSpan, WTypeId},
 };
 
 use super::{IntoSyn, WIdent, WMckBinary, WMckUnary, WStdBinary, WStdUnary};
@@ -65,9 +65,9 @@ fn construct_call_fn_path(fn_operand: String) -> WPartialPath {
     let without_leading = fn_operand
         .strip_prefix("::")
         .expect("Special function operand should have a leading prefix");
-    let segments: Vec<WPartialSegment> = without_leading
+    let segments: Vec<WPartialPathSegment> = without_leading
         .split("::")
-        .map(|segment| WPartialSegment {
+        .map(|segment| WPartialPathSegment {
             ident: WIdent::new(String::from(segment), span),
             generics: None,
         })

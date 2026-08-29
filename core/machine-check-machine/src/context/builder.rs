@@ -13,7 +13,7 @@ use crate::{
     into_wir::{fold_type, Error, Errors},
     util::ident_creator::IdentCreator,
     wir::{
-        WDefinitions, WFnId, WIdent, WItemFn, WItemImpl, WItemStruct, WPartialType, WPath, WSpan,
+        WDefinitions, WFnId, WIdent, WItemFn, WItemImpl, WItemStruct, WPartialType, WTotalPath, WSpan,
         WSpanned, WTypeId, WUniquePath, YBuild, YTac,
     },
 };
@@ -149,7 +149,7 @@ struct FunctionScope {
 
 struct FunctionFolder<'a> {
     ctx: &'a mut WContextBuilder,
-    self_ty: Option<(&'a Type, &'a WPath)>,
+    self_ty: Option<(&'a Type, &'a WTotalPath)>,
     ident_creator: IdentCreator<()>,
     local_types: IndexMap<WIdent, WTypeId>,
     scopes: Vec<FunctionScope>,

@@ -4,7 +4,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use syn::{punctuated::Punctuated, Expr, ExprPath, Ident, Path, PathArguments, PathSegment, Type};
 
-use crate::wir::{IntoSyn, WPath, WSpan, WSpanned, WTypeId};
+use crate::wir::{IntoSyn, WTotalPath, WSpan, WSpanned, WTypeId};
 
 #[derive(Clone)]
 pub struct WIdent {
@@ -40,8 +40,8 @@ impl WIdent {
         }
     }
 
-    pub fn into_path(self) -> WPath {
-        WPath::from_ident(self)
+    pub fn into_path(self) -> WTotalPath {
+        WTotalPath::from_ident(self)
     }
 
     pub fn to_syn_ident(&self) -> Ident {

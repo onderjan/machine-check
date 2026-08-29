@@ -7,66 +7,66 @@ use syn::{
 };
 
 use crate::wir::{
-    ident::WIdent, WPartialType, WPath, WPathArgument, WPathGenerics, WPathSegment, WSpan,
-    WSpanned, WUniquePath,
+    ident::WIdent, WPartialType, WSpan, WSpanned, WTotalPath, WTotalPathArgument,
+    WTotalPathGenerics, WTotalPathSegment, WUniquePath,
 };
 
 #[derive(Clone, Hash)]
-pub enum WPartialArgument {
+pub enum WPartialPathArgument {
     Type(WPartialType),
     Uint(u32, WSpan),
     Infer(WSpan),
 }
 
-impl From<WPartialArgument> for GenericArgument {
-    fn from(value: WPartialArgument) -> Self {
+impl From<WPartialPathArgument> for GenericArgument {
+    fn from(value: WPartialPathArgument) -> Self {
         match value {
-            WPartialArgument::Type(ty) => GenericArgument::Type(ty.into()),
-            WPartialArgument::Uint(value, span) => GenericArgument::Const(Expr::Lit(ExprLit {
+            WPartialPathArgument::Type(ty) => GenericArgument::Type(ty.into()),
+            WPartialPathArgument::Uint(value, span) => GenericArgument::Const(Expr::Lit(ExprLit {
                 attrs: Vec::new(),
                 lit: Lit::Int(LitInt::new(&value.to_string(), span.first())),
             })),
-            WPartialArgument::Infer(span) => GenericArgument::Type(Type::Infer(TypeInfer {
+            WPartialPathArgument::Infer(span) => GenericArgument::Type(Type::Infer(TypeInfer {
                 underscore_token: Token![_](span.first()),
             })),
         }
     }
 }
 
-impl WPartialArgument {
-    pub fn into_total(self) -> Result<WPathArgument, ()> {
+impl WPartialPathArgument {
+    pub fn into_total(self) -> Result<WTotalPathArgument, ()> {
         match self {
-            WPartialArgument::Type(ty) => Ok(WPathArgument::Type(ty.into_total()?)),
-            WPartialArgument::Uint(num, span) => Ok(WPathArgument::Uint(num, span)),
-            WPartialArgument::Infer(_) => Err(()),
+            WPartialPathArgument::Type(ty) => Ok(WTotalPathArgument::Type(ty.into_total()?)),
+            WPartialPathArgument::Uint(num, span) => Ok(WTotalPathArgument::Uint(num, span)),
+            WPartialPathArgument::Infer(_) => Err(()),
         }
     }
 
     pub fn set_span(&mut self, new_span: WSpan) {
         match self {
-            WPartialArgument::Type(ty) => {
+            WPartialPathArgument::Type(ty) => {
                 ty.set_span(new_span);
             }
-            WPartialArgument::Uint(_value, span) => *span = new_span,
-            WPartialArgument::Infer(span) => *span = new_span,
+            WPartialPathArgument::Uint(_value, span) => *span = new_span,
+            WPartialPathArgument::Infer(span) => *span = new_span,
         }
     }
 }
 
 #[derive(Clone, Hash)]
-pub struct WPartialGenerics {
+pub struct WPartialPathGenerics {
     pub turbofish: Option<WSpan>,
-    pub arguments: Vec<WPartialArgument>,
+    pub arguments: Vec<WPartialPathArgument>,
 }
 
-impl WPartialGenerics {
-    pub fn into_total(self) -> Result<WPathGenerics, ()> {
+impl WPartialPathGenerics {
+    pub fn into_total(self) -> Result<WTotalPathGenerics, ()> {
         let mut arguments = Vec::new();
         for arg in self.arguments {
             arguments.push(arg.into_total()?);
         }
 
-        Ok(WPathGenerics {
+        Ok(WTotalPathGenerics {
             turbofish: self.turbofish,
             arguments,
         })
@@ -81,18 +81,18 @@ impl WPartialGenerics {
 }
 
 #[derive(Clone, Hash)]
-pub struct WPartialSegment {
+pub struct WPartialPathSegment {
     pub ident: WIdent,
-    pub generics: Option<WPartialGenerics>,
+    pub generics: Option<WPartialPathGenerics>,
 }
 
 #[derive(Clone, Hash)]
 pub struct WPartialPath {
     pub leading_colon: Option<WSpan>,
-    pub segments: Vec<WPartialSegment>,
+    pub segments: Vec<WPartialPathSegment>,
 }
 
-impl Debug for WPartialArgument {
+impl Debug for WPartialPathArgument {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Type(ty) => Debug::fmt(&ty, f),
@@ -102,7 +102,7 @@ impl Debug for WPartialArgument {
     }
 }
 
-impl Debug for WPartialSegment {
+impl Debug for WPartialPathSegment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Debug::fmt(&self.ident, f)?;
         if let Some(generics) = &self.generics {
@@ -189,7 +189,7 @@ impl Debug for WPartialPath {
 }
 
 impl WPartialPath {
-    pub fn resolve_self(self, self_path: &WPath) -> Self {
+    pub fn resolve_self(self, self_path: &WTotalPath) -> Self {
         if self.leading_colon.is_some() {
             return self;
         }
@@ -220,7 +220,7 @@ impl WPartialPath {
         }
     }
 
-    pub fn into_total(self) -> Result<WPath, ()> {
+    pub fn into_total(self) -> Result<WTotalPath, ()> {
         let mut segments = Vec::new();
         for segment in self.segments {
             let generics = if let Some(generics) = segment.generics {
@@ -229,12 +229,12 @@ impl WPartialPath {
                 None
             };
 
-            segments.push(WPathSegment {
+            segments.push(WTotalPathSegment {
                 ident: segment.ident,
                 generics,
             });
         }
-        Ok(WPath {
+        Ok(WTotalPath {
             leading_colon: self.leading_colon,
             segments,
         })
