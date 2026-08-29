@@ -3,7 +3,7 @@ use syn::{Expr, Type};
 
 use crate::wir::{call::construct_call_fn_path, WCall, WCallArg, WTypeId};
 
-use super::{IntoSyn, WStdBinary, WStdUnary};
+use super::{IntoTypedSyn, WStdBinary, WStdUnary};
 
 #[derive(Clone, Debug, Hash)]
 pub enum WExprHighCall {
@@ -12,10 +12,10 @@ pub enum WExprHighCall {
     StdBinary(WStdBinary),
 }
 
-impl IntoSyn<Expr> for WExprHighCall {
-    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Expr {
+impl IntoTypedSyn<Expr> for WExprHighCall {
+    fn into_typed_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Expr {
         let (fn_operand, args) = match self {
-            WExprHighCall::Call(call) => return call.into_syn(type_fn),
+            WExprHighCall::Call(call) => return call.into_typed_syn(type_fn),
             WExprHighCall::StdUnary(call) => {
                 let operation = call.op.to_string();
                 (operation, vec![WCallArg::Ident(call.operand)])
@@ -29,6 +29,6 @@ impl IntoSyn<Expr> for WExprHighCall {
             }
         };
         let fn_path = construct_call_fn_path(fn_operand);
-        WCall { fn_path, args }.into_syn(type_fn)
+        WCall { fn_path, args }.into_typed_syn(type_fn)
     }
 }

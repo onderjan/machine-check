@@ -3,7 +3,7 @@ use proc_macro2::Span;
 use syn::{ImplItem, Item, ItemImpl, Token, Type, TypePath};
 
 use crate::wir::{
-    IntoSyn, WIdent, WImplItemType, WItemFn, WItemImplTrait, WItemStruct, WTotalPath, WTypeId,
+    IntoTypedSyn, WIdent, WImplItemType, WItemFn, WItemImplTrait, WItemStruct, WTotalPath, WTypeId,
     WUniquePath, YStage,
 };
 
@@ -148,21 +148,21 @@ impl<Y: YStage> WDefinitions<Y> {
     pub fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Vec<Item> {
         let mut items = Vec::new();
         for (datatype_path, datatype) in self.datatypes {
-            items.push(Item::Struct(datatype.def.into_syn(type_fn)));
+            items.push(Item::Struct(datatype.def.into_typed_syn(type_fn)));
             for (impl_trait, datatype_impl) in datatype.impls {
                 let mut impl_items = Vec::new();
 
                 for (_assoc_ident, assoc_type) in datatype_impl.assoc_types {
-                    impl_items.push(ImplItem::Type(assoc_type.into_syn(type_fn)))
+                    impl_items.push(ImplItem::Type(assoc_type.into_typed_syn(type_fn)))
                 }
 
                 for (_fn_ident, fn_id) in datatype_impl.functions {
                     let func = self.functions[fn_id.0].clone();
-                    impl_items.push(ImplItem::Fn(func.into_syn(type_fn)));
+                    impl_items.push(ImplItem::Fn(func.into_typed_syn(type_fn)));
                 }
 
                 let trait_ = if let Some(impl_trait) = impl_trait {
-                    let path = impl_trait.into_syn(type_fn);
+                    let path = impl_trait.into_typed_syn(type_fn);
                     Some((None, path, Token![for](Span::call_site())))
                 } else {
                     None

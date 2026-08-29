@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 use syn::Type;
 
-use super::IntoSyn;
+use super::IntoTypedSyn;
 
 mod partial;
 mod total;
@@ -22,8 +22,8 @@ impl WTypeId {
     }
 }
 
-impl IntoSyn<Type> for WTypeId {
-    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Type {
+impl IntoTypedSyn<Type> for WTypeId {
+    fn into_typed_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Type {
         type_fn(self)
     }
 }

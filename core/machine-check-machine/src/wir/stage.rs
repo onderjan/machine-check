@@ -3,22 +3,22 @@ use std::{fmt::Debug, hash::Hash};
 use syn::{Block, Expr, Local, Path, Stmt, Type};
 
 use crate::wir::{
-    IntoSyn, WExpr, WExprHighCall, WExprLowCall, WIdent, WIndexedExpr, WIndexedIdent, WItemFnBody,
-    WItemImplTrait, WMacroableStmt, WSsaLocal, WStmt, WSynBlock, WTacLocal, WTypeId,
+    IntoTypedSyn, WExpr, WExprHighCall, WExprLowCall, WIdent, WIndexedExpr, WIndexedIdent,
+    WItemFnBody, WItemImplTrait, WMacroableStmt, WSsaLocal, WStmt, WSynBlock, WTacLocal, WTypeId,
 };
 
 pub trait YStage: Clone {
-    type Local: IntoSyn<Local> + Clone + Debug + Hash;
-    type ItemImplTrait: IntoSyn<Path> + Clone + Debug + Hash;
+    type Local: IntoTypedSyn<Local> + Clone + Debug + Hash;
+    type ItemImplTrait: IntoTypedSyn<Path> + Clone + Debug + Hash;
 
-    type FnBody: IntoSyn<Block> + Clone + Debug + Hash;
-    type Stmt: IntoSyn<Stmt> + Clone + Debug + Hash;
-    type AssignLeft: IntoSyn<Expr> + Clone + Debug + Hash;
-    type AssignRight: IntoSyn<Expr> + Clone + Debug + Hash;
+    type FnBody: IntoTypedSyn<Block> + Clone + Debug + Hash;
+    type Stmt: IntoTypedSyn<Stmt> + Clone + Debug + Hash;
+    type AssignLeft: IntoTypedSyn<Expr> + Clone + Debug + Hash;
+    type AssignRight: IntoTypedSyn<Expr> + Clone + Debug + Hash;
     type IfPolarity: YIfPolarity;
 }
 
-pub trait YIfPolarity: IntoSyn<Path> + Clone + Debug + Hash {}
+pub trait YIfPolarity: IntoTypedSyn<Path> + Clone + Debug + Hash {}
 
 #[derive(Clone, Debug, Hash)]
 pub struct YBuild;
@@ -79,8 +79,8 @@ impl YStage for YSsa {
 #[derive(Clone, Debug, Hash)]
 pub struct WNoIfPolarity;
 
-impl IntoSyn<Path> for WNoIfPolarity {
-    fn into_syn(self, _type_fn: &impl Fn(WTypeId) -> Type) -> Path {
+impl IntoTypedSyn<Path> for WNoIfPolarity {
+    fn into_typed_syn(self, _type_fn: &impl Fn(WTypeId) -> Type) -> Path {
         syn_path::path!(::mck::forward::Test::into_bool)
     }
 }

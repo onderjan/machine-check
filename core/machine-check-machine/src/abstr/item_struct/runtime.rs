@@ -12,7 +12,7 @@ use crate::{
         create_expr_reference, create_ident, create_impl_item_fn, create_let, create_let_bare,
         create_type_path, create_type_reference, ArgType,
     },
-    wir::{IntoSyn, WItemStruct, WSpanned},
+    wir::{IntoTypedSyn, WItemStruct, WSpanned},
 };
 
 pub fn from_runtime_fn(item_struct: &WItemStruct, ctx: &WLowContext) -> ImplItemFn {
@@ -58,7 +58,7 @@ pub fn from_runtime_fn(item_struct: &WItemStruct, ctx: &WLowContext) -> ImplItem
                 field
                     .ty
                     .clone()
-                    .into_syn(&|type_id| ctx.id_syn_type(type_id)),
+                    .into_typed_syn(&|type_id| ctx.id_syn_type(type_id)),
             ),
         ));
         assign_stmts.push(create_assign(

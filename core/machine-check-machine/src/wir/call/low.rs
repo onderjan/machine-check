@@ -7,7 +7,7 @@ use syn::{
     Type,
 };
 
-use crate::wir::{IntoSyn, WTypeId};
+use crate::wir::{IntoTypedSyn, WTypeId};
 
 use super::{WCall, WIdent, WMckBinary, WMckUnary};
 
@@ -112,13 +112,13 @@ pub const PHI: &str = "::mck::forward::PhiArg::phi";
 pub const PHI_TAKEN: &str = "::mck::forward::PhiArg::Taken";
 pub const PHI_NOT_TAKEN: &str = "::mck::forward::PhiArg::NotTaken";
 
-impl IntoSyn<Expr> for WExprLowCall {
-    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Expr {
+impl IntoTypedSyn<Expr> for WExprLowCall {
+    fn into_typed_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Expr {
         let span = Span::call_site();
 
         let (func_path, func_args) = match self {
             WExprLowCall::Call(call) => {
-                return call.into_syn(type_fn);
+                return call.into_typed_syn(type_fn);
                 /*let func = call.fn_path.into();
                 let args = Punctuated::from_iter(call.args.iter().map(|arg| arg.into() ));
                 (func, args)*/

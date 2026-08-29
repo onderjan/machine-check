@@ -13,7 +13,7 @@ use syn_path::path;
 
 use crate::wir::{WFnSignature, WPartialPath, WTotalPath, WSpan, WSpanned, WTypeId};
 
-use super::{IntoSyn, WIdent, WImplItemType, YStage};
+use super::{IntoTypedSyn, WIdent, WImplItemType, YStage};
 
 #[derive(Clone, Debug, Hash)]
 pub struct WItemFn<Y: YStage> {
@@ -67,8 +67,8 @@ impl Hash for WItemImplTrait {
     }
 }
 
-impl IntoSyn<Path> for WItemImplTrait {
-    fn into_syn(self, _type_fn: &impl Fn(WTypeId) -> Type) -> Path {
+impl IntoTypedSyn<Path> for WItemImplTrait {
+    fn into_typed_syn(self, _type_fn: &impl Fn(WTypeId) -> Type) -> Path {
         match self {
             WItemImplTrait::Machine(_span) => {
                 path!(::mck::forward::Machine)
@@ -85,17 +85,17 @@ impl WSpanned for WItemImplTrait {
     }
 }
 
-impl IntoSyn<ItemStruct> for WItemStruct {
-    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> ItemStruct {
+impl IntoTypedSyn<ItemStruct> for WItemStruct {
+    fn into_typed_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> ItemStruct {
         let span = Span::call_site();
 
         let named = Punctuated::from_iter(self.fields.into_iter().map(|(name, field)| Field {
             attrs: Vec::new(),
-            vis: field.visibility.into_syn(type_fn),
+            vis: field.visibility.into_typed_syn(type_fn),
             mutability: syn::FieldMutability::None,
             ident: Some(name.into()),
             colon_token: Some(Token![:](span)),
-            ty: field.ty.into_syn(type_fn),
+            ty: field.ty.into_typed_syn(type_fn),
         }));
 
         let fields = FieldsNamed {
@@ -132,7 +132,7 @@ impl IntoSyn<ItemStruct> for WItemStruct {
 
         ItemStruct {
             attrs,
-            vis: self.visibility.into_syn(type_fn),
+            vis: self.visibility.into_typed_syn(type_fn),
             struct_token: Token![struct](span),
             ident: self.ident.into(),
             generics: Generics::default(),
@@ -148,25 +148,25 @@ impl WSpanned for WItemStruct {
     }
 }
 
-impl<Y: YStage> IntoSyn<ItemImpl> for WItemImpl<Y>
+impl<Y: YStage> IntoTypedSyn<ItemImpl> for WItemImpl<Y>
 where
-    WItemFn<Y>: IntoSyn<ImplItemFn>,
+    WItemFn<Y>: IntoTypedSyn<ImplItemFn>,
 {
-    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> ItemImpl {
+    fn into_typed_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> ItemImpl {
         let span = Span::call_site();
 
         let items = self
             .impl_item_types
             .into_iter()
-            .map(|type_item| ImplItem::Type(type_item.into_syn(type_fn)))
+            .map(|type_item| ImplItem::Type(type_item.into_typed_syn(type_fn)))
             .chain(
                 self.impl_item_fns
                     .into_iter()
-                    .map(|fn_item| ImplItem::Fn(fn_item.into_syn(type_fn))),
+                    .map(|fn_item| ImplItem::Fn(fn_item.into_typed_syn(type_fn))),
             )
             .collect();
 
-        let trait_path = self.trait_.map(|trait_| trait_.into_syn(type_fn));
+        let trait_path = self.trait_.map(|trait_| trait_.into_typed_syn(type_fn));
 
         ItemImpl {
             attrs: Vec::new(),
@@ -187,15 +187,15 @@ where
 
 impl<Y: YStage> WSpanned for WItemImpl<Y>
 where
-    WItemFn<Y>: IntoSyn<ImplItemFn>,
+    WItemFn<Y>: IntoTypedSyn<ImplItemFn>,
 {
     fn wir_span(&self) -> WSpan {
         self.self_ty.wir_span()
     }
 }
 
-impl IntoSyn<Visibility> for WVisibility {
-    fn into_syn(self, _type_fn: &impl Fn(WTypeId) -> Type) -> Visibility {
+impl IntoTypedSyn<Visibility> for WVisibility {
+    fn into_typed_syn(self, _type_fn: &impl Fn(WTypeId) -> Type) -> Visibility {
         match self {
             WVisibility::Public(span) => Visibility::Public(Token![pub](span.first())),
             WVisibility::Inherited => Visibility::Inherited,

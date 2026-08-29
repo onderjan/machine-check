@@ -7,7 +7,7 @@ use crate::{
     wir::{WPartialPath, WPartialPathSegment, WSpan, WTypeId},
 };
 
-use super::{IntoSyn, WIdent, WMckBinary, WMckUnary, WStdBinary, WStdUnary};
+use super::{IntoTypedSyn, WIdent, WMckBinary, WMckUnary, WStdBinary, WStdUnary};
 
 mod high;
 mod low;
@@ -26,8 +26,8 @@ pub enum WCallArg {
     Literal(Lit),
 }
 
-impl IntoSyn<Expr> for WCall {
-    fn into_syn(self, _type_fn: &impl Fn(WTypeId) -> Type) -> Expr {
+impl IntoTypedSyn<Expr> for WCall {
+    fn into_typed_syn(self, _type_fn: &impl Fn(WTypeId) -> Type) -> Expr {
         let path = self.fn_path.into();
 
         let mut args = Punctuated::from_iter(self.args.into_iter().map(|arg| match arg {

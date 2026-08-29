@@ -13,7 +13,7 @@ use crate::{
     wir::{WTypeId, YStage},
 };
 
-use super::{IntoSyn, WIdent, YIfPolarity};
+use super::{IntoTypedSyn, WIdent, YIfPolarity};
 
 #[derive(Clone, Hash, Debug)]
 pub struct WSynBlock(pub Block);
@@ -68,17 +68,17 @@ pub enum WPanicMacroKind {
     Todo,
 }
 
-impl IntoSyn<Block> for WSynBlock {
-    fn into_syn(self, _type_fn: &impl Fn(WTypeId) -> Type) -> Block {
+impl IntoTypedSyn<Block> for WSynBlock {
+    fn into_typed_syn(self, _type_fn: &impl Fn(WTypeId) -> Type) -> Block {
         self.0
     }
 }
 
-impl<Y: YStage> IntoSyn<Block> for WBlock<Y> {
-    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Block {
+impl<Y: YStage> IntoTypedSyn<Block> for WBlock<Y> {
+    fn into_typed_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Block {
         let mut stmts = Vec::new();
         for stmt in self.stmts {
-            stmts.push(stmt.into_syn(type_fn));
+            stmts.push(stmt.into_typed_syn(type_fn));
         }
 
         Block {
@@ -88,17 +88,17 @@ impl<Y: YStage> IntoSyn<Block> for WBlock<Y> {
     }
 }
 
-impl<Y: YStage> IntoSyn<Stmt> for WStmt<Y> {
-    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Stmt {
+impl<Y: YStage> IntoTypedSyn<Stmt> for WStmt<Y> {
+    fn into_typed_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Stmt {
         let span = Span::call_site();
         match self {
             WStmt::Assign(stmt) => {
-                let right = stmt.right.into_syn(type_fn);
+                let right = stmt.right.into_typed_syn(type_fn);
 
                 Stmt::Expr(
                     Expr::Assign(ExprAssign {
                         attrs: Vec::new(),
-                        left: Box::new(stmt.left.into_syn(type_fn)),
+                        left: Box::new(stmt.left.into_typed_syn(type_fn)),
                         eq_token: Token![=](span),
                         right: Box::new(right),
                     }),
@@ -107,22 +107,22 @@ impl<Y: YStage> IntoSyn<Stmt> for WStmt<Y> {
             }
             WStmt::If(stmt) => {
                 let condition = {
-                    let func_operator = stmt.condition.polarity.into_syn(type_fn);
+                    let func_operator = stmt.condition.polarity.into_typed_syn(type_fn);
                     Expr::Call(ExprCall {
                         attrs: vec![],
                         func: Box::new(create_expr_path(func_operator)),
                         paren_token: Default::default(),
-                        args: Punctuated::from_iter([stmt.condition.ident.into_syn(type_fn)]),
+                        args: Punctuated::from_iter([stmt.condition.ident.into_typed_syn(type_fn)]),
                     })
                 };
 
-                let then_branch = stmt.then_block.into_syn(type_fn);
+                let then_branch = stmt.then_block.into_typed_syn(type_fn);
                 let else_branch = (
                     Token![else](span),
                     Box::new(Expr::Block(ExprBlock {
                         attrs: Vec::new(),
                         label: None,
-                        block: stmt.else_block.into_syn(type_fn),
+                        block: stmt.else_block.into_typed_syn(type_fn),
                     })),
                 );
 
@@ -141,11 +141,11 @@ impl<Y: YStage> IntoSyn<Stmt> for WStmt<Y> {
     }
 }
 
-impl<Y: YStage> IntoSyn<Stmt> for WMacroableStmt<Y> {
-    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Stmt {
+impl<Y: YStage> IntoTypedSyn<Stmt> for WMacroableStmt<Y> {
+    fn into_typed_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Stmt {
         let panic_macro = match self {
-            WMacroableStmt::Assign(stmt) => return WStmt::Assign(stmt).into_syn(type_fn),
-            WMacroableStmt::If(stmt) => return WStmt::If(stmt).into_syn(type_fn),
+            WMacroableStmt::Assign(stmt) => return WStmt::Assign(stmt).into_typed_syn(type_fn),
+            WMacroableStmt::If(stmt) => return WStmt::If(stmt).into_typed_syn(type_fn),
             WMacroableStmt::PanicMacro(panic_macro) => panic_macro,
         };
         let span = Span::call_site();

@@ -79,6 +79,6 @@ impl WSubproperty {
     }
 }
 
-pub trait IntoSyn<T> {
-    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> T;
+pub trait IntoTypedSyn<T> {
+    fn into_typed_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> T;
 }

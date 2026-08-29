@@ -11,7 +11,7 @@ use crate::{
         create_ident, create_impl_item_fn, create_let_bare, create_type_path,
         path_starts_with_global_names, ArgType,
     },
-    wir::{IntoSyn, WItemStruct},
+    wir::{IntoTypedSyn, WItemStruct},
 };
 
 pub fn from_concrete_fn(
@@ -41,7 +41,7 @@ pub fn from_concrete_fn(
         }) = field
             .ty
             .clone()
-            .into_syn(&|type_id| ctx.id_syn_type(type_id))
+            .into_typed_syn(&|type_id| ctx.id_syn_type(type_id))
         else {
             panic!("Field type should be a path");
         };
@@ -77,7 +77,7 @@ pub fn from_concrete_fn(
                 field
                     .ty
                     .clone()
-                    .into_syn(&|type_id| ctx.id_syn_type(type_id)),
+                    .into_typed_syn(&|type_id| ctx.id_syn_type(type_id)),
             ),
         ));
         assign_stmts.push(create_assign(

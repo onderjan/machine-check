@@ -9,10 +9,10 @@ use syn::{
 
 use crate::{util::create_expr_ident, wir::WTypeId};
 
-use super::{IntoSyn, WIdent};
+use super::{IntoTypedSyn, WIdent};
 
 #[derive(Clone, Hash)]
-pub enum WExpr<CF: IntoSyn<Expr>> {
+pub enum WExpr<CF: IntoTypedSyn<Expr>> {
     Move(WIdent),
     Call(CF),
     Field(WExprField),
@@ -40,7 +40,7 @@ pub enum WExprReference {
 }
 
 #[derive(Clone, Debug, Hash)]
-pub enum WIndexedExpr<CF: IntoSyn<Expr>> {
+pub enum WIndexedExpr<CF: IntoTypedSyn<Expr>> {
     Indexed(WArrayBaseExpr, WIdent),
     NonIndexed(WExpr<CF>),
 }
@@ -57,12 +57,12 @@ pub enum WIndexedIdent {
     NonIndexed(WIdent),
 }
 
-impl<CF: IntoSyn<Expr>> IntoSyn<Expr> for WExpr<CF> {
-    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Expr {
+impl<CF: IntoTypedSyn<Expr>> IntoTypedSyn<Expr> for WExpr<CF> {
+    fn into_typed_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Expr {
         let span = Span::call_site();
         match self {
             WExpr::Move(ident) => create_expr_ident(ident.into()),
-            WExpr::Call(expr) => expr.into_syn(type_fn),
+            WExpr::Call(expr) => expr.into_typed_syn(type_fn),
             WExpr::Field(expr) => Expr::Field(ExprField {
                 attrs: Vec::new(),
                 base: Box::new(create_expr_ident(expr.base.into())),
@@ -146,33 +146,33 @@ fn into_member(member_ident: WIdent) -> syn::Member {
     })
 }
 
-impl<CF: IntoSyn<Expr>> IntoSyn<Expr> for WIndexedExpr<CF> {
-    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Expr {
+impl<CF: IntoTypedSyn<Expr>> IntoTypedSyn<Expr> for WIndexedExpr<CF> {
+    fn into_typed_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Expr {
         match self {
             WIndexedExpr::Indexed(array, index) => {
                 let array = match array {
-                    WArrayBaseExpr::Ident(ident) => ident.into_syn(type_fn),
+                    WArrayBaseExpr::Ident(ident) => ident.into_typed_syn(type_fn),
                     WArrayBaseExpr::Field(field) => Expr::Field(ExprField {
                         attrs: Vec::new(),
-                        base: Box::new(field.base.into_syn(type_fn)),
+                        base: Box::new(field.base.into_typed_syn(type_fn)),
                         dot_token: Token![.](index.span()),
                         member: syn::Member::Named(field.member.into()),
                     }),
                 };
-                indexed_ident(array, index.into_syn(type_fn))
+                indexed_ident(array, index.into_typed_syn(type_fn))
             }
 
-            WIndexedExpr::NonIndexed(expr) => expr.into_syn(type_fn),
+            WIndexedExpr::NonIndexed(expr) => expr.into_typed_syn(type_fn),
         }
     }
 }
-impl IntoSyn<Expr> for WIndexedIdent {
-    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Expr {
+impl IntoTypedSyn<Expr> for WIndexedIdent {
+    fn into_typed_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Expr {
         match self {
             WIndexedIdent::Indexed(array, index) => {
-                indexed_ident(array.into_syn(type_fn), index.into_syn(type_fn))
+                indexed_ident(array.into_typed_syn(type_fn), index.into_typed_syn(type_fn))
             }
-            WIndexedIdent::NonIndexed(ident) => ident.into_syn(type_fn),
+            WIndexedIdent::NonIndexed(ident) => ident.into_typed_syn(type_fn),
         }
     }
 }
@@ -186,7 +186,7 @@ fn indexed_ident(array: Expr, index: Expr) -> Expr {
     })
 }
 
-impl<CF: IntoSyn<Expr> + Debug> Debug for WExpr<CF> {
+impl<CF: IntoTypedSyn<Expr> + Debug> Debug for WExpr<CF> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Move(ident) => ident.fmt(f),

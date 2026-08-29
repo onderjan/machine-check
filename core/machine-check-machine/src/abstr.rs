@@ -7,8 +7,8 @@ use crate::{
     context::WLowContext,
     util::{create_angle_bracketed_path_arguments, create_type_path},
     wir::{
-        IntoSyn, WExpr, WExprLowCall, WIdent, WItemFnBody, WItemImpl, WItemImplTrait, WTotalPath,
-        WSsaLocal, WStmt, WTypeId, YIfPolarity, YSsa, YStage,
+        IntoTypedSyn, WExpr, WExprLowCall, WIdent, WItemFnBody, WItemImpl, WItemImplTrait,
+        WSsaLocal, WStmt, WTotalPath, WTypeId, YIfPolarity, YSsa, YStage,
     },
 };
 
@@ -34,8 +34,8 @@ impl YStage for YAbstr {
 #[derive(Clone, Debug, Hash)]
 pub struct YAbstrIfPolarity(pub bool);
 
-impl IntoSyn<Path> for YAbstrIfPolarity {
-    fn into_syn(self, _type_fn: &impl Fn(WTypeId) -> Type) -> Path {
+impl IntoTypedSyn<Path> for YAbstrIfPolarity {
+    fn into_typed_syn(self, _type_fn: &impl Fn(WTypeId) -> Type) -> Path {
         if self.0 {
             syn_path::path!(::mck::forward::Test::can_be_true)
         } else {
@@ -52,9 +52,9 @@ pub struct WAbstrItemImplTrait {
     pub trait_: WItemImplTrait,
 }
 
-impl IntoSyn<Path> for WAbstrItemImplTrait {
-    fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Path {
-        let mut trait_path = self.trait_.into_syn(type_fn);
+impl IntoTypedSyn<Path> for WAbstrItemImplTrait {
+    fn into_typed_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Path {
+        let mut trait_path = self.trait_.into_typed_syn(type_fn);
         trait_path.segments.last_mut().unwrap().arguments = create_angle_bracketed_path_arguments(
             false,
             vec![GenericArgument::Type(create_type_path(
@@ -105,21 +105,21 @@ pub(crate) fn create_abstract_items(ctx: &WLowContext) -> Vec<Item> {
             for (_fn_name, fn_id) in &datatype_impl.functions {
                 let func = ctx.definitions().function_by_id(*fn_id);
 
-                let func = func.clone().into_syn(&type_fn);
+                let func = func.clone().into_typed_syn(&type_fn);
                 impl_item_fns.push(ImplItem::Fn(func));
             }
 
             concrete_impls.push(item_impl);
         }
 
-        items.push(Item::Struct(item_struct.into_syn(&type_fn)));
+        items.push(Item::Struct(item_struct.into_typed_syn(&type_fn)));
         items.extend(other_impls.into_iter().map(Item::Impl));
     }
 
     for item_impl in concrete_impls {
         let item_impls = process_item_impl(item_impl, &machine_types);
         for item_impl in item_impls {
-            items.push(Item::Impl(item_impl.into_syn(&type_fn)));
+            items.push(Item::Impl(item_impl.into_typed_syn(&type_fn)));
         }
     }
 

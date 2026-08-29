@@ -9,7 +9,7 @@ use crate::{
         create_item_impl, create_let_bare, create_path_from_ident, create_self, create_self_arg,
         create_type_path, ArgType,
     },
-    wir::{IntoSyn, WItemStruct},
+    wir::{IntoTypedSyn, WItemStruct},
 };
 
 pub fn phi_impl(item_struct: &WItemStruct, ctx: &WLowContext) -> ItemImpl {
@@ -46,7 +46,7 @@ fn phi_fn(s: &WItemStruct, ctx: &WLowContext) -> ImplItemFn {
                 field
                     .ty
                     .clone()
-                    .into_syn(&|type_id| ctx.id_syn_type(type_id)),
+                    .into_typed_syn(&|type_id| ctx.id_syn_type(type_id)),
             ),
         ));
         assign_stmts.push(create_assign(
@@ -63,7 +63,7 @@ fn phi_fn(s: &WItemStruct, ctx: &WLowContext) -> ImplItemFn {
                 field
                     .ty
                     .clone()
-                    .into_syn(&|type_id| ctx.id_syn_type(type_id)),
+                    .into_typed_syn(&|type_id| ctx.id_syn_type(type_id)),
             ),
         ));
         assign_stmts.push(create_assign(
@@ -88,7 +88,7 @@ fn phi_fn(s: &WItemStruct, ctx: &WLowContext) -> ImplItemFn {
                 field
                     .ty
                     .clone()
-                    .into_syn(&|type_id| ctx.id_syn_type(type_id)),
+                    .into_typed_syn(&|type_id| ctx.id_syn_type(type_id)),
             ),
         ));
         assign_stmts.push(create_assign(
