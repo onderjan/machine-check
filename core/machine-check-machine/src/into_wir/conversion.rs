@@ -11,7 +11,7 @@ use syn::{
 };
 
 use crate::{
-    context::{WContextBuilder, WLowContext},
+    context::{WLowContext, WOuterContext},
     into_wir::conversion::expand_macros::expand_in_items,
     util::extract_path_ident,
     wir::WSpan,
@@ -33,9 +33,9 @@ pub fn context_from_syn(mut items: Vec<Item>) -> Result<WLowContext, Errors> {
     }
     remove_use(&mut items)?;
 
-    let mut builder = WContextBuilder::new();
-    builder.add_syn_items(items)?;
-    builder.build(&IndexMap::new())?.infer()?.lower()
+    let mut ctx = WOuterContext::new();
+    ctx.add_syn_items(items)?;
+    ctx.build(&IndexMap::new())?.infer()?.lower()
 }
 
 pub fn extract_use_map(items: &mut [Item]) -> Result<HashMap<Ident, Path>, Errors> {

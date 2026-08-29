@@ -2,7 +2,7 @@ use indexmap::IndexMap;
 use syn::{Expr, Type};
 
 use crate::{
-    context::{WContextBuilder, WInferenceContext},
+    context::{WOuterContext, WInferenceContext},
     util::ident_creator::IdentCreator,
     wir::{
         WFnArg, WIdent, WItemFn, WItemFnBody, WSpan, WTacLocal, WTotalPath, WTypeId, YBuild, YTac,
@@ -13,7 +13,7 @@ use crate::{
 mod expr;
 mod stmt;
 
-impl WContextBuilder {
+impl WOuterContext {
     pub fn build(
         mut self,
         optional_params: &IndexMap<WIdent, WTypeId>,
@@ -50,7 +50,7 @@ struct FunctionScope {
 }
 
 struct FunctionFolder<'a> {
-    ctx: &'a mut WContextBuilder,
+    ctx: &'a mut WOuterContext,
     self_ty: Option<(&'a Type, &'a WTotalPath)>,
     ident_creator: IdentCreator<()>,
     local_types: IndexMap<WIdent, WTypeId>,
@@ -135,7 +135,7 @@ impl FunctionFolder<'_> {
             ));
         }
 
-        let path = WContextBuilder::fold_partial_path(expr_path.path)?;
+        let path = WOuterContext::fold_partial_path(expr_path.path)?;
         let mut segments_iter = path.segments.into_iter();
         if path.leading_colon.is_none() {
             if let Some(first) = segments_iter.next() {

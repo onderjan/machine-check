@@ -17,7 +17,7 @@ use syn::{parse_quote, Attribute, Expr, Item, ItemFn, ItemMod, Meta, MetaList, P
 use syn_path::path;
 use util::error_list::ErrorList;
 
-use crate::context::{bitvector_type, bool_type, WContextBuilder};
+use crate::context::{bitvector_type, bool_type, WOuterContext};
 use crate::util::{create_item_mod, path_matches_global_names};
 use crate::wir::{WIdent, WSpan};
 
@@ -97,7 +97,7 @@ pub fn process_property<M: FullMachine, D>(
 
     let mut global_basic_types = IndexMap::new();
 
-    let mut builder = WContextBuilder::new();
+    let mut ctx = WOuterContext::new();
 
     // TODO: add global basic types
     for (global_ident, elementary_type) in &global_ident_types {
@@ -109,7 +109,7 @@ pub fn process_property<M: FullMachine, D>(
                 todo!("Support nested structs")
             }
         };
-        let type_id = builder.partial_type_id(ty);
+        let type_id = ctx.partial_type_id(ty);
         global_basic_types.insert(
             WIdent::new(global_ident.name().to_string(), WSpan::call_site()),
             type_id,
@@ -117,7 +117,7 @@ pub fn process_property<M: FullMachine, D>(
     }
 
     // TODO: do something with the panic messages
-    let property = into_wir::create_property(builder, expr, &global_basic_types, property_macros)?;
+    let property = into_wir::create_property(ctx, expr, &global_basic_types, property_macros)?;
     let property = property.into_iir();
 
     Ok(property?)

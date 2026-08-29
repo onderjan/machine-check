@@ -18,12 +18,12 @@ use crate::{
 };
 
 #[derive(Debug)]
-pub struct WContextBuilder {
+pub struct WOuterContext {
     definitions: WDefinitions<YBuild>,
     types: Vec<WPartialType>,
 }
 
-impl WContextBuilder {
+impl WOuterContext {
     pub fn new() -> Self {
         Self {
             definitions: WDefinitions::empty(),

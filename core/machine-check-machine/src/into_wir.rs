@@ -6,7 +6,7 @@ use machine_check_common::PropertyMacros;
 use syn::Item;
 
 use crate::{
-    context::{WContextBuilder, WLowContext},
+    context::{WLowContext, WOuterContext},
     into_wir::conversion::context_from_syn,
     wir::{WIdent, WProperty, WTypeId},
 };
@@ -16,7 +16,7 @@ pub fn create_context(items: Vec<Item>) -> Result<WLowContext, crate::Errors> {
 }
 
 pub fn create_property<D>(
-    ctx: WContextBuilder,
+    ctx: WOuterContext,
     expr: syn::Expr,
     globals: &IndexMap<WIdent, WTypeId>,
     property_macros: &PropertyMacros<D>,

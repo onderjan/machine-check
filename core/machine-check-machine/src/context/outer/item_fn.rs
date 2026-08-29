@@ -4,12 +4,12 @@ use syn::{
 };
 
 use crate::{
-    context::{builder::attribute::AttributeDisallower, WContextBuilder},
+    context::{outer::attribute::AttributeDisallower, WOuterContext},
     wir::{WFnArg, WFnSignature, WIdent, WItemFn, WSpan, WSynBlock, WTotalPath, YBuild},
     Error, ErrorType, Errors,
 };
 
-impl WContextBuilder {
+impl WOuterContext {
     pub fn fold_impl_item_fn(
         &mut self,
         mut impl_item_fn: ImplItemFn,

@@ -5,7 +5,7 @@ use syn::{
 };
 
 use crate::{
-    context::builder::build::FunctionScope,
+    context::outer::build::FunctionScope,
     util::{create_expr_ident, path_matches_global_names},
     wir::{
         WBlock, WIdent, WIfCondition, WIndexedIdent, WMacroableStmt, WNoIfPolarity,

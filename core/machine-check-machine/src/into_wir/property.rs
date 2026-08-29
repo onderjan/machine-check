@@ -16,7 +16,7 @@ use syn::{
 };
 
 use crate::{
-    context::WContextBuilder,
+    context::WOuterContext,
     into_wir::conversion::{expand_in_expr, resolve_use_expr},
     util::path_matches_global_names,
     wir::{
@@ -68,7 +68,7 @@ impl ExprProperty {
 }
 
 pub fn create_from_syn<D>(
-    ctx: WContextBuilder,
+    ctx: WOuterContext,
     expr: syn::Expr,
     globals: &IndexMap<WIdent, WTypeId>,
     property_macros: &PropertyMacros<D>,
@@ -138,7 +138,7 @@ pub fn create_from_syn<D>(
 }
 
 fn property_from_exprs(
-    mut ctx: WContextBuilder,
+    mut ctx: WOuterContext,
     globals: &IndexMap<WIdent, WTypeId>,
     property: ExprProperty,
 ) -> Result<WProperty, Errors> {

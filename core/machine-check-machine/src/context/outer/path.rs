@@ -1,7 +1,7 @@
 use syn::{AngleBracketedGenericArguments, Expr, GenericArgument, Lit, Path, PathArguments, Type};
 
 use crate::{
-    context::WContextBuilder,
+    context::WOuterContext,
     wir::{
         WIdent, WPartialPath, WPartialPathArgument, WPartialPathGenerics, WPartialPathSegment,
         WPartialType, WSpan, WTotalType,
@@ -9,7 +9,7 @@ use crate::{
     Error, ErrorType,
 };
 
-impl WContextBuilder {
+impl WOuterContext {
     pub fn fold_partial_type(ty: Type) -> Result<WPartialType, Error> {
         let ty_span = WSpan::from_syn(&ty);
         match ty {

@@ -6,7 +6,7 @@ use syn::{
 };
 
 use crate::{
-    context::{builder::attribute::AttributeDisallower, WContextBuilder},
+    context::{outer::attribute::AttributeDisallower, WOuterContext},
     util::path_matches_global_names,
     wir::{
         WField, WIdent, WImplItemType, WItemImpl, WItemImplTrait, WItemStruct, WSpan, WVisibility,
@@ -15,7 +15,7 @@ use crate::{
     Error, ErrorType, Errors,
 };
 
-impl WContextBuilder {
+impl WOuterContext {
     pub fn fold_item_struct(&mut self, mut item: ItemStruct) -> Result<WItemStruct, Errors> {
         let item_span = WSpan::from_syn(&item);
         if item.generics != Generics::default() {
