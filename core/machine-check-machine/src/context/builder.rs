@@ -1,20 +1,15 @@
 use std::fmt::Debug;
 
-use indexmap::IndexMap;
 use proc_macro2::Span;
 use syn::{punctuated::Punctuated, Ident, Path, PathArguments, PathSegment, Type, TypePath};
 
-mod expr;
-mod func;
-mod stmt;
+mod build;
 
 use crate::{
-    context::WInferenceContext,
-    into_wir::{fold_type, Error, Errors},
-    util::ident_creator::IdentCreator,
+    into_wir::{fold_type, Error},
     wir::{
-        WDefinitions, WFnId, WIdent, WItemFn, WItemImpl, WItemStruct, WPartialType, WSpan,
-        WStrippedPath, WTotalPath, WTypeId, YBuild, YTac,
+        WDefinitions, WFnId, WItemFn, WItemImpl, WItemStruct, WPartialType, WSpan, WStrippedPath,
+        WTypeId, YBuild,
     },
 };
 
@@ -109,51 +104,7 @@ impl WContextBuilder {
             .expect("Bool type should be assigned a type id")
     }
 
-    pub fn build(
-        mut self,
-        optional_params: &IndexMap<WIdent, WTypeId>,
-    ) -> Result<WInferenceContext, Errors> {
-        let definitions = self
-            .definitions
-            .clone()
-            .map_functions(|func| self.build_function(func, optional_params.clone()))?;
-
-        Ok(WInferenceContext::new(definitions, self.types))
-    }
-
-    fn build_function(
-        &mut self,
-        item_fn: WItemFn<YBuild>,
-        optional_params: IndexMap<WIdent, WTypeId>,
-    ) -> Result<WItemFn<YTac>, Errors> {
-        FunctionFolder {
-            ctx: self,
-            self_ty: None,
-            ident_creator: IdentCreator::new(String::from("")),
-            scopes: Vec::new(),
-            local_types: IndexMap::new(),
-            next_scope_id: 0,
-            optional_params,
-            added_params: IndexMap::new(),
-        }
-        .fold(item_fn)
-    }
     fn wildcard_id(&mut self, span: WSpan) -> WTypeId {
         self.partial_type_id(WPartialType::Infer(span))
     }
-}
-
-struct FunctionScope {
-    local_map: IndexMap<WIdent, WIdent>,
-}
-
-struct FunctionFolder<'a> {
-    ctx: &'a mut WContextBuilder,
-    self_ty: Option<(&'a Type, &'a WTotalPath)>,
-    ident_creator: IdentCreator<()>,
-    local_types: IndexMap<WIdent, WTypeId>,
-    scopes: Vec<FunctionScope>,
-    next_scope_id: u32,
-    optional_params: IndexMap<WIdent, WTypeId>,
-    added_params: IndexMap<WIdent, WTypeId>,
 }

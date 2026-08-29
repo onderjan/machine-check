@@ -8,6 +8,7 @@ use syn::{
 use syn_path::path;
 
 use crate::{
+    context::builder::build::FunctionFolder,
     into_wir::{fold_partial_path, Error, ErrorType},
     util::{create_expr_call, create_expr_ident, create_expr_path, ArgType},
     wir::{
@@ -17,10 +18,8 @@ use crate::{
     },
 };
 
-use super::FunctionFolder;
-
-impl super::FunctionFolder<'_> {
-    pub fn fold_right_expr(
+impl FunctionFolder<'_> {
+    pub fn build_right_expr(
         &mut self,
         expr: Expr,
         stmts: &mut Vec<WMacroableStmt<YTac>>,
@@ -29,7 +28,7 @@ impl super::FunctionFolder<'_> {
             fn_folder: self,
             stmts,
         }
-        .fold_right_expr(expr)
+        .build_right_expr(expr)
     }
 
     pub fn force_right_expr_to_ident(
@@ -53,26 +52,26 @@ struct RightExprFolder<'a, 'b, 'c> {
 }
 
 impl RightExprFolder<'_, '_, '_> {
-    pub fn fold_right_expr(&mut self, expr: Expr) -> Result<WIndexedExpr<WExprHighCall>, Error> {
+    pub fn build_right_expr(&mut self, expr: Expr) -> Result<WIndexedExpr<WExprHighCall>, Error> {
         Ok(match expr {
             Expr::Call(expr_call) => {
-                WIndexedExpr::NonIndexed(WExpr::Call(self.fold_right_expr_call(expr_call)?))
+                WIndexedExpr::NonIndexed(WExpr::Call(self.build_right_expr_call(expr_call)?))
             }
             Expr::Field(expr_field) => {
-                WIndexedExpr::NonIndexed(WExpr::Field(self.fold_right_expr_field(expr_field)?))
+                WIndexedExpr::NonIndexed(WExpr::Field(self.build_right_expr_field(expr_field)?))
             }
             Expr::Path(_) => {
-                WIndexedExpr::NonIndexed(WExpr::Move(self.fn_folder.fold_expr_as_ident(expr)?))
+                WIndexedExpr::NonIndexed(WExpr::Move(self.fn_folder.build_expr_as_ident(expr)?))
             }
             Expr::Struct(expr_struct) => {
-                WIndexedExpr::NonIndexed(WExpr::Struct(self.fold_right_expr_struct(expr_struct)?))
+                WIndexedExpr::NonIndexed(WExpr::Struct(self.build_right_expr_struct(expr_struct)?))
             }
             Expr::Reference(expr_reference) => WIndexedExpr::NonIndexed(WExpr::Reference(
-                self.fold_right_expr_reference(expr_reference)?,
+                self.build_right_expr_reference(expr_reference)?,
             )),
             Expr::Lit(expr_lit) => WIndexedExpr::NonIndexed(WExpr::Lit(expr_lit.lit, false)),
-            Expr::Index(expr_index) => self.fold_right_expr_index(expr_index)?,
-            Expr::Binary(expr_binary) => self.fold_binary(expr_binary)?,
+            Expr::Index(expr_index) => self.build_right_expr_index(expr_index)?,
+            Expr::Binary(expr_binary) => self.build_binary(expr_binary)?,
             Expr::Unary(expr_unary) => {
                 // handle negation of literal specially
                 if let UnOp::Neg(_) = expr_unary.op {
@@ -81,21 +80,21 @@ impl RightExprFolder<'_, '_, '_> {
                     }
                 }
 
-                self.fold_unary(expr_unary)?
+                self.build_unary(expr_unary)?
             }
             Expr::Paren(expr_paren) => {
                 // just fold the inside
-                self.fold_right_expr(*expr_paren.expr)?
+                self.build_right_expr(*expr_paren.expr)?
             }
             Expr::Group(expr_group) => {
                 // just fold the inside
-                self.fold_right_expr(*expr_group.expr)?
+                self.build_right_expr(*expr_group.expr)?
             }
             _ => return Err(Error::unsupported_syn_construct("Expression kind", &expr)),
         })
     }
 
-    fn fold_right_expr_call(&mut self, expr_call: ExprCall) -> Result<WExprHighCall, Error> {
+    fn build_right_expr_call(&mut self, expr_call: ExprCall) -> Result<WExprHighCall, Error> {
         let Expr::Path(expr_path) = &*expr_call.func else {
             return Err(Error::unsupported_syn_construct(
                 "Non-path function operand",
@@ -224,13 +223,13 @@ impl RightExprFolder<'_, '_, '_> {
         Ok(())
     }
 
-    fn fold_right_expr_field(&mut self, expr_field: ExprField) -> Result<WExprField, Error> {
-        let base = self.fn_folder.fold_expr_as_ident(*expr_field.base)?;
+    fn build_right_expr_field(&mut self, expr_field: ExprField) -> Result<WExprField, Error> {
+        let base = self.fn_folder.build_expr_as_ident(*expr_field.base)?;
         let member = Self::extract_member(expr_field.member)?;
         Ok(WExprField { base, member })
     }
 
-    fn fold_right_expr_struct(&mut self, expr_struct: ExprStruct) -> Result<WExprStruct, Error> {
+    fn build_right_expr_struct(&mut self, expr_struct: ExprStruct) -> Result<WExprStruct, Error> {
         if expr_struct.qself.is_some() {
             return Err(Error::unsupported_construct(
                 "Quantified self",
@@ -257,13 +256,13 @@ impl RightExprFolder<'_, '_, '_> {
         Ok(WExprStruct { ty, fields: args })
     }
 
-    fn fold_right_expr_reference(
+    fn build_right_expr_reference(
         &mut self,
         expr_reference: ExprReference,
     ) -> Result<WExprReference, Error> {
         Ok(match *expr_reference.expr {
             Expr::Path(expr_path) => {
-                WExprReference::Ident(self.fn_folder.fold_expr_as_ident(Expr::Path(expr_path))?)
+                WExprReference::Ident(self.fn_folder.build_expr_as_ident(Expr::Path(expr_path))?)
             }
             Expr::Field(expr_field) => {
                 let member = Self::extract_member(expr_field.member)?;
@@ -281,13 +280,13 @@ impl RightExprFolder<'_, '_, '_> {
         })
     }
 
-    fn fold_right_expr_index(
+    fn build_right_expr_index(
         &mut self,
         expr_index: ExprIndex,
     ) -> Result<WIndexedExpr<WExprHighCall>, Error> {
         let array_base = match *expr_index.expr {
             Expr::Path(expr_path) => {
-                WArrayBaseExpr::Ident(self.fn_folder.fold_expr_as_ident(Expr::Path(expr_path))?)
+                WArrayBaseExpr::Ident(self.fn_folder.build_expr_as_ident(Expr::Path(expr_path))?)
             }
             Expr::Field(expr_field) => {
                 let field_base = self.force_ident(*expr_field.base)?;
@@ -328,7 +327,7 @@ impl RightExprFolder<'_, '_, '_> {
 
     fn force_ident(&mut self, expr: Expr) -> Result<WIdent, Error> {
         // try to fold the expression as ident first
-        if let Ok(ident) = self.fn_folder.fold_expr_as_ident(expr.clone()) {
+        if let Ok(ident) = self.fn_folder.build_expr_as_ident(expr.clone()) {
             return Ok(ident);
         }
         self.move_through_temp(expr)
@@ -340,7 +339,7 @@ impl RightExprFolder<'_, '_, '_> {
         let expr = match expr {
             syn::Expr::Path(_) => {
                 // just fold as ident
-                return self.fn_folder.fold_expr_as_ident(expr);
+                return self.fn_folder.build_expr_as_ident(expr);
             }
             syn::Expr::Paren(paren) => {
                 // move statement in parentheses
@@ -349,7 +348,7 @@ impl RightExprFolder<'_, '_, '_> {
             _ => {
                 // fold the expression normally
                 // so that nested expressions are properly converted to SSA
-                self.fold_right_expr(expr)?
+                self.build_right_expr(expr)?
             }
         };
 
@@ -376,7 +375,7 @@ impl RightExprFolder<'_, '_, '_> {
             .ident_creator
             .create_temporary_ident(expr_span, ());
         // fold expression
-        let expr = self.fold_right_expr(expr)?;
+        let expr = self.build_right_expr(expr)?;
         // add assignment statement; the temporary is only assigned to once here
         self.stmts.push(WMacroableStmt::Assign(WStmtAssign {
             left: WIndexedIdent::NonIndexed(tmp_ident.clone()),
@@ -387,7 +386,7 @@ impl RightExprFolder<'_, '_, '_> {
         Ok(tmp_ident)
     }
 
-    fn fold_unary(&mut self, expr_unary: ExprUnary) -> Result<WIndexedExpr<WExprHighCall>, Error> {
+    fn build_unary(&mut self, expr_unary: ExprUnary) -> Result<WIndexedExpr<WExprHighCall>, Error> {
         let path = match expr_unary.op {
             syn::UnOp::Deref(_) => {
                 return Err(Error::unsupported_syn_construct(
@@ -410,10 +409,10 @@ impl RightExprFolder<'_, '_, '_> {
             vec![(ArgType::Normal, *expr_unary.expr)],
         );
         // fold it
-        self.fold_right_expr(call)
+        self.build_right_expr(call)
     }
 
-    fn fold_binary(
+    fn build_binary(
         &mut self,
         expr_binary: ExprBinary,
     ) -> Result<WIndexedExpr<WExprHighCall>, Error> {
@@ -424,10 +423,10 @@ impl RightExprFolder<'_, '_, '_> {
             syn::BinOp::Div(_) => path!(::std::ops::Div::div),
             syn::BinOp::Rem(_) => path!(::std::ops::Rem::rem),
             syn::BinOp::And(_) => {
-                return self.fold_short_circuiting(true, *expr_binary.left, *expr_binary.right);
+                return self.build_short_circuiting(true, *expr_binary.left, *expr_binary.right);
             }
             syn::BinOp::Or(_) => {
-                return self.fold_short_circuiting(false, *expr_binary.left, *expr_binary.right);
+                return self.build_short_circuiting(false, *expr_binary.left, *expr_binary.right);
             }
             syn::BinOp::BitAnd(_) => path!(::std::ops::BitAnd::bitand),
             syn::BinOp::BitOr(_) => path!(::std::ops::BitOr::bitor),
@@ -472,10 +471,10 @@ impl RightExprFolder<'_, '_, '_> {
             ],
         );
 
-        self.fold_right_expr(call)
+        self.build_right_expr(call)
     }
 
-    fn fold_short_circuiting(
+    fn build_short_circuiting(
         &mut self,
         is_and: bool,
         left: Expr,

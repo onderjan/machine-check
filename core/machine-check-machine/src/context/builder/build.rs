@@ -1,11 +1,64 @@
 use indexmap::IndexMap;
-use syn::Expr;
+use syn::{Expr, Type};
 
 use crate::{
-    context::builder::{FunctionFolder, FunctionScope},
+    context::{WContextBuilder, WInferenceContext},
     into_wir::{fold_partial_path, Error, Errors},
-    wir::{WFnArg, WIdent, WItemFn, WItemFnBody, WSpan, WTacLocal, WTypeId, YBuild, YTac},
+    util::ident_creator::IdentCreator,
+    wir::{
+        WFnArg, WIdent, WItemFn, WItemFnBody, WSpan, WTacLocal, WTotalPath, WTypeId, YBuild, YTac,
+    },
 };
+
+mod expr;
+mod stmt;
+
+impl WContextBuilder {
+    pub fn build(
+        mut self,
+        optional_params: &IndexMap<WIdent, WTypeId>,
+    ) -> Result<WInferenceContext, Errors> {
+        let definitions = self
+            .definitions
+            .clone()
+            .map_functions(|func| self.build_function(func, optional_params.clone()))?;
+
+        Ok(WInferenceContext::new(definitions, self.types))
+    }
+
+    fn build_function(
+        &mut self,
+        item_fn: WItemFn<YBuild>,
+        optional_params: IndexMap<WIdent, WTypeId>,
+    ) -> Result<WItemFn<YTac>, Errors> {
+        FunctionFolder {
+            ctx: self,
+            self_ty: None,
+            ident_creator: IdentCreator::new(String::from("")),
+            scopes: Vec::new(),
+            local_types: IndexMap::new(),
+            next_scope_id: 0,
+            optional_params,
+            added_params: IndexMap::new(),
+        }
+        .fold(item_fn)
+    }
+}
+
+struct FunctionScope {
+    local_map: IndexMap<WIdent, WIdent>,
+}
+
+struct FunctionFolder<'a> {
+    ctx: &'a mut WContextBuilder,
+    self_ty: Option<(&'a Type, &'a WTotalPath)>,
+    ident_creator: IdentCreator<()>,
+    local_types: IndexMap<WIdent, WTypeId>,
+    scopes: Vec<FunctionScope>,
+    next_scope_id: u32,
+    optional_params: IndexMap<WIdent, WTypeId>,
+    added_params: IndexMap<WIdent, WTypeId>,
+}
 
 impl FunctionFolder<'_> {
     pub fn fold(mut self, impl_item: WItemFn<YBuild>) -> Result<WItemFn<YTac>, Errors> {
@@ -18,7 +71,7 @@ impl FunctionFolder<'_> {
 
         let block_span = WSpan::from_syn(&impl_item.body.0);
 
-        let (block, result) = self.fold_block(impl_item.body.0)?;
+        let (block, result) = self.build_block(impl_item.body.0)?;
 
         let Some(result) = result else {
             return Err(Errors::single(Error::unsupported_construct(
@@ -67,7 +120,7 @@ impl FunctionFolder<'_> {
         })
     }
 
-    pub fn fold_expr_as_ident(&mut self, expr: Expr) -> Result<WIdent, Error> {
+    pub fn build_expr_as_ident(&mut self, expr: Expr) -> Result<WIdent, Error> {
         let expr_span = WSpan::from_syn(&expr);
         let Expr::Path(expr_path) = expr else {
             return Err(Error::unsupported_syn_construct(

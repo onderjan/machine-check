@@ -5,7 +5,7 @@ use syn::{
 };
 
 use crate::{
-    context::builder::FunctionScope,
+    context::builder::build::FunctionScope,
     into_wir::{Error, ErrorType, Errors},
     util::{create_expr_ident, path_matches_global_names},
     wir::{
@@ -15,7 +15,7 @@ use crate::{
 };
 
 impl<'a> super::FunctionFolder<'a> {
-    pub fn fold_block(&mut self, block: Block) -> Result<(WBlock<YTac>, Option<WIdent>), Errors> {
+    pub fn build_block(&mut self, block: Block) -> Result<(WBlock<YTac>, Option<WIdent>), Errors> {
         // push a local scope
         let scope_id = self.next_scope_id;
         self.next_scope_id = self
@@ -54,7 +54,7 @@ impl<'a> super::FunctionFolder<'a> {
         let mut errors = Vec::new();
 
         for orig_stmt in orig_stmts {
-            match self.fold_stmt(scope_id, orig_stmt, &mut stmts) {
+            match self.build_stmt(scope_id, orig_stmt, &mut stmts) {
                 Ok(()) => {}
                 Err(err) => errors.push(err),
             }
@@ -86,7 +86,7 @@ impl<'a> super::FunctionFolder<'a> {
         Ok((WBlock { stmts }, return_ident))
     }
 
-    fn fold_stmt(
+    fn build_stmt(
         &mut self,
         scope_id: u32,
         stmt: Stmt,
@@ -133,7 +133,7 @@ impl<'a> super::FunctionFolder<'a> {
                             &else_token,
                         )));
                     }
-                    self.fold_stmt_expr(
+                    self.build_stmt_expr(
                         Expr::Assign(ExprAssign {
                             attrs: vec![],
                             left: Box::new(create_expr_ident(local_syn_ident)),
@@ -144,7 +144,7 @@ impl<'a> super::FunctionFolder<'a> {
                     )?;
                 }
             }
-            Stmt::Expr(stmt_expr, _) => self.fold_stmt_expr(stmt_expr, result_stmts)?,
+            Stmt::Expr(stmt_expr, _) => self.build_stmt_expr(stmt_expr, result_stmts)?,
             Stmt::Item(_) => {
                 return Err(Errors::single(Error::unsupported_syn_construct(
                     "Items inside function",
@@ -161,17 +161,17 @@ impl<'a> super::FunctionFolder<'a> {
         Ok(())
     }
 
-    fn fold_stmt_expr(
+    fn build_stmt_expr(
         &mut self,
         expr: Expr,
         result_stmts: &mut Vec<WMacroableStmt<YTac>>,
     ) -> Result<(), Errors> {
         match expr {
-            syn::Expr::Assign(expr) => self.fold_assign(expr, result_stmts),
-            syn::Expr::If(expr) => self.fold_if(expr, result_stmts),
+            syn::Expr::Assign(expr) => self.build_assign(expr, result_stmts),
+            syn::Expr::If(expr) => self.build_if(expr, result_stmts),
             syn::Expr::Block(expr) => {
                 // handle nested blocks
-                let (mut block, result) = self.fold_block(expr.block)?;
+                let (mut block, result) = self.build_block(expr.block)?;
                 if let Some(result) = result {
                     return Err(Errors::single(Error::unsupported_construct(
                         "Block statements with result",
@@ -182,7 +182,7 @@ impl<'a> super::FunctionFolder<'a> {
                 result_stmts.append(&mut block.stmts);
                 Ok(())
             }
-            syn::Expr::Macro(expr) => self.fold_macro(expr, result_stmts),
+            syn::Expr::Macro(expr) => self.build_macro(expr, result_stmts),
             _ => Err(Errors::single(Error::unsupported_syn_construct(
                 "Expression kind",
                 &expr,
@@ -190,20 +190,20 @@ impl<'a> super::FunctionFolder<'a> {
         }
     }
 
-    fn fold_assign(
+    fn build_assign(
         &mut self,
         expr: ExprAssign,
         result_stmts: &mut Vec<WMacroableStmt<YTac>>,
     ) -> Result<(), Errors> {
         let left = match *expr.left {
             Expr::Index(expr_index) => {
-                let base_ident = self.fold_expr_as_ident(*expr_index.expr)?;
+                let base_ident = self.build_expr_as_ident(*expr_index.expr)?;
                 let index_ident =
                     self.force_right_expr_to_ident(*expr_index.index, result_stmts)?;
                 WIndexedIdent::Indexed(base_ident, index_ident)
             }
             Expr::Path(expr_path) => {
-                let left_ident = self.fold_expr_as_ident(Expr::Path(expr_path))?;
+                let left_ident = self.build_expr_as_ident(Expr::Path(expr_path))?;
 
                 WIndexedIdent::NonIndexed(left_ident.clone())
             }
@@ -215,23 +215,23 @@ impl<'a> super::FunctionFolder<'a> {
             }
         };
 
-        let right = self.fold_right_expr(*expr.right, result_stmts)?;
+        let right = self.build_right_expr(*expr.right, result_stmts)?;
         result_stmts.push(WMacroableStmt::Assign(WStmtAssign { left, right }));
         Ok(())
     }
 
-    fn fold_if(
+    fn build_if(
         &mut self,
         expr: ExprIf,
         result_stmts: &mut Vec<WMacroableStmt<YTac>>,
     ) -> Result<(), Errors> {
         let condition = self.force_right_expr_to_ident(*expr.cond, result_stmts)?;
 
-        let then_block = self.fold_block(expr.then_branch)?.0;
+        let then_block = self.build_block(expr.then_branch)?.0;
 
         let mut else_stmts = Vec::new();
         if let Some((_else_token, else_branch)) = expr.else_branch {
-            self.fold_stmt_expr(*else_branch, &mut else_stmts)?;
+            self.build_stmt_expr(*else_branch, &mut else_stmts)?;
         }
         let else_block = WBlock { stmts: else_stmts };
 
@@ -246,7 +246,7 @@ impl<'a> super::FunctionFolder<'a> {
         Ok(())
     }
 
-    fn fold_macro(
+    fn build_macro(
         &mut self,
         expr: ExprMacro,
         result_stmts: &mut Vec<WMacroableStmt<YTac>>,
