@@ -1,4 +1,3 @@
-mod context;
 mod conversion;
 mod property;
 
@@ -9,12 +8,13 @@ use syn::Item;
 
 use crate::{
     context::{WContextBuilder, WLowContext},
+    into_wir::conversion::context_from_syn,
     util::error_list::ErrorList,
     wir::{WIdent, WProperty, WSpan, WTypeId},
 };
 
 pub fn create_context(items: Vec<Item>) -> Result<WLowContext, crate::Errors> {
-    context::context_from_syn(items).map_err(Errors::convert_inner)
+    context_from_syn(items).map_err(Errors::convert_inner)
 }
 
 pub fn create_property<D>(

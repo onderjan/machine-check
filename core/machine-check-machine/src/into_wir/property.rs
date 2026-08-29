@@ -18,7 +18,7 @@ use syn::{
 use crate::{
     context::WContextBuilder,
     into_wir::{
-        conversion::{expand_macros, resolve_use},
+        conversion::{expand_in_expr, resolve_use_expr},
         Errors,
     },
     util::path_matches_global_names,
@@ -62,7 +62,7 @@ impl ExprProperty {
     fn resolve_use(&mut self, use_map: &HashMap<Ident, Path>) -> Result<(), Errors> {
         for subproperty in &mut self.subproperties {
             if let ExprSubproperty::Expr(subproperty_func) = subproperty {
-                resolve_use::resolve_use_expr(&mut subproperty_func.expr, use_map)?;
+                resolve_use_expr(&mut subproperty_func.expr, use_map)?;
             }
         }
         Ok(())
@@ -99,7 +99,7 @@ pub fn create_from_syn<D>(
         property.resolve_use(&use_map)?;
         for subproperty in &mut property.subproperties {
             if let ExprSubproperty::Expr(subproperty_func) = subproperty {
-                expanded_some_macro |= expand_macros::expand_in_expr(&mut subproperty_func.expr)?;
+                expanded_some_macro |= expand_in_expr(&mut subproperty_func.expr)?;
             }
         }
 
