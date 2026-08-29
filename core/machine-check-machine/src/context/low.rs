@@ -22,9 +22,7 @@ use crate::{
 
 mod expr;
 mod func;
-mod path;
 mod property;
-mod stmt;
 
 #[derive(Debug, Clone)]
 pub struct WLowContext {
