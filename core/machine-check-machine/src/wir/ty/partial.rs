@@ -62,18 +62,16 @@ impl WPartialType {
             WPartialType::Infer(_span) => Err(()),
         }
     }
-}
 
-impl From<WPartialType> for Type {
-    fn from(value: WPartialType) -> Self {
-        match value {
+    pub fn into_syn(self) -> Type {
+        match self {
             WPartialType::Path(path) => {
                 let path: Path = path.into();
                 Type::Path(TypePath { qself: None, path })
             }
             WPartialType::Reference(ty) => {
                 let span: Span = ty.wir_span().first();
-                let elem = Box::new((*ty).into());
+                let elem = Box::new(ty.into_syn());
                 Type::Reference(TypeReference {
                     and_token: Token![&](span),
                     lifetime: None,

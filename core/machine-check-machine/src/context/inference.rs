@@ -117,8 +117,8 @@ impl WInferenceContext {
     }
 
     pub fn into_total(mut self) -> Result<WInferredContext, Error> {
-        let boolean_type_id = self.type_id(&Type::from(bool_type()))?;
-        let panic_type_id = self.type_id(&Type::from(bitvector_type(Some(32))))?;
+        let boolean_type_id = self.type_id(&bool_type().into_syn())?;
+        let panic_type_id = self.type_id(&bitvector_type(Some(32)).into_syn())?;
 
         let mut types = Vec::new();
         for ty in self.types {

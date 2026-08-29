@@ -1,6 +1,5 @@
-use proc_macro2::Span;
 use std::fmt::Debug;
-use syn::{Path, Token, Type, TypePath, TypeReference};
+use syn::Type;
 
 use crate::wir::{WPartialType, WSpan, WSpanned, WTotalPath};
 
@@ -30,26 +29,9 @@ impl WTotalType {
             WTotalType::Reference(ty) => WPartialType::Reference(Box::new(ty.into_partial())),
         }
     }
-}
 
-impl From<WTotalType> for Type {
-    fn from(value: WTotalType) -> Self {
-        match value {
-            WTotalType::Path(path) => {
-                let path: Path = path.into();
-                Type::Path(TypePath { qself: None, path })
-            }
-            WTotalType::Reference(ty) => {
-                let span: Span = ty.wir_span().first();
-                let elem = Box::new((*ty).into());
-                Type::Reference(TypeReference {
-                    and_token: Token![&](span),
-                    lifetime: None,
-                    mutability: None,
-                    elem,
-                })
-            }
-        }
+    pub fn into_syn(self) -> Type {
+        self.into_partial().into_syn()
     }
 }
 

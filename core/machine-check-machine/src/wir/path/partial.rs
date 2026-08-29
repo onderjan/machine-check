@@ -21,7 +21,7 @@ pub enum WPartialPathArgument {
 impl From<WPartialPathArgument> for GenericArgument {
     fn from(value: WPartialPathArgument) -> Self {
         match value {
-            WPartialPathArgument::Type(ty) => GenericArgument::Type(ty.into()),
+            WPartialPathArgument::Type(ty) => GenericArgument::Type(ty.into_syn()),
             WPartialPathArgument::Uint(value, span) => GenericArgument::Const(Expr::Lit(ExprLit {
                 attrs: Vec::new(),
                 lit: Lit::Int(LitInt::new(&value.to_string(), span.first())),

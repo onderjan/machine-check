@@ -110,7 +110,7 @@ pub fn process_property<M: FullMachine, D>(
                 todo!("Support nested structs")
             }
         };
-        let ty: Type = ty.into();
+        let ty: Type = ty.into_syn();
         let type_id = builder
             .type_id(&ty)
             .expect("Global ident type id should be put into context");

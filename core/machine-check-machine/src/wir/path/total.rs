@@ -20,7 +20,7 @@ pub enum WTotalPathArgument {
 impl From<WTotalPathArgument> for GenericArgument {
     fn from(value: WTotalPathArgument) -> Self {
         match value {
-            WTotalPathArgument::Type(ty) => GenericArgument::Type(ty.into()),
+            WTotalPathArgument::Type(ty) => GenericArgument::Type(ty.into_syn()),
             WTotalPathArgument::Uint(value, span) => GenericArgument::Const(Expr::Lit(ExprLit {
                 attrs: Vec::new(),
                 lit: Lit::Int(LitInt::new(&value.to_string(), span.first())),
