@@ -13,8 +13,8 @@ use crate::{
     into_wir::{fold_type, Error, Errors},
     util::ident_creator::IdentCreator,
     wir::{
-        WDefinitions, WFnId, WIdent, WItemFn, WItemImpl, WItemStruct, WPartialType, WTotalPath, WSpan,
-        WSpanned, WTypeId, WUniquePath, YBuild, YTac,
+        WDefinitions, WFnId, WIdent, WItemFn, WItemImpl, WItemStruct, WPartialType, WSpan,
+        WSpanned, WTotalPath, WTypeId, WUniquePath, YBuild, YTac,
     },
 };
 
@@ -84,7 +84,7 @@ impl WContextBuilder {
     }
 
     fn partial_type_id(&mut self, ty: WPartialType) -> WTypeId {
-        let id = WTypeId(self.types.len());
+        let id = WTypeId::from_index(self.types.len());
         self.types.push(ty);
         id
     }

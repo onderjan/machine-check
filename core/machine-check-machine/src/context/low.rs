@@ -49,7 +49,7 @@ impl WLowContext {
 
     pub fn id_general_type(&self, id: WTypeId) -> IGeneralType {
         self.types
-            .get(id.0)
+            .get(id.index())
             .expect("Type id should be present")
             .clone()
     }

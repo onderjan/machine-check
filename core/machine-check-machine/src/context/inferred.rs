@@ -47,7 +47,7 @@ impl WInferredContext {
     }
 
     pub fn wir_type(&self, id: WTypeId) -> WTotalType {
-        self.types[id.0].clone()
+        self.types[id.index()].clone()
     }
 
     pub fn definitions(&self) -> &WDefinitions<YTac> {
@@ -77,13 +77,13 @@ impl WInferredContext {
     }
 
     fn new_type_id(&mut self, ty: WTotalType) -> WTypeId {
-        let type_id = WTypeId(self.types.len());
+        let type_id = WTypeId::from_index(self.types.len());
         self.types.push(ty);
         type_id
     }
 
     fn new_phi_arg_id(&mut self, inner: WTypeId) -> WTypeId {
-        let inner = self.types[inner.0].clone();
+        let inner = self.types[inner.index()].clone();
         let span = inner.wir_span();
 
         let ty = WTotalType::Path(WTotalPath {

@@ -11,8 +11,8 @@ use crate::{
     context::{bitvector_type, bool_type, WInferredContext},
     into_wir::{fold_type, Error, ErrorType},
     wir::{
-        WDefinitions, WPartialPathArgument, WPartialPathGenerics, WPartialPath, WPartialPathSegment,
-        WPartialType, WTypeId, YTac,
+        WDefinitions, WPartialPath, WPartialPathArgument, WPartialPathGenerics,
+        WPartialPathSegment, WPartialType, WTypeId, YTac,
     },
 };
 
@@ -35,7 +35,7 @@ impl WInferenceContext {
     }
 
     fn partial_type_id(&mut self, ty: WPartialType) -> WTypeId {
-        let id = WTypeId(self.types.len());
+        let id = WTypeId::from_index(self.types.len());
         self.types.push(ty);
         id
     }
@@ -46,12 +46,12 @@ impl WInferenceContext {
     }
 
     fn add_eq_constraint(&mut self, a: WTypeId, b: WTypeId) {
-        let max = a.0.max(b.0);
+        let max = a.index().max(b.index());
         while max >= self.eq_constraints.size() {
             self.eq_constraints.insert(UnionBySize::default());
         }
 
-        self.eq_constraints.union(a.0, b.0);
+        self.eq_constraints.union(a.index(), b.index());
     }
 
     pub fn infer(mut self) -> Result<WInferredContext, Error> {
@@ -178,9 +178,10 @@ fn join_types(previous: &WPartialType, current: WPartialType) -> Result<WPartial
                                     }
                                     WPartialPathArgument::Uint(rhs_num, rhs_span)
                                 }
-                                (WPartialPathArgument::Type(lhs), WPartialPathArgument::Type(rhs)) => {
-                                    WPartialPathArgument::Type(join_types(lhs, rhs)?)
-                                }
+                                (
+                                    WPartialPathArgument::Type(lhs),
+                                    WPartialPathArgument::Type(rhs),
+                                ) => WPartialPathArgument::Type(join_types(lhs, rhs)?),
                                 _ => {
                                     return Err(Error::new(ErrorType::InferenceFailure, span));
                                 }

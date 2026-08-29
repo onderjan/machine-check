@@ -10,7 +10,17 @@ pub use partial::*;
 pub use total::*;
 
 #[derive(Clone, PartialEq, Eq, Hash)]
-pub struct WTypeId(pub usize);
+pub struct WTypeId(usize);
+
+impl WTypeId {
+    pub fn from_index(index: usize) -> WTypeId {
+        Self(index)
+    }
+
+    pub fn index(&self) -> usize {
+        self.0
+    }
+}
 
 impl IntoSyn<Type> for WTypeId {
     fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Type {

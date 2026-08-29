@@ -8,7 +8,8 @@ use crate::{
     into_wir::{Error, ErrorType},
     wir::{
         WBlock, WCall, WCallArg, WExpr, WExprHighCall, WIdent, WIndexedExpr, WIndexedIdent,
-        WMacroableStmt, WPartialPathArgument, WPartialPathGenerics, WPartialType, WSpanned, WTypeId, YTac,
+        WMacroableStmt, WPartialPathArgument, WPartialPathGenerics, WPartialType, WSpanned,
+        WTypeId, YTac,
     },
 };
 
@@ -53,7 +54,7 @@ impl super::WInferenceContext {
                         WExpr::Field(expr_field) => {
                             let base_ty = get_type(types, &expr_field.base)?;
                             // TODO: this should be in fixpoint to work with inference well
-                            let mut base_ty = &self.types[base_ty.0];
+                            let mut base_ty = &self.types[base_ty.index()];
 
                             eprintln!("Field {:?}: base type {:?}", expr_field, base_ty);
 
@@ -183,7 +184,8 @@ impl super::WInferenceContext {
                 let mut width = None;
                 if let Some(generics) = &segments[1].generics {
                     if generics.arguments.len() == 1 {
-                        if let WPartialPathArgument::Uint(width_arg, _span) = generics.arguments[0] {
+                        if let WPartialPathArgument::Uint(width_arg, _span) = generics.arguments[0]
+                        {
                             width = Some(width_arg)
                         }
                     }
@@ -232,7 +234,7 @@ impl super::WInferenceContext {
 
                 // add constraints
 
-                let right_ty = &self.types[right_ty.0];
+                let right_ty = &self.types[right_ty.index()];
 
                 eprintln!("Should add ext constraints, right type: {:?}", right_ty);
                 match right_ty {
