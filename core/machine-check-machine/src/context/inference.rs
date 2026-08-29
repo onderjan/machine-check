@@ -7,10 +7,10 @@ use indexmap::IndexMap;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind};
 
 use crate::{
-    context::{bitvector_type, bool_type, WInferredContext},
+    context::WInferredContext,
     wir::{
         WDefinitions, WPartialPath, WPartialPathArgument, WPartialPathGenerics,
-        WPartialPathSegment, WPartialType, WTypeId, YTac,
+        WPartialPathSegment, WPartialType, WTotalType, WTypeId, YTac,
     },
     Error, ErrorType,
 };
@@ -31,6 +31,10 @@ impl WInferenceContext {
             types,
             eq_constraints: QuickUnionUf::new(0),
         }
+    }
+
+    fn total_type_id(&mut self, ty: WTotalType) -> WTypeId {
+        self.partial_type_id(ty.into_partial())
     }
 
     fn partial_type_id(&mut self, ty: WPartialType) -> WTypeId {
@@ -111,8 +115,8 @@ impl WInferenceContext {
     }
 
     pub fn into_total(mut self) -> Result<WInferredContext, Error> {
-        let boolean_type_id = self.partial_type_id(bool_type());
-        let panic_type_id = self.partial_type_id(bitvector_type(Some(32)));
+        let boolean_type_id = self.total_type_id(WTotalType::new_bool());
+        let panic_type_id = self.total_type_id(WTotalType::new_bitvector(Some(32)));
 
         let mut types = Vec::new();
         for ty in self.types {

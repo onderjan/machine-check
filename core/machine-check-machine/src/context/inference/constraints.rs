@@ -3,10 +3,10 @@ use std::collections::BTreeMap;
 use machine_check_common::ir_common::IrStdBinaryOp;
 
 use crate::{
-    context::{bitvector_type, bool_type, signed_type, unsigned_type},
     wir::{
         WBlock, WCall, WCallArg, WExpr, WExprHighCall, WIdent, WIndexedExpr, WIndexedIdent,
-        WMacroableStmt, WPartialPathArgument, WPartialPathGenerics, WPartialType, WTypeId, YTac,
+        WMacroableStmt, WPartialPathArgument, WPartialPathGenerics, WPartialType, WTotalType,
+        WTypeId, YTac,
     },
     Error, ErrorType,
 };
@@ -135,7 +135,7 @@ impl super::WInferenceContext {
                         // constrain the inputs to be of the same type
                         self.add_eq_constraint(a_ty, b_ty);
                         // constrain the output to be a Boolean
-                        let bool_ty = self.partial_type_id(bool_type());
+                        let bool_ty = self.total_type_id(WTotalType::new_bool());
                         self.add_eq_constraint(left_ty, bool_ty);
                     }
                     IrStdBinaryOp::BitAnd
@@ -189,15 +189,15 @@ impl super::WInferenceContext {
                     }
                 }
                 let ty = if is_bitvector {
-                    bitvector_type(width)
+                    WTotalType::new_bitvector(width)
                 } else if is_unsigned {
-                    unsigned_type(width)
+                    WTotalType::new_unsigned(width)
                 } else {
-                    signed_type(width)
+                    WTotalType::new_signed(width)
                 };
 
                 // constrain the output to be a bitvector of the given width
-                let bitvector_ty = self.partial_type_id(ty);
+                let bitvector_ty = self.total_type_id(ty);
                 self.add_eq_constraint(left_ty.clone(), bitvector_ty);
 
                 return Ok(());

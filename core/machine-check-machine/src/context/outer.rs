@@ -36,7 +36,17 @@ impl WOuterContext {
         self.definitions.add_fn(fn_name.into_path(), item_fn)
     }
 
-    pub fn total_syn_type_id(&mut self, ty: Type) -> Result<WTypeId, Error> {
+    pub fn total_type_id(&mut self, ty: WTotalType) -> WTypeId {
+        self.partial_type_id(ty.into_partial())
+    }
+
+    fn partial_type_id(&mut self, ty: WPartialType) -> WTypeId {
+        let id = WTypeId::from_index(self.types.len());
+        self.types.push(ty);
+        id
+    }
+
+    fn total_syn_type_id(&mut self, ty: Type) -> Result<WTypeId, Error> {
         let ty = Self::fold_total_type(ty)?;
         Ok(self.partial_type_id(ty.into_partial()))
     }
@@ -44,12 +54,6 @@ impl WOuterContext {
     fn partial_syn_type_id(&mut self, ty: Type) -> Result<WTypeId, Error> {
         let ty = Self::fold_partial_type(ty)?;
         Ok(self.partial_type_id(ty))
-    }
-
-    pub fn partial_type_id(&mut self, ty: WPartialType) -> WTypeId {
-        let id = WTypeId::from_index(self.types.len());
-        self.types.push(ty);
-        id
     }
 
     pub fn bool_type_id(&mut self) -> WTypeId {

@@ -17,9 +17,9 @@ use syn::{parse_quote, Attribute, Expr, Item, ItemFn, ItemMod, Meta, MetaList, P
 use syn_path::path;
 use util::error_list::ErrorList;
 
-use crate::context::{bitvector_type, bool_type, WOuterContext};
+use crate::context::WOuterContext;
 use crate::util::{create_item_mod, path_matches_global_names};
-use crate::wir::{WIdent, WSpan};
+use crate::wir::{WIdent, WSpan, WTotalType};
 
 mod abstr;
 mod concr;
@@ -102,14 +102,14 @@ pub fn process_property<M: FullMachine, D>(
     // TODO: add global basic types
     for (global_ident, elementary_type) in &global_ident_types {
         let ty = match elementary_type {
-            IElementaryType::Bitvector(width) => bitvector_type(Some(*width)),
+            IElementaryType::Bitvector(width) => WTotalType::new_bitvector(Some(*width)),
             IElementaryType::Array(_type_array) => todo!("Array"),
-            IElementaryType::Boolean => bool_type(),
+            IElementaryType::Boolean => WTotalType::new_bool(),
             IElementaryType::Struct(_struct_id) => {
                 todo!("Support nested structs")
             }
         };
-        let type_id = ctx.partial_type_id(ty);
+        let type_id = ctx.total_type_id(ty);
         global_basic_types.insert(
             WIdent::new(global_ident.name().to_string(), WSpan::call_site()),
             type_id,
