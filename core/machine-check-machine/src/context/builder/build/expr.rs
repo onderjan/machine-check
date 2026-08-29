@@ -8,7 +8,7 @@ use syn::{
 use syn_path::path;
 
 use crate::{
-    context::builder::{build::FunctionFolder, path::fold_partial_path},
+    context::{builder::build::FunctionFolder, WContextBuilder},
     into_wir::{Error, ErrorType},
     util::{create_expr_call, create_expr_ident, create_expr_path, ArgType},
     wir::{
@@ -134,7 +134,7 @@ impl RightExprFolder<'_, '_, '_> {
         if let Ok(binary_op) = IrStdBinaryOp::from_str(&nongeneric_path_string) {
             return self.create_std_binary(binary_op, fn_path, expr_call.args);
         }
-        let wir_fn_path = fold_partial_path(fn_path.clone())?;
+        let wir_fn_path = WContextBuilder::fold_partial_path(fn_path.clone())?;
         // ensure it is not a local-scope ident
         if wir_fn_path.leading_colon.is_none() && wir_fn_path.segments.len() == 1 {
             let ident = &wir_fn_path.segments[0].ident;
@@ -250,7 +250,7 @@ impl RightExprFolder<'_, '_, '_> {
             args.push((member_ident, member_value))
         }
 
-        let ty = WPartialType::Path(fold_partial_path(expr_struct.path)?);
+        let ty = WPartialType::Path(WContextBuilder::fold_partial_path(expr_struct.path)?);
         let ty = self.fn_folder.ctx.partial_type_id(ty);
 
         Ok(WExprStruct { ty, fields: args })

@@ -2,7 +2,7 @@ use indexmap::IndexMap;
 use syn::{Expr, Type};
 
 use crate::{
-    context::{builder::path::fold_partial_path, WContextBuilder, WInferenceContext},
+    context::{WContextBuilder, WInferenceContext},
     into_wir::{Error, Errors},
     util::ident_creator::IdentCreator,
     wir::{
@@ -135,7 +135,7 @@ impl FunctionFolder<'_> {
             ));
         }
 
-        let path = fold_partial_path(expr_path.path)?;
+        let path = WContextBuilder::fold_partial_path(expr_path.path)?;
         let mut segments_iter = path.segments.into_iter();
         if path.leading_colon.is_none() {
             if let Some(first) = segments_iter.next() {

@@ -4,17 +4,12 @@ mod attribute;
 mod item;
 mod item_fn;
 mod path;
-mod ty;
 
 mod build;
 
 use syn::{Item, Type};
 
 use crate::{
-    context::builder::{
-        item::{fold_item_impl, fold_item_struct},
-        ty::{fold_partial_type, fold_total_type},
-    },
     into_wir::{Error, Errors},
     wir::{
         WDefinitions, WFnId, WIdent, WItemFn, WItemImpl, WItemStruct, WPartialType, WSpan,
@@ -42,12 +37,12 @@ impl WContextBuilder {
     }
 
     pub fn total_syn_type_id(&mut self, ty: Type) -> Result<WTypeId, Error> {
-        let ty = fold_total_type(ty)?;
+        let ty = Self::fold_total_type(ty)?;
         Ok(self.partial_type_id(ty.into_partial()))
     }
 
     fn partial_syn_type_id(&mut self, ty: Type) -> Result<WTypeId, Error> {
-        let ty = fold_partial_type(ty)?;
+        let ty = Self::fold_partial_type(ty)?;
         Ok(self.partial_type_id(ty))
     }
 
@@ -94,14 +89,14 @@ impl WContextBuilder {
             Item::Struct(item) => {
                 let path = WTotalPath::from_ident(WIdent::from_syn_ident(item.ident.clone()))
                     .without_generics();
-                match fold_item_struct(self, item) {
+                match self.fold_item_struct(item) {
                     Ok(item_struct) => {
                         self.add_struct(path, item_struct);
                     }
                     Err(err) => errors.push(err),
                 }
             }
-            Item::Impl(item) => match fold_item_impl(self, item) {
+            Item::Impl(item) => match self.fold_item_impl(item) {
                 Ok(item_impl) => {
                     self.add_impl(item_impl)?;
                 }
