@@ -82,7 +82,7 @@ impl IMachine {
 }
 
 impl IDescription {
-    pub fn context(&self) -> IContext {
+    pub fn context(&self) -> IContext<'_> {
         IContext {
             structs: Some(&self.structs),
         }

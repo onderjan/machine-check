@@ -83,13 +83,7 @@ impl IFn {
 
         assert_eq!(self.signature.inputs.len(), input_values.len());
 
-        for (input_var_id, input_value) in self
-            .signature
-            .inputs
-            .iter()
-            .cloned()
-            .zip(input_values.into_iter())
-        {
+        for (input_var_id, input_value) in self.signature.inputs.iter().cloned().zip(input_values) {
             abstr.insert_value(input_var_id, input_value);
         }
 
