@@ -4,11 +4,11 @@ use machine_check_common::ir_common::IrStdBinaryOp;
 
 use crate::{
     context::{bitvector_type, bool_type, signed_type, unsigned_type},
-    into_wir::{Error, ErrorType},
     wir::{
         WBlock, WCall, WCallArg, WExpr, WExprHighCall, WIdent, WIndexedExpr, WIndexedIdent,
         WMacroableStmt, WPartialPathArgument, WPartialPathGenerics, WPartialType, WTypeId, YTac,
     },
+    Error, ErrorType,
 };
 
 impl super::WInferenceContext {

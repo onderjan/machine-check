@@ -1,12 +1,12 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use crate::context::WInferredContext;
-use crate::into_wir::{Error, ErrorType, Errors};
 use crate::wir::WItemFn;
 use crate::wir::{
     WBlock, WCallArg, WExpr, WExprLowCall, WFnSignature, WIdent, WItemFnBody, WMckNew, WPhi,
     WPhiTaken, WSsaLocal, WStmt, WStmtAssign, WStmtIf, WTypeId, YLowered, YSsa,
 };
+use crate::{Error, ErrorType, Errors};
 
 pub fn convert_item_fn(
     ctx: &mut WInferredContext,

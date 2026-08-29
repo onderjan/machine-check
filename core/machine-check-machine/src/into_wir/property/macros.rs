@@ -8,12 +8,10 @@ use syn::{
 };
 
 use crate::{
-    into_wir::{
-        property::{ExprProperty, ExprSubproperty, ExprSubpropertyFunc},
-        Error, ErrorType,
-    },
+    into_wir::property::{ExprProperty, ExprSubproperty, ExprSubpropertyFunc},
     util::{create_expr_ident, extract_path_ident, path_matches_global_names},
     wir::{WIdent, WSpan, WSubpropertyFixedPoint, WSubpropertyNext},
+    Error, ErrorType,
 };
 
 pub fn expand_property_macros<D>(

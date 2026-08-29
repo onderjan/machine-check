@@ -10,11 +10,11 @@ mod build;
 use syn::{Item, Type};
 
 use crate::{
-    into_wir::{Error, Errors},
     wir::{
         WDefinitions, WFnId, WIdent, WItemFn, WItemImpl, WItemStruct, WPartialType, WSpan,
         WStrippedPath, WTotalPath, WTotalPathSegment, WTotalType, WTypeId, YBuild,
     },
+    Error, ErrorType, Errors,
 };
 
 #[derive(Debug)]
@@ -118,7 +118,7 @@ impl WContextBuilder {
         let datatype_path = item_impl.self_ty.clone().without_generics();
         let Some(self_datatype) = self.definitions.datatype_id(&datatype_path) else {
             return Err(Error::new(
-                crate::into_wir::ErrorType::IllegalConstruct(String::from("Unknown self type")),
+                ErrorType::IllegalConstruct(String::from("Unknown self type")),
                 item_impl.span(),
             ));
         };

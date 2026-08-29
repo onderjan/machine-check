@@ -4,11 +4,7 @@ use syn::{
     Attribute, Expr, ExprMacro, Item, Macro, Stmt,
 };
 
-use crate::{
-    into_wir::{Error, ErrorType},
-    util::path_matches_global_names,
-    wir::WSpan,
-};
+use crate::{util::path_matches_global_names, wir::WSpan, Error, ErrorType};
 
 pub fn expand_in_items(items: &mut [Item]) -> Result<bool, Error> {
     let mut visitor = Visitor {

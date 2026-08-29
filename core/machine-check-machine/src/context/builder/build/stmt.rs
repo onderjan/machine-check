@@ -6,12 +6,12 @@ use syn::{
 
 use crate::{
     context::builder::build::FunctionScope,
-    into_wir::{Error, ErrorType, Errors},
     util::{create_expr_ident, path_matches_global_names},
     wir::{
         WBlock, WIdent, WIfCondition, WIndexedIdent, WMacroableStmt, WNoIfPolarity,
         WPanicMacroKind, WSpan, WStmtAssign, WStmtIf, WStmtPanicMacro, YTac,
     },
+    Error, ErrorType, Errors,
 };
 
 impl<'a> super::FunctionFolder<'a> {

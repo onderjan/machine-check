@@ -8,11 +8,11 @@ use union_find::{QuickUnionUf, UnionBySize, UnionFind};
 
 use crate::{
     context::{bitvector_type, bool_type, WInferredContext},
-    into_wir::{Error, ErrorType},
     wir::{
         WDefinitions, WPartialPath, WPartialPathArgument, WPartialPathGenerics,
         WPartialPathSegment, WPartialType, WTypeId, YTac,
     },
+    Error, ErrorType,
 };
 
 mod constraints;
@@ -203,10 +203,7 @@ fn join_types(previous: &WPartialType, current: WPartialType) -> Result<WPartial
             WPartialType::Reference(Box::new(joined_inner))
         }
         (_previous, _current) => {
-            return Err(Error::new(
-                crate::into_wir::ErrorType::InferenceFailure,
-                span,
-            ));
+            return Err(Error::new(ErrorType::InferenceFailure, span));
         }
     })
 }

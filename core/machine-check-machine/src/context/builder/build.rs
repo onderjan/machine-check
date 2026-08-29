@@ -3,11 +3,11 @@ use syn::{Expr, Type};
 
 use crate::{
     context::{WContextBuilder, WInferenceContext},
-    into_wir::{Error, Errors},
     util::ident_creator::IdentCreator,
     wir::{
         WFnArg, WIdent, WItemFn, WItemFnBody, WSpan, WTacLocal, WTotalPath, WTypeId, YBuild, YTac,
     },
+    Error, Errors,
 };
 
 mod expr;

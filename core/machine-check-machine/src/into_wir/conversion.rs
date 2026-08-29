@@ -12,9 +12,10 @@ use syn::{
 
 use crate::{
     context::{WContextBuilder, WLowContext},
-    into_wir::{conversion::expand_macros::expand_in_items, Error, Errors},
+    into_wir::conversion::expand_macros::expand_in_items,
     util::extract_path_ident,
     wir::WSpan,
+    Error, Errors,
 };
 
 mod expand_macros;

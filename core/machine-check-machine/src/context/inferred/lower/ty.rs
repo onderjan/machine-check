@@ -8,8 +8,8 @@ use machine_check_common::{
 
 use super::WInferredContext;
 use crate::{
-    into_wir::{Error, ErrorType},
     wir::{WTotalPathArgument, WTotalType},
+    Error,
 };
 
 impl WInferredContext {
@@ -80,9 +80,6 @@ impl WInferredContext {
             }
         }
 
-        Err(Error::new(
-            ErrorType::UnsupportedConstruct("Unknown type"),
-            span,
-        ))
+        Err(Error::unsupported_construct("Unknown type", span))
     }
 }

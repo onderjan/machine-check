@@ -2,11 +2,11 @@ use syn::{AngleBracketedGenericArguments, Expr, GenericArgument, Lit, Path, Path
 
 use crate::{
     context::WContextBuilder,
-    into_wir::Error,
     wir::{
         WIdent, WPartialPath, WPartialPathArgument, WPartialPathGenerics, WPartialPathSegment,
         WPartialType, WSpan, WTotalType,
     },
+    Error, ErrorType,
 };
 
 impl WContextBuilder {
@@ -42,9 +42,7 @@ impl WContextBuilder {
         match ty.try_into_total() {
             Ok(ty) => Ok(ty),
             Err(()) => Err(Error::new(
-                crate::into_wir::ErrorType::IllegalConstruct(String::from(
-                    "Interference not allowed here",
-                )),
+                ErrorType::IllegalConstruct(String::from("Interference not allowed here")),
                 span,
             )),
         }

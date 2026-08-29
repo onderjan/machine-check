@@ -7,12 +7,12 @@ use syn::{
 
 use crate::{
     context::{builder::attribute::AttributeDisallower, WContextBuilder},
-    into_wir::{Error, ErrorType, Errors},
     util::path_matches_global_names,
     wir::{
         WField, WIdent, WImplItemType, WItemImpl, WItemImplTrait, WItemStruct, WSpan, WVisibility,
         YBuild,
     },
+    Error, ErrorType, Errors,
 };
 
 impl WContextBuilder {

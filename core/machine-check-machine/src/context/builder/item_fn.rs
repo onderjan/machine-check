@@ -5,8 +5,8 @@ use syn::{
 
 use crate::{
     context::{builder::attribute::AttributeDisallower, WContextBuilder},
-    into_wir::{Error, ErrorType, Errors},
     wir::{WFnArg, WFnSignature, WIdent, WItemFn, WSpan, WSynBlock, WTotalPath, YBuild},
+    Error, ErrorType, Errors,
 };
 
 impl WContextBuilder {

@@ -5,11 +5,11 @@ use crate::{
         inferred::{convert::convert_item_fn, lower::lower_item_fn},
         WLowContext,
     },
-    into_wir::Errors,
     wir::{
         WDefinitions, WIdent, WItemFn, WTotalPath, WTotalPathArgument, WTotalPathGenerics,
         WTotalPathSegment, WTotalType, WTypeId, YSsa, YTac,
     },
+    Errors,
 };
 
 mod convert;

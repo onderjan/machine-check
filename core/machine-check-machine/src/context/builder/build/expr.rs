@@ -9,13 +9,13 @@ use syn_path::path;
 
 use crate::{
     context::{builder::build::FunctionFolder, WContextBuilder},
-    into_wir::{Error, ErrorType},
     util::{create_expr_call, create_expr_ident, create_expr_path, ArgType},
     wir::{
         WArrayBaseExpr, WBlock, WCall, WCallArg, WExpr, WExprField, WExprHighCall, WExprReference,
         WExprStruct, WIdent, WIfCondition, WIndexedExpr, WIndexedIdent, WMacroableStmt,
         WNoIfPolarity, WPartialType, WSpan, WStdBinary, WStdUnary, WStmtAssign, WStmtIf, YTac,
     },
+    Error, ErrorType,
 };
 
 impl FunctionFolder<'_> {

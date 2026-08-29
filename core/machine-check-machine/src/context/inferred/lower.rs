@@ -2,12 +2,12 @@ use indexmap::IndexMap;
 
 use super::WInferredContext;
 use crate::{
-    into_wir::Errors,
     util::ident_creator::IdentCreator,
     wir::{
         WExpr, WExprLowCall, WFnSignature, WIdent, WItemFn, WItemFnBody, WMckNew, WStmt,
         WStmtAssign, WTacLocal, WTypeId, YLowered, YTac,
     },
+    Errors,
 };
 use mck::{concr::ConcreteBitvector, misc::RBound};
 

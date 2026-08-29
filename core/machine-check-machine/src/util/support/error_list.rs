@@ -107,15 +107,6 @@ impl<E: Error> ErrorList<E> {
         }
         Self::iter_to_result(err_result).map(|_| ok_result)
     }
-
-    pub(crate) fn convert_inner<F: Error>(self) -> ErrorList<F>
-    where
-        E: std::convert::Into<F>,
-    {
-        ErrorList::<F> {
-            errors: self.errors.mapped(Into::into),
-        }
-    }
 }
 
 impl<E: Error> From<E> for ErrorList<E> {

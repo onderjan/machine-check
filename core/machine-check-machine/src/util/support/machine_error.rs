@@ -1,3 +1,5 @@
+use quote::ToTokens;
+
 use crate::wir::WSpan;
 
 #[derive(thiserror::Error, Debug, Clone)]
@@ -24,6 +26,15 @@ pub enum ErrorType {
 
     #[error("machine-check: {0}")]
     DescriptionError(String),
+
+    #[error("{0}")]
+    CallConversionError(&'static str),
+    #[error("Expected {0} arguments, got {1}")]
+    WrongNumberOfArguments(usize, usize),
+    #[error("Unknown call function '{0}'")]
+    UnknownCallFunction(String),
+    #[error("Undefined variable '{0}'")]
+    UndefinedVariable(String),
 }
 
 #[derive(thiserror::Error, Debug, Clone)]
@@ -44,5 +55,13 @@ impl Error {
 
     pub fn span(&self) -> WSpan {
         self.span
+    }
+
+    pub fn unsupported_construct(msg: &'static str, span: WSpan) -> Self {
+        Self::new(ErrorType::UnsupportedConstruct(String::from(msg)), span)
+    }
+
+    pub fn unsupported_syn_construct(msg: &'static str, to_tokens: &impl ToTokens) -> Self {
+        Self::unsupported_construct(msg, WSpan::from_syn(to_tokens))
     }
 }

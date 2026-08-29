@@ -17,15 +17,13 @@ use syn::{
 
 use crate::{
     context::WContextBuilder,
-    into_wir::{
-        conversion::{expand_in_expr, resolve_use_expr},
-        Errors,
-    },
+    into_wir::conversion::{expand_in_expr, resolve_use_expr},
     util::path_matches_global_names,
     wir::{
         WFnSignature, WIdent, WItemFn, WProperty, WSpan, WSubproperty, WSubpropertyFixedPoint,
         WSubpropertyFunc, WSubpropertyNext, WSynBlock, WTypeId, WVisibility,
     },
+    Errors,
 };
 
 #[derive(Clone, Debug, Hash)]

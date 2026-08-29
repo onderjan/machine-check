@@ -6,11 +6,11 @@ use mck::{concr::ConcreteBitvector, misc::RBound};
 use syn::Lit;
 
 use crate::{
-    into_wir::{Error, ErrorType},
     wir::{
         WCall, WCallArg, WExpr, WExprHighCall, WExprLowCall, WIdent, WMckBinary, WMckExt, WMckNew,
         WMckUnary, WPartialPathArgument, WStdBinary, WStdUnary, WTotalType,
     },
+    Error, ErrorType,
 };
 
 impl super::FnLowerer<'_> {

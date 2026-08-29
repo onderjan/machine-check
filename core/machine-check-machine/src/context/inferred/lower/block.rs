@@ -2,12 +2,12 @@ use machine_check_common::ir_common::IrMckBinaryOp;
 
 use crate::{
     context::inferred::lower::create_panic_call,
-    into_wir::Errors,
     wir::{
         WBlock, WExpr, WExprHighCall, WExprLowCall, WIfCondition, WIndexedExpr, WIndexedIdent,
         WMacroableStmt, WMckBinary, WNoIfPolarity, WSpan, WStmt, WStmtAssign, WStmtIf, YLowered,
         YTac,
     },
+    Errors,
 };
 
 impl super::FnLowerer<'_> {

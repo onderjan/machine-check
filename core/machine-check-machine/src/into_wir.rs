@@ -3,18 +3,16 @@ mod property;
 
 use indexmap::IndexMap;
 use machine_check_common::PropertyMacros;
-use quote::ToTokens;
 use syn::Item;
 
 use crate::{
     context::{WContextBuilder, WLowContext},
     into_wir::conversion::context_from_syn,
-    util::error_list::ErrorList,
-    wir::{WIdent, WProperty, WSpan, WTypeId},
+    wir::{WIdent, WProperty, WTypeId},
 };
 
 pub fn create_context(items: Vec<Item>) -> Result<WLowContext, crate::Errors> {
-    context_from_syn(items).map_err(Errors::convert_inner)
+    context_from_syn(items)
 }
 
 pub fn create_property<D>(
@@ -23,59 +21,5 @@ pub fn create_property<D>(
     globals: &IndexMap<WIdent, WTypeId>,
     property_macros: &PropertyMacros<D>,
 ) -> Result<WProperty, crate::Errors> {
-    property::create_from_syn(ctx, expr, globals, property_macros).map_err(Errors::convert_inner)
+    property::create_from_syn(ctx, expr, globals, property_macros)
 }
-
-#[derive(thiserror::Error, Debug, Clone)]
-pub(super) enum ErrorType {
-    #[error("{0}")]
-    MacroError(String),
-    #[error("{0}")]
-    MacroParseError(syn::Error),
-    #[error("{0} not supported")]
-    UnsupportedConstruct(&'static str),
-    #[error("{0}")]
-    IllegalConstruct(String),
-    #[error("Undefined variable '{0}'")]
-    UndefinedVariable(String),
-    #[error("Could not infer variable type")]
-    InferenceFailure,
-    #[error("{0}")]
-    CallConversionError(&'static str),
-    #[error("Unknown call function '{0}'")]
-    UnknownCallFunction(String),
-    #[error("Expected {0} arguments, got {1}")]
-    WrongNumberOfArguments(usize, usize),
-}
-
-impl From<Error> for crate::Error {
-    fn from(error: Error) -> crate::Error {
-        crate::Error {
-            ty: crate::ErrorType::DescriptionError(format!("{}", error)),
-            span: error.span,
-        }
-    }
-}
-
-#[derive(thiserror::Error, Debug, Clone)]
-#[error("{ty}")]
-pub(super) struct Error {
-    pub ty: ErrorType,
-    pub span: WSpan,
-}
-
-impl Error {
-    pub fn new(ty: ErrorType, span: WSpan) -> Self {
-        Self { ty, span }
-    }
-
-    pub fn unsupported_construct(msg: &'static str, span: WSpan) -> Self {
-        Self::new(ErrorType::UnsupportedConstruct(msg), span)
-    }
-
-    pub fn unsupported_syn_construct(msg: &'static str, to_tokens: &impl ToTokens) -> Self {
-        Self::unsupported_construct(msg, WSpan::from_syn(to_tokens))
-    }
-}
-
-pub(super) type Errors = ErrorList<Error>;
