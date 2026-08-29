@@ -3,8 +3,8 @@ use proc_macro2::Span;
 use syn::{ImplItem, Item, ItemImpl, Token, Type, TypePath};
 
 use crate::wir::{
-    IntoTypedSyn, WIdent, WImplItemType, WItemFn, WItemImplTrait, WItemStruct, WTotalPath, WTypeId,
-    WUniquePath, YStage,
+    IntoTypedSyn, WIdent, WImplItemType, WItemFn, WItemImplTrait, WItemStruct, WStrippedPath,
+    WTotalPath, WTypeId, YStage,
 };
 
 #[derive(Debug, Clone, Copy, Hash)]
@@ -37,12 +37,12 @@ pub struct WDatatype {
 
 #[derive(Debug, Clone)]
 pub struct WDefinitions<Y: YStage> {
-    datatypes: IndexMap<WUniquePath, WDatatype>,
+    datatypes: IndexMap<WStrippedPath, WDatatype>,
     functions: Vec<WItemFn<Y>>,
 }
 
 impl<Y: YStage> WDefinitions<Y> {
-    pub fn new(datatypes: IndexMap<WUniquePath, WDatatype>, functions: Vec<WItemFn<Y>>) -> Self {
+    pub fn new(datatypes: IndexMap<WStrippedPath, WDatatype>, functions: Vec<WItemFn<Y>>) -> Self {
         Self {
             datatypes,
             functions,
@@ -56,7 +56,7 @@ impl<Y: YStage> WDefinitions<Y> {
         &self.functions
     }
 
-    pub fn datatypes(&self) -> &IndexMap<WUniquePath, WDatatype> {
+    pub fn datatypes(&self) -> &IndexMap<WStrippedPath, WDatatype> {
         &self.datatypes
     }
 
@@ -77,7 +77,7 @@ impl<Y: YStage> WDefinitions<Y> {
         })
     }
 
-    pub fn add_struct(&mut self, path: WUniquePath, def: WItemStruct) {
+    pub fn add_struct(&mut self, path: WStrippedPath, def: WItemStruct) {
         self.datatypes.insert(
             path,
             WDatatype {
@@ -120,7 +120,7 @@ impl<Y: YStage> WDefinitions<Y> {
         datatype_impl.assoc_types.insert(assoc_name, def);
     }
 
-    pub fn datatype(&self, path: &WUniquePath) -> Option<&WDatatype> {
+    pub fn datatype(&self, path: &WStrippedPath) -> Option<&WDatatype> {
         self.datatypes.get(path)
     }
 
@@ -128,7 +128,7 @@ impl<Y: YStage> WDefinitions<Y> {
         &self.functions[id.0]
     }
 
-    pub fn function_by_path(&self, mut path: WUniquePath) -> Option<&WItemFn<Y>> {
+    pub fn function_by_path(&self, mut path: WStrippedPath) -> Option<&WItemFn<Y>> {
         // pop the last path segment and find the datatype
         let last = path.segments.pop()?;
         let datatype = self.datatype(&path)?;
@@ -137,11 +137,11 @@ impl<Y: YStage> WDefinitions<Y> {
         Some(&self.functions[fn_id.0])
     }
 
-    pub fn datatype_by_id(&self, id: WDatatypeId) -> Option<(&WUniquePath, &WDatatype)> {
+    pub fn datatype_by_id(&self, id: WDatatypeId) -> Option<(&WStrippedPath, &WDatatype)> {
         self.datatypes.get_index(id.0)
     }
 
-    pub fn datatype_id(&self, path: &WUniquePath) -> Option<WDatatypeId> {
+    pub fn datatype_id(&self, path: &WStrippedPath) -> Option<WDatatypeId> {
         self.datatypes.get_index_of(path).map(WDatatypeId)
     }
 

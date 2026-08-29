@@ -14,7 +14,7 @@ use crate::{
     util::ident_creator::IdentCreator,
     wir::{
         WDefinitions, WFnId, WIdent, WItemFn, WItemImpl, WItemStruct, WPartialType, WSpan,
-        WSpanned, WTotalPath, WTypeId, WUniquePath, YBuild, YTac,
+        WSpanned, WTotalPath, WTypeId, WStrippedPath, YBuild, YTac,
     },
 };
 
@@ -32,7 +32,7 @@ impl WContextBuilder {
         }
     }
 
-    pub fn add_struct(&mut self, path: WUniquePath, item_struct: WItemStruct) {
+    pub fn add_struct(&mut self, path: WStrippedPath, item_struct: WItemStruct) {
         self.definitions.add_struct(path, item_struct);
     }
 

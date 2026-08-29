@@ -4,12 +4,12 @@ use crate::wir::{WIdent, WSpan, WSpanned, WTotalPath, WTotalPathSegment};
 use std::fmt::Debug;
 
 #[derive(Clone, Hash, PartialEq, Eq)]
-pub struct WUniquePath {
+pub struct WStrippedPath {
     pub leading_colon: Option<WSpan>,
     pub segments: Vec<WIdent>,
 }
 
-impl WUniquePath {
+impl WStrippedPath {
     pub fn into_total(self) -> WTotalPath {
         WTotalPath {
             leading_colon: self.leading_colon,
@@ -25,7 +25,7 @@ impl WUniquePath {
     }
 }
 
-impl Debug for WUniquePath {
+impl Debug for WStrippedPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if self.leading_colon.is_some() {
             f.write_str("::")?;
@@ -44,7 +44,7 @@ impl Debug for WUniquePath {
     }
 }
 
-impl WSpanned for WUniquePath {
+impl WSpanned for WStrippedPath {
     fn wir_span(&self) -> WSpan {
         let first = if let Some(leading_colon) = self.leading_colon {
             leading_colon.first()

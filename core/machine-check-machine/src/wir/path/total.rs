@@ -5,7 +5,7 @@ use syn::{punctuated::Punctuated, Path, PathArguments, PathSegment, Token};
 
 use crate::wir::{
     ident::WIdent, WPartialPath, WPartialPathArgument, WPartialPathGenerics, WPartialPathSegment,
-    WSpan, WSpanned, WTotalType, WUniquePath,
+    WSpan, WSpanned, WStrippedPath, WTotalType,
 };
 
 #[derive(Clone, Hash, PartialEq, Eq)]
@@ -176,8 +176,8 @@ impl WTotalPath {
         }
     }
 
-    pub fn without_generics(self) -> WUniquePath {
-        WUniquePath {
+    pub fn without_generics(self) -> WStrippedPath {
+        WStrippedPath {
             leading_colon: self.leading_colon,
             segments: self
                 .segments

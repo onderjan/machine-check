@@ -1,7 +1,7 @@
 mod partial;
+mod stripped;
 mod total;
-mod unique;
 
 pub use partial::*;
+pub use stripped::*;
 pub use total::*;
-pub use unique::*;

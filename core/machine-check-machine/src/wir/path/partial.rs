@@ -8,7 +8,7 @@ use syn::{
 
 use crate::wir::{
     ident::WIdent, WPartialType, WSpan, WSpanned, WTotalPath, WTotalPathArgument,
-    WTotalPathGenerics, WTotalPathSegment, WUniquePath,
+    WTotalPathGenerics, WTotalPathSegment, WStrippedPath,
 };
 
 #[derive(Clone, Hash)]
@@ -221,8 +221,8 @@ impl WPartialPath {
         })
     }
 
-    pub fn without_generics(self) -> WUniquePath {
-        WUniquePath {
+    pub fn without_generics(self) -> WStrippedPath {
+        WStrippedPath {
             leading_colon: self.leading_colon,
             segments: self
                 .segments
