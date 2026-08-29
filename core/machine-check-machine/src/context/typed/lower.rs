@@ -1,6 +1,6 @@
 use indexmap::IndexMap;
 
-use super::WInferredContext;
+use super::WTypedContext;
 use crate::{
     util::ident_creator::IdentCreator,
     wir::{
@@ -16,7 +16,7 @@ mod call;
 mod ty;
 
 pub fn lower_item_fn(
-    ctx: &mut WInferredContext,
+    ctx: &mut WTypedContext,
     impl_item: WItemFn<YTac>,
 ) -> Result<WItemFn<YLowered>, Errors> {
     let signature = WFnSignature {
@@ -88,7 +88,7 @@ pub fn lower_item_fn(
 }
 
 struct FnLowerer<'a> {
-    ctx: &'a mut WInferredContext,
+    ctx: &'a mut WTypedContext,
     local_types: IndexMap<WIdent, WTypeId>,
     // TODO: just use a str for panics
     next_panic_num: u32,

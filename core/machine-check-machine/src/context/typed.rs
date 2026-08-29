@@ -2,7 +2,7 @@ use std::fmt::Debug;
 
 use crate::{
     context::{
-        inferred::{convert::convert_item_fn, lower::lower_item_fn},
+        typed::{convert::convert_item_fn, lower::lower_item_fn},
         WLowContext,
     },
     wir::{
@@ -16,14 +16,14 @@ mod convert;
 mod lower;
 
 #[derive(Debug)]
-pub struct WInferredContext {
+pub struct WTypedContext {
     definitions: WDefinitions<YTac>,
     types: Vec<WTotalType>,
     boolean_type_id: WTypeId,
     panic_type_id: WTypeId,
 }
 
-impl WInferredContext {
+impl WTypedContext {
     pub(super) fn new(
         definitions: WDefinitions<YTac>,
         types: Vec<WTotalType>,

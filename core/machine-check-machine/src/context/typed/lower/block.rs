@@ -1,7 +1,7 @@
 use machine_check_common::ir_common::IrMckBinaryOp;
 
 use crate::{
-    context::inferred::lower::create_panic_call,
+    context::typed::lower::create_panic_call,
     wir::{
         WBlock, WExpr, WExprHighCall, WExprLowCall, WIfCondition, WIndexedExpr, WIndexedIdent,
         WMacroableStmt, WMckBinary, WNoIfPolarity, WSpan, WStmt, WStmtAssign, WStmtIf, YLowered,

@@ -7,7 +7,7 @@ use indexmap::IndexMap;
 use union_find::{QuickUnionUf, UnionBySize, UnionFind};
 
 use crate::{
-    context::WInferredContext,
+    context::WTypedContext,
     wir::{
         WDefinitions, WPartialPath, WPartialPathArgument, WPartialPathGenerics,
         WPartialPathSegment, WPartialType, WTotalType, WTypeId, YTac,
@@ -52,7 +52,7 @@ impl WInferenceContext {
         self.eq_constraints.union(a.index(), b.index());
     }
 
-    pub fn infer(mut self) -> Result<WInferredContext, Error> {
+    pub fn infer(mut self) -> Result<WTypedContext, Error> {
         for item_fn in self.definitions.functions().clone() {
             let mut types = BTreeMap::new();
 
@@ -71,7 +71,7 @@ impl WInferenceContext {
         self.unify()
     }
 
-    fn unify(mut self) -> Result<WInferredContext, Error> {
+    fn unify(mut self) -> Result<WTypedContext, Error> {
         eprintln!("Unifying {:?}", self);
         let mut united = IndexMap::new();
 
@@ -114,7 +114,7 @@ impl WInferenceContext {
         self.into_total()
     }
 
-    pub fn into_total(mut self) -> Result<WInferredContext, Error> {
+    pub fn into_total(mut self) -> Result<WTypedContext, Error> {
         let boolean_type_id = self.total_type_id(WTotalType::new_bool());
         let panic_type_id = self.total_type_id(WTotalType::new_bitvector(Some(32)));
 
@@ -127,7 +127,7 @@ impl WInferenceContext {
             }
         }
 
-        Ok(WInferredContext::new(
+        Ok(WTypedContext::new(
             self.definitions,
             types,
             boolean_type_id,

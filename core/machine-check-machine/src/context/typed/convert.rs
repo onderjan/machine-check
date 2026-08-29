@@ -1,6 +1,6 @@
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::context::WInferredContext;
+use crate::context::WTypedContext;
 use crate::wir::WItemFn;
 use crate::wir::{
     WBlock, WCallArg, WExpr, WExprLowCall, WFnSignature, WIdent, WItemFnBody, WMckNew, WPhi,
@@ -9,7 +9,7 @@ use crate::wir::{
 use crate::{Error, ErrorType, Errors};
 
 pub fn convert_item_fn(
-    ctx: &mut WInferredContext,
+    ctx: &mut WTypedContext,
     item_fn: WItemFn<YLowered>,
 ) -> Result<WItemFn<YSsa>, Errors> {
     let (item_fn, nonlocal_idents) = process_fn(ctx, item_fn, &BTreeMap::new())?;
@@ -26,7 +26,7 @@ pub fn convert_item_fn(
 }
 
 fn process_fn(
-    ctx: &mut WInferredContext,
+    ctx: &mut WTypedContext,
     item_fn: WItemFn<YLowered>,
     global_rewrites: &BTreeMap<WIdent, WIdent>,
 ) -> Result<(WItemFn<YSsa>, BTreeSet<WIdent>), Errors> {
@@ -67,7 +67,7 @@ fn process_fn(
 }
 
 struct LocalVisitor<'a> {
-    pub ctx: &'a mut WInferredContext,
+    pub ctx: &'a mut WTypedContext,
     pub global_rewrites: &'a BTreeMap<WIdent, WIdent>,
     pub arg_idents: BTreeSet<WIdent>,
     pub branch_counter: u32,

@@ -6,13 +6,13 @@ use machine_check_common::{
     ir_common::IrReference,
 };
 
-use super::WInferredContext;
+use super::WTypedContext;
 use crate::{
     wir::{WTotalPathArgument, WTotalType},
     Error,
 };
 
-impl WInferredContext {
+impl WTypedContext {
     pub fn lower_type(&self, ty: WTotalType) -> Result<IGeneralType, Error> {
         let span = ty.span();
         eprintln!("Lowering type {:?}", ty);
