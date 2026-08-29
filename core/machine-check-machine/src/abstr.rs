@@ -90,7 +90,7 @@ pub(crate) fn create_abstract_items(ctx: &WLowContext) -> Vec<Item> {
             }
 
             let item_impl: WItemImpl<YSsa> = WItemImpl {
-                self_ty: datatype_path.clone().into_path(),
+                self_ty: datatype_path.clone().into_total(),
                 trait_: trait_.clone(),
                 impl_item_fns,
                 impl_item_types,

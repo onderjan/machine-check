@@ -10,7 +10,7 @@ pub struct WUniquePath {
 }
 
 impl WUniquePath {
-    pub fn into_path(self) -> WTotalPath {
+    pub fn into_total(self) -> WTotalPath {
         WTotalPath {
             leading_colon: self.leading_colon,
             segments: self
