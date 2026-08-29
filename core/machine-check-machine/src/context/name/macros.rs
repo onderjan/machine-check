@@ -8,14 +8,16 @@ use syn::{
 };
 
 use crate::{
-    into_wir::property::{ExprProperty, ExprSubproperty, ExprSubpropertyFunc},
     util::{create_expr_ident, extract_path_ident, path_matches_global_names},
-    wir::{WIdent, WSpan, WSubpropertyFixedPoint, WSubpropertyNext},
+    wir::{
+        WExprProperty, WExprSubproperty, WExprSubpropertyFunc, WIdent, WSpan,
+        WSubpropertyFixedPoint, WSubpropertyNext,
+    },
     Error, ErrorType,
 };
 
 pub fn expand_property_macros<D>(
-    property: &mut ExprProperty,
+    property: &mut WExprProperty,
     property_macros: &PropertyMacros<D>,
 ) -> Result<bool, Error> {
     let mut visitor = Visitor {
@@ -28,7 +30,7 @@ pub fn expand_property_macros<D>(
     };
     for (index, subproperty) in property.subproperties.iter_mut().enumerate() {
         visitor.current_subproperty = index;
-        if let ExprSubproperty::Expr(subproperty_func) = subproperty {
+        if let WExprSubproperty::Expr(subproperty_func) = subproperty {
             visitor.visit_expr_mut(&mut subproperty_func.expr);
         }
     }
@@ -38,15 +40,15 @@ pub fn expand_property_macros<D>(
             let new_subproperty_index = property.subproperties.len();
 
             let parent = &mut property.subproperties[parent_index];
-            if let ExprSubproperty::Expr(parent) = parent {
+            if let WExprSubproperty::Expr(parent) = parent {
                 parent.dependencies.push(new_subproperty_index);
 
                 if parent.display.is_some() && is_trivial_parent(&parent.expr) {
                     // do not display the information in child
                     match &mut new_subproperty {
-                        ExprSubproperty::Expr(new_subproperty) => new_subproperty.display = None,
-                        ExprSubproperty::Next(new_subproperty) => new_subproperty.display = None,
-                        ExprSubproperty::FixedPoint(new_subproperty) => {
+                        WExprSubproperty::Expr(new_subproperty) => new_subproperty.display = None,
+                        WExprSubproperty::Next(new_subproperty) => new_subproperty.display = None,
+                        WExprSubproperty::FixedPoint(new_subproperty) => {
                             new_subproperty.display = None;
                         }
                     }
@@ -76,7 +78,7 @@ struct Visitor<'a, D> {
     current_subproperty: usize,
     result: Result<(), Error>,
     expanded_some_macro: bool,
-    new_subproperties: Vec<ExprSubproperty>,
+    new_subproperties: Vec<WExprSubproperty>,
 }
 
 impl<D> VisitMut for Visitor<'_, D> {
@@ -186,14 +188,14 @@ impl<D> Visitor<'_, D> {
         let outer_subproperty_index = self.num_subproperties + self.new_subproperties.len();
         let inner_subproperty_index = outer_subproperty_index + 1;
 
-        let outer_subproperty = ExprSubproperty::Next(WSubpropertyNext {
+        let outer_subproperty = WExprSubproperty::Next(WSubpropertyNext {
             parent: Some(self.current_subproperty),
             universal,
             inner: inner_subproperty_index,
             display: Some(outer_display),
         });
 
-        let inner_subproperty = ExprSubproperty::Expr(ExprSubpropertyFunc {
+        let inner_subproperty = WExprSubproperty::Expr(WExprSubpropertyFunc {
             parent: Some(outer_subproperty_index),
             expr: inner_expr,
             dependencies: Vec::new(),
@@ -232,7 +234,7 @@ impl<D> Visitor<'_, D> {
         let outer_subproperty_index = self.num_subproperties + self.new_subproperties.len();
         let inner_subproperty_index = outer_subproperty_index + 1;
 
-        let outer_subproperty = ExprSubproperty::FixedPoint(WSubpropertyFixedPoint {
+        let outer_subproperty = WExprSubproperty::FixedPoint(WSubpropertyFixedPoint {
             parent: Some(self.current_subproperty),
             greatest: universal,
             variable,
@@ -240,7 +242,7 @@ impl<D> Visitor<'_, D> {
             display: Some(outer_display),
         });
 
-        let inner_subproperty = ExprSubproperty::Expr(ExprSubpropertyFunc {
+        let inner_subproperty = WExprSubproperty::Expr(WExprSubpropertyFunc {
             parent: Some(outer_subproperty_index),
             expr: inner_expr,
             dependencies: Vec::new(),
@@ -292,7 +294,7 @@ impl<D> Visitor<'_, D> {
 
         let fixed_point_variable = WIdent::new(String::from("__mck_Z"), span);
 
-        let fixed_point = ExprSubproperty::FixedPoint(WSubpropertyFixedPoint {
+        let fixed_point = WExprSubproperty::FixedPoint(WSubpropertyFixedPoint {
             parent: Some(self.current_subproperty),
             greatest,
             variable: fixed_point_variable.clone(),
@@ -335,7 +337,7 @@ impl<D> Visitor<'_, D> {
             right: Box::new(inner_expr),
         });
 
-        let outer = ExprSubproperty::Expr(ExprSubpropertyFunc {
+        let outer = WExprSubproperty::Expr(WExprSubpropertyFunc {
             parent: Some(fixed_point_index),
             expr: outer_expr,
             dependencies: Vec::new(),
@@ -346,7 +348,7 @@ impl<D> Visitor<'_, D> {
 
         let permitting = permitting.map(|permitting| {
             let display = make_expr_display(&permitting);
-            ExprSubproperty::Expr(ExprSubpropertyFunc {
+            WExprSubproperty::Expr(WExprSubpropertyFunc {
                 parent: Some(outer_func_index),
                 expr: permitting,
                 dependencies: Vec::new(),
@@ -355,7 +357,7 @@ impl<D> Visitor<'_, D> {
         });
 
         let sufficient_display = make_expr_display(&sufficient);
-        let sufficient = ExprSubproperty::Expr(ExprSubpropertyFunc {
+        let sufficient = WExprSubproperty::Expr(WExprSubpropertyFunc {
             parent: Some(outer_func_index),
             expr: sufficient,
             dependencies: Vec::new(),
@@ -364,14 +366,14 @@ impl<D> Visitor<'_, D> {
 
         // create the next operator and function, they will not be displayed
 
-        let next_operator = ExprSubproperty::Next(WSubpropertyNext {
+        let next_operator = WExprSubproperty::Next(WSubpropertyNext {
             parent: Some(outer_func_index),
             universal,
             inner: next_func_index,
             display: None,
         });
 
-        let next_func = ExprSubproperty::Expr(ExprSubpropertyFunc {
+        let next_func = WExprSubproperty::Expr(WExprSubpropertyFunc {
             parent: Some(next_operator_index),
             expr: create_expr_ident(subproperty_ident(fixed_point_index, span)),
             dependencies: Vec::new(),

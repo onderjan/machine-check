@@ -1,40 +1,44 @@
 use syn::{
     parse2,
     visit_mut::{self, VisitMut},
-    Attribute, Expr, ExprMacro, Item, Macro, Stmt,
+    Attribute, Expr, ExprMacro, Macro, Stmt,
 };
 
-use crate::{util::path_matches_global_names, wir::WSpan, Error, ErrorType};
+use crate::{
+    context::name::WNameContext, util::path_matches_global_names, wir::WSpan, Error, ErrorType,
+};
 
-pub fn expand_in_items(items: &mut [Item]) -> Result<bool, Error> {
-    let mut visitor = Visitor {
-        result: Ok(()),
-        expanded_some_macro: false,
-    };
-    for item in items.iter_mut() {
-        visitor.visit_item_mut(item);
+impl WNameContext {
+    pub(super) fn expand_macros(&mut self) -> Result<bool, Error> {
+        let mut visitor = MacroExpander {
+            result: Ok(()),
+            expanded_some_macro: false,
+        };
+        for item in self.items.iter_mut() {
+            visitor.visit_item_mut(item);
+        }
+
+        visitor.result?;
+        Ok(visitor.expanded_some_macro)
     }
 
-    visitor.result?;
-    Ok(visitor.expanded_some_macro)
+    pub(super) fn expand_macros_in_expr(expr: &mut Expr) -> Result<bool, Error> {
+        let mut visitor = MacroExpander {
+            result: Ok(()),
+            expanded_some_macro: false,
+        };
+        visitor.visit_expr_mut(expr);
+        visitor.result?;
+        Ok(visitor.expanded_some_macro)
+    }
 }
 
-pub fn expand_in_expr(expr: &mut Expr) -> Result<bool, Error> {
-    let mut visitor = Visitor {
-        result: Ok(()),
-        expanded_some_macro: false,
-    };
-    visitor.visit_expr_mut(expr);
-    visitor.result?;
-    Ok(visitor.expanded_some_macro)
-}
-
-struct Visitor {
+struct MacroExpander {
     result: Result<(), Error>,
     expanded_some_macro: bool,
 }
 
-impl VisitMut for Visitor {
+impl VisitMut for MacroExpander {
     fn visit_stmt_mut(&mut self, stmt: &mut Stmt) {
         if let Stmt::Macro(stmt_macro) = stmt {
             // process macro
@@ -62,7 +66,7 @@ impl VisitMut for Visitor {
     }
 }
 
-impl Visitor {
+impl MacroExpander {
     fn process_macro(&mut self, mac: Macro, attrs: Vec<Attribute>) -> Result<Expr, Error> {
         if path_matches_global_names(&mac.path, &["machine_check", "bitmask_switch"]) {
             self.expanded_some_macro = true;

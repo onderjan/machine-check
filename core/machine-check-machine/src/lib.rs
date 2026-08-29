@@ -24,7 +24,6 @@ use crate::wir::{WIdent, WSpan, WTotalType};
 mod abstr;
 mod concr;
 mod context;
-mod into_wir;
 mod util;
 mod wir;
 
@@ -117,7 +116,7 @@ pub fn process_property<M: FullMachine, D>(
     }
 
     // TODO: do something with the panic messages
-    let property = into_wir::create_property(ctx, expr, &global_basic_types, property_macros)?;
+    let property = context::create_property(ctx, expr, &global_basic_types, property_macros)?;
     let property = property.into_iir();
 
     Ok(property?)
@@ -169,7 +168,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
         None
     };
 
-    let ctx = into_wir::create_context(items.clone())?;
+    let ctx = context::context_from_syn(items.clone())?;
 
     if let Some(out_dir) = &out_dir {
         eprintln!("Writing machine files to directory {:?}", out_dir);

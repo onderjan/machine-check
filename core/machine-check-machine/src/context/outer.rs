@@ -6,6 +6,7 @@ mod item_fn;
 mod path;
 
 mod build;
+mod property;
 
 use syn::{Item, Type};
 

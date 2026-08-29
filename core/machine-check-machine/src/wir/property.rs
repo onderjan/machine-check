@@ -7,6 +7,10 @@ use crate::{
     wir::{WFnId, WIdent, WTypeId},
 };
 
+mod expr;
+
+pub use expr::*;
+
 #[derive(Clone, Debug)]
 pub struct WProperty {
     pub ctx: WLowContext,
