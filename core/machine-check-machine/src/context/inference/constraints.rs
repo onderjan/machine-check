@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use machine_check_common::ir_common::IrStdBinaryOp;
-use syn::{Path, Type, TypePath};
+use syn::{Type, TypePath};
 
 use crate::{
     context::{bitvector_type, bool_type, signed_type, unsigned_type},
@@ -257,7 +257,7 @@ impl super::WInferenceContext {
 
                             let constraint_ty = self.type_id(&Type::Path(TypePath {
                                 qself: None,
-                                path: Path::from(path),
+                                path: path.into_syn(),
                             }))?;
                             self.add_eq_constraint(left_ty.clone(), constraint_ty);
                         }

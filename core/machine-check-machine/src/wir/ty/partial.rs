@@ -66,7 +66,7 @@ impl WPartialType {
     pub fn into_syn(self) -> Type {
         match self {
             WPartialType::Path(path) => {
-                let path: Path = path.into();
+                let path: Path = path.into_syn();
                 Type::Path(TypePath { qself: None, path })
             }
             WPartialType::Reference(ty) => {

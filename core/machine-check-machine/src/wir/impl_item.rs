@@ -100,7 +100,7 @@ impl IntoTypedSyn<ImplItemType> for WImplItemType {
             eq_token: Token![=](span),
             ty: Type::Path(TypePath {
                 qself: None,
-                path: self.right_path.into(),
+                path: self.right_path.into_syn(),
             }),
             semi_token: Token![;](span),
         }

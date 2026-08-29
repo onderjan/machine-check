@@ -170,7 +170,7 @@ impl<Y: YStage> WDefinitions<Y> {
 
                 let self_ty = Box::new(Type::Path(TypePath {
                     qself: None,
-                    path: datatype_path.clone().into_path().into(),
+                    path: datatype_path.clone().into_path().into_syn(),
                 }));
 
                 items.push(Item::Impl(ItemImpl {

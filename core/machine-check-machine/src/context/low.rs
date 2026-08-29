@@ -132,7 +132,7 @@ impl WLowContext {
                 else {
                     todo!("Not a struct");
                 };
-                let path: Path = path.clone().into_path().into();
+                let path: Path = path.clone().into_path().into_syn();
                 Type::Path(TypePath { qself: None, path })
             }
         };

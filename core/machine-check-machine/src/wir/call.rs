@@ -28,7 +28,7 @@ pub enum WCallArg {
 
 impl IntoTypedSyn<Expr> for WCall {
     fn into_typed_syn(self, _type_fn: &impl Fn(WTypeId) -> Type) -> Expr {
-        let path = self.fn_path.into();
+        let path = self.fn_path.into_syn();
 
         let mut args = Punctuated::from_iter(self.args.into_iter().map(|arg| match arg {
             WCallArg::Ident(ident) => create_expr_ident(ident.into()),

@@ -11,7 +11,7 @@ use syn::{
 };
 use syn_path::path;
 
-use crate::wir::{WFnSignature, WPartialPath, WTotalPath, WSpan, WSpanned, WTypeId};
+use crate::wir::{WFnSignature, WPartialPath, WSpan, WSpanned, WTotalPath, WTypeId};
 
 use super::{IntoTypedSyn, WIdent, WImplItemType, YStage};
 
@@ -106,9 +106,10 @@ impl IntoTypedSyn<ItemStruct> for WItemStruct {
         let mut attrs = Vec::new();
 
         if !self.derives.is_empty() {
-            let derive_tokens =
-                Punctuated::<Path, Comma>::from_iter(self.derives.into_iter().map(Path::from))
-                    .into_token_stream();
+            let derive_tokens = Punctuated::<Path, Comma>::from_iter(
+                self.derives.into_iter().map(WPartialPath::into_syn),
+            )
+            .into_token_stream();
 
             let derive_attribute = Attribute {
                 pound_token: Token![#](span),
@@ -177,7 +178,7 @@ where
             trait_: trait_path.map(|path| (None, path, Token![for](span))),
             self_ty: Box::new(Type::Path(TypePath {
                 qself: None,
-                path: self.self_ty.into(),
+                path: self.self_ty.into_syn(),
             })),
             brace_token: Brace::default(),
             items,

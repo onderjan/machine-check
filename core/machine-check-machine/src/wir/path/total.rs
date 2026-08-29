@@ -1,10 +1,7 @@
 use proc_macro2::Span;
 use std::fmt::Debug;
 use std::hash::Hash;
-use syn::{
-    punctuated::Punctuated, Expr, ExprLit, GenericArgument, Lit, LitInt, Path, PathArguments,
-    PathSegment, Token,
-};
+use syn::{punctuated::Punctuated, Path, PathArguments, PathSegment, Token};
 
 use crate::wir::{
     ident::WIdent, WPartialPath, WPartialPathArgument, WPartialPathGenerics, WPartialPathSegment,
@@ -17,9 +14,10 @@ pub enum WTotalPathArgument {
     Uint(u32, WSpan),
 }
 
-impl From<WTotalPathArgument> for GenericArgument {
-    fn from(value: WTotalPathArgument) -> Self {
-        match value {
+/*
+impl WTotalPathArgument {
+    fn into_syn(self) -> GenericArgument {
+        match self {
             WTotalPathArgument::Type(ty) => GenericArgument::Type(ty.into_syn()),
             WTotalPathArgument::Uint(value, span) => GenericArgument::Const(Expr::Lit(ExprLit {
                 attrs: Vec::new(),
@@ -27,7 +25,7 @@ impl From<WTotalPathArgument> for GenericArgument {
             })),
         }
     }
-}
+}*/
 
 impl WTotalPathArgument {
     pub fn into_partial(self) -> WPartialPathArgument {
@@ -210,21 +208,22 @@ impl WSpanned for WTotalPath {
     }
 }
 
-impl From<WTotalPath> for Path {
-    fn from(path: WTotalPath) -> Self {
-        let leading_span = if let Some(leading_colon) = path.leading_colon {
+impl WTotalPath {
+    pub fn into_syn(self) -> Path {
+        let leading_span = if let Some(leading_colon) = self.leading_colon {
             leading_colon.first()
         } else {
             Span::call_site()
         };
         Path {
-            leading_colon: if path.leading_colon.is_some() {
+            leading_colon: if self.leading_colon.is_some() {
                 Some(Token![::](leading_span))
             } else {
                 None
             },
 
-            segments: Punctuated::from_iter(path.segments.into_iter().map(|segment| PathSegment {
+            // TODO: this drops generic arguments
+            segments: Punctuated::from_iter(self.segments.into_iter().map(|segment| PathSegment {
                 ident: segment.ident.into(),
                 arguments: PathArguments::None,
             })),

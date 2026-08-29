@@ -58,7 +58,7 @@ impl IntoTypedSyn<Path> for WAbstrItemImplTrait {
         trait_path.segments.last_mut().unwrap().arguments = create_angle_bracketed_path_arguments(
             false,
             vec![GenericArgument::Type(create_type_path(
-                self.machine_type.clone().into(),
+                self.machine_type.clone().into_syn(),
             ))],
             self.machine_type.span(),
         );
