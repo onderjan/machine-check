@@ -8,7 +8,7 @@ use crate::{
     into_wir::Errors,
     wir::{
         WDefinitions, WIdent, WItemFn, WTotalPath, WTotalPathArgument, WTotalPathGenerics,
-        WTotalPathSegment, WType, WTypeId, YSsa, YTac,
+        WTotalPathSegment, WTotalType, WTypeId, YSsa, YTac,
     },
 };
 
@@ -18,7 +18,7 @@ mod lower;
 #[derive(Debug)]
 pub struct WInferredContext {
     definitions: WDefinitions<YTac>,
-    types: Vec<WType>,
+    types: Vec<WTotalType>,
     boolean_type_id: WTypeId,
     panic_type_id: WTypeId,
 }
@@ -26,7 +26,7 @@ pub struct WInferredContext {
 impl WInferredContext {
     pub(super) fn new(
         definitions: WDefinitions<YTac>,
-        types: Vec<WType>,
+        types: Vec<WTotalType>,
         boolean_type_id: WTypeId,
         panic_type_id: WTypeId,
     ) -> Self {
@@ -46,7 +46,7 @@ impl WInferredContext {
         self.panic_type_id.clone()
     }
 
-    pub fn wir_type(&self, id: WTypeId) -> WType {
+    pub fn wir_type(&self, id: WTypeId) -> WTotalType {
         self.types[id.0].clone()
     }
 
@@ -76,7 +76,7 @@ impl WInferredContext {
         convert_item_fn(self, item_fn)
     }
 
-    fn new_type_id(&mut self, ty: WType) -> WTypeId {
+    fn new_type_id(&mut self, ty: WTotalType) -> WTypeId {
         let type_id = WTypeId(self.types.len());
         self.types.push(ty);
         type_id
@@ -86,7 +86,7 @@ impl WInferredContext {
         let inner = self.types[inner.0].clone();
         let span = inner.wir_span();
 
-        let ty = WType::Path(WTotalPath {
+        let ty = WTotalType::Path(WTotalPath {
             leading_colon: Some(span),
             segments: vec![
                 WTotalPathSegment {

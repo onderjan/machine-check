@@ -8,12 +8,12 @@ use syn::{
 
 use crate::wir::{
     ident::WIdent, WPartialPath, WPartialPathArgument, WPartialPathGenerics, WPartialPathSegment,
-    WSpan, WSpanned, WType, WUniquePath,
+    WSpan, WSpanned, WTotalType, WUniquePath,
 };
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub enum WTotalPathArgument {
-    Type(WType),
+    Type(WTotalType),
     Uint(u32, WSpan),
 }
 

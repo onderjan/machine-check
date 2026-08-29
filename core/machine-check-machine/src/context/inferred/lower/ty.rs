@@ -9,15 +9,15 @@ use machine_check_common::{
 use super::WInferredContext;
 use crate::{
     into_wir::{Error, ErrorType},
-    wir::{WTotalPathArgument, WType},
+    wir::{WTotalPathArgument, WTotalType},
 };
 
 impl WInferredContext {
-    pub fn lower_type(&self, ty: WType) -> Result<IGeneralType, Error> {
+    pub fn lower_type(&self, ty: WTotalType) -> Result<IGeneralType, Error> {
         let span = ty.wir_span();
         eprintln!("Lowering type {:?}", ty);
         match ty {
-            WType::Path(path) => {
+            WTotalType::Path(path) => {
                 if path.matches_absolute(&["machine_check", "Bitvector"])
                     || path.matches_absolute(&["machine_check", "Unsigned"])
                     || path.matches_absolute(&["machine_check", "Signed"])
@@ -80,7 +80,7 @@ impl WInferredContext {
                     }));
                 }
             }
-            WType::Reference(inner) => {
+            WTotalType::Reference(inner) => {
                 let inner = self.lower_type(*inner)?;
                 let mut inner = match inner {
                     IGeneralType::Normal(ty) => ty,

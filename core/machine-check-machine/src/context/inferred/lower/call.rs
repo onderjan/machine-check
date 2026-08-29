@@ -9,7 +9,7 @@ use crate::{
     into_wir::{Error, ErrorType},
     wir::{
         WCall, WCallArg, WExpr, WExprHighCall, WExprLowCall, WIdent, WMckBinary, WMckExt, WMckNew,
-        WMckUnary, WPartialPathArgument, WSpanned, WStdBinary, WStdUnary, WType,
+        WMckUnary, WPartialPathArgument, WSpanned, WStdBinary, WStdUnary, WTotalType,
     },
 };
 
@@ -73,14 +73,14 @@ impl super::FnLowerer<'_> {
                 let inner_ty = self.ctx.wir_type(inner_ty.clone());
                 let mut signed = None;
                 match inner_ty {
-                    WType::Path(path) => {
+                    WTotalType::Path(path) => {
                         if path.matches_absolute(&["machine_check", "Unsigned"]) {
                             signed = Some(false);
                         } else if path.matches_absolute(&["machine_check", "Signed"]) {
                             signed = Some(true);
                         }
                     }
-                    WType::Reference(_wtype) => todo!("Reference ext type"),
+                    WTotalType::Reference(_wtype) => todo!("Reference ext type"),
                 }
                 let Some(signed) = signed else {
                     panic!("Signedness not estabilished for extension");
@@ -327,9 +327,9 @@ impl super::FnLowerer<'_> {
     }
 }
 
-fn type_signedness(ty: WType) -> Option<Signedness> {
+fn type_signedness(ty: WTotalType) -> Option<Signedness> {
     match ty {
-        WType::Path(path) => {
+        WTotalType::Path(path) => {
             if path.matches_absolute(&["machine_check", "Unsigned"]) {
                 return Some(Signedness::Unsigned);
             }
@@ -341,6 +341,6 @@ fn type_signedness(ty: WType) -> Option<Signedness> {
             }
             None
         }
-        WType::Reference(inner) => type_signedness(*inner),
+        WTotalType::Reference(inner) => type_signedness(*inner),
     }
 }
