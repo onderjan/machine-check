@@ -123,7 +123,7 @@ impl WInferenceContext {
         let mut types = Vec::new();
         for ty in self.types {
             let span = ty.wir_span();
-            match ty.into_total() {
+            match ty.try_into_total() {
                 Ok(ty) => types.push(ty),
                 Err(()) => return Err(Error::new(ErrorType::InferenceFailure, span)),
             }

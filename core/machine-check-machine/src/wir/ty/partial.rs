@@ -53,11 +53,11 @@ impl WPartialType {
         }
     }
 
-    pub fn into_total(self) -> Result<WTotalType, ()> {
+    pub fn try_into_total(self) -> Result<WTotalType, ()> {
         match self {
-            WPartialType::Path(path) => Ok(WTotalType::Path(path.into_total()?)),
+            WPartialType::Path(path) => Ok(WTotalType::Path(path.try_into_total()?)),
             WPartialType::Reference(inner) => {
-                Ok(WTotalType::Reference(Box::new(inner.into_total()?)))
+                Ok(WTotalType::Reference(Box::new(inner.try_into_total()?)))
             }
             WPartialType::Infer(_span) => Err(()),
         }

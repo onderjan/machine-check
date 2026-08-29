@@ -193,7 +193,7 @@ pub fn fold_item_impl(
 
     let self_ty = match *item.self_ty.clone() {
         Type::Path(type_path) => fold_partial_path(type_path.path.clone())?
-            .into_total()
+            .try_into_total()
             .map_err(|_| {
                 Errors::single(Error::unsupported_syn_construct(
                     "Incompletely specified path",

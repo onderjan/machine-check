@@ -49,7 +49,7 @@ impl WPartialPathArgument {
 
     pub fn into_total(self) -> Result<WTotalPathArgument, ()> {
         match self {
-            WPartialPathArgument::Type(ty) => Ok(WTotalPathArgument::Type(ty.into_total()?)),
+            WPartialPathArgument::Type(ty) => Ok(WTotalPathArgument::Type(ty.try_into_total()?)),
             WPartialPathArgument::Uint(num, span) => Ok(WTotalPathArgument::Uint(num, span)),
             WPartialPathArgument::Infer(_) => Err(()),
         }
@@ -201,7 +201,7 @@ impl WPartialPath {
         }
     }
 
-    pub fn into_total(self) -> Result<WTotalPath, ()> {
+    pub fn try_into_total(self) -> Result<WTotalPath, ()> {
         let mut segments = Vec::new();
         for segment in self.segments {
             let generics = if let Some(generics) = segment.generics {
