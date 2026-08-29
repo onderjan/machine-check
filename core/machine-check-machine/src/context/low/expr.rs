@@ -51,64 +51,7 @@ impl WExpr<WExprLowCall> {
                         a,
                         b,
                     }))
-                } /*WExprLowCall::Call(call) => {
-                let unresolved_fn = || {
-                Err(error(
-                String::from("Unresolved function call"),
-                call.fn_path.span(),
-                ))
-                };
-
-                // pop last segment and hopefully get the struct
-                let mut call_path = call.fn_path.clone();
-                let Some(call_ident) = call_path.segments.pop() else {
-                return unresolved_fn();
-                };
-                let call_ident = call_ident.ident.into_iir();
-
-                let Some(struct_ident) = call_path.get_ident() else {
-                return unresolved_fn();
-                };
-
-                let Some((struct_index, struct_data)) =
-                fn_data.struct_index_and_data(&struct_ident.clone().into_iir())
-                else {
-                return unresolved_fn();
-                };
-
-                let Some((fn_index, _, call_declaration)) =
-                struct_data.fns.get_full(&(ITrait::Inherent, call_ident))
-                else {
-                return unresolved_fn();
-                };
-
-                assert_eq!(call_declaration.signature.inputs.len(), call.args.len());
-
-                let mut args = Vec::new();
-
-                for arg in call.args {
-                match arg {
-                WCallArg::Ident(ident) => {
-                let arg = from_variable_map(ident, fn_data)?;
-                args.push(arg);
                 }
-                WCallArg::Literal(lit) => {
-                return Err(error(
-                String::from("Non-literal argument expected"),
-                WSpan::from_syn(&lit),
-                ));
-                }
-                }
-                }
-
-                IExprCall::Call(ICall {
-                func: IFnId {
-                struct_id: IStructId(struct_index),
-                fn_index,
-                },
-                args,
-                })
-                }*/
                 WExprLowCall::MckExt(mck_ext) => {
                     let inner = from_variable_map(mck_ext.from, fn_data)?;
 
@@ -120,29 +63,7 @@ impl WExpr<WExprLowCall> {
                 }
                 WExprLowCall::MckNew(mck_new) => IExpr::Call(IExprCall::MckNew(match mck_new {
                     WMckNew::Bitvector(bitvector) => IMckNew::Bitvector(bitvector),
-                    /*WMckNew::BitvectorArray(type_array, element_ident) => {
-                        let element = from_variable_map(element_ident, fn_data)?;
-                        IMckNew::BitvectorArray(type_array, element)
-                    }*/
                 })),
-                /*WExprLowCall::BooleanNew(value) => IExpr::Call(IExprCall::BooleanNew(value)),
-                WExprLowCall::StdClone(ident) => {
-                    let var_id = from_variable_map(ident, fn_data)?;
-                    IExpr::Call(IExprCall::StdClone(var_id))
-                }
-                WExprLowCall::ArrayRead(array_read) => {
-                    IExpr::Call(IExprCall::ArrayRead(IArrayRead {
-                        base: from_variable_map(array_read.base, fn_data)?,
-                        index: from_variable_map(array_read.index, fn_data)?,
-                    }))
-                }
-                WExprLowCall::ArrayWrite(array_write) => {
-                    IExpr::Call(IExprCall::ArrayWrite(IArrayWrite {
-                        base: from_variable_map(array_write.base, fn_data)?,
-                        index: from_variable_map(array_write.index, fn_data)?,
-                        element: from_variable_map(array_write.element, fn_data)?,
-                    }))
-                }*/
                 WExprLowCall::Phi(phi) => {
                     let condition = from_variable_map(phi.condition, fn_data)?;
                     let left = from_variable_map(phi.then_ident, fn_data)?;

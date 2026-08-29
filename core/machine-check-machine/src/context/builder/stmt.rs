@@ -10,7 +10,7 @@ use crate::{
     util::{create_expr_ident, path_matches_global_names},
     wir::{
         WBlock, WIdent, WIfCondition, WIndexedIdent, WMacroableStmt, WNoIfPolarity,
-        WPanicMacroKind, WSpan,  WStmtAssign, WStmtIf, WStmtPanicMacro, YTac,
+        WPanicMacroKind, WSpan, WStmtAssign, WStmtIf, WStmtPanicMacro, YTac,
     },
 };
 
@@ -96,9 +96,6 @@ impl<'a> super::FunctionFolder<'a> {
             Stmt::Local(local) => {
                 let mut pat = local.pat.clone();
                 let ty = if let Pat::Type(pat_type) = pat {
-                    /*ty = fold_type(*pat_type.ty, self.self_ty.as_ref())
-                    .map(WPartialGeneralType::Normal)
-                    .map_err(Errors::single)?;*/
                     let ty = self.ctx.type_id(&pat_type.ty)?;
                     pat = *pat_type.pat;
                     ty

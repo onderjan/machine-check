@@ -53,18 +53,6 @@ pub fn fold_impl_item_fn(
         signature,
         body: WSynBlock(*item_fn.block),
     })
-
-    /*let item_fn = FunctionFolder {
-        ctx,
-        self_ty: Some(self_ty),
-        ident_creator: IdentCreator::new(String::from("")),
-        scopes: Vec::new(),
-        local_types: BTreeMap::new(),
-        next_scope_id: 0,
-    }
-    .fold(item_fn)?;
-
-    Ok(item_fn)*/
 }
 
 fn fold_signature(
@@ -128,15 +116,6 @@ fn fold_signature(
         }
         syn::ReturnType::Type(_rarrow, ty) => ctx.noninferred_id(&ty)?,
     };
-
-    /*
-    let Some(output) = output.try_total() else {
-        return Err(Errors::single(Error::new(
-            ErrorType::IllegalConstruct(String::from("Result with partially specified type")),
-            signature_span,
-        )));
-    };*/
-
     Ok(WFnSignature {
         ident: WIdent::from_syn_ident(signature.ident),
         inputs,
@@ -188,10 +167,7 @@ fn fold_fn_arg(
 
             // do not scope self, it is unnecessary
             let self_ident = WIdent::new(String::from("self"), receiver_span);
-
             let self_type = ctx.noninferred_id(&self_ty)?;
-
-            /*self.add_unique_scoped_ident(self_ident.clone(), self_ident.clone());*/
 
             WFnArg {
                 ident: self_ident,
@@ -209,8 +185,6 @@ fn fold_fn_arg(
 
             let original_ident = WIdent::from_syn_ident(pat_ident.ident);
             let ty = ctx.noninferred_id(&pat_type.ty)?;
-
-            /*let locally_unique_ident = self.add_scoped_ident(scope_id, original_ident);*/
 
             WFnArg {
                 ident: original_ident,

@@ -22,17 +22,6 @@ impl WInferredContext {
                     || path.matches_absolute(&["machine_check", "Unsigned"])
                     || path.matches_absolute(&["machine_check", "Signed"])
                 {
-                    /*let span = path.segments[0].ident.span();
-                    path.segments[0].ident.set_name(String::from("mck"));
-                    path.segments.insert(
-                        1,
-                        WPathSegment {
-                            ident: WIdent::new(String::from("forward"), span.first()),
-                            generics: None,
-                        },
-                    );
-                    path.segments[2].ident.set_name(String::from("Bitvector"));*/
-
                     if let Some(generics) = &path.segments[1].generics {
                         if generics.arguments.len() == 1 {
                             if let WTotalPathArgument::Uint(width, _span) = generics.arguments[0] {
