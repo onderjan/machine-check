@@ -13,7 +13,7 @@ use crate::{
     wir::{
         WArrayBaseExpr, WBlock, WCall, WCallArg, WExpr, WExprField, WExprHighCall, WExprReference,
         WExprStruct, WIdent, WIfCondition, WIndexedExpr, WIndexedIdent, WMacroableStmt,
-        WNoIfPolarity, WSpan, WStdBinary, WStdUnary, WStmtAssign, WStmtIf, YTac,
+        WNoIfPolarity, WPartialType, WSpan, WStdBinary, WStdUnary, WStmtAssign, WStmtIf, YTac,
     },
 };
 
@@ -525,10 +525,10 @@ impl RightExprFolder<'_, '_, '_> {
             args.push((member_ident, member_value))
         }
 
-        Ok(WExprStruct {
-            type_path: fold_partial_path(expr_struct.path)?,
-            fields: args,
-        })
+        let ty = WPartialType::Path(fold_partial_path(expr_struct.path)?);
+        let ty = self.fn_folder.ctx.partial_type_id(ty);
+
+        Ok(WExprStruct { ty, fields: args })
     }
 
     fn fold_right_expr_reference(

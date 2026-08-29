@@ -2,12 +2,11 @@ use machine_check_common::ir_common::IrMckBinaryOp;
 use proc_macro2::Span;
 
 use crate::{
-    context::inferred::lower::{create_panic_call, item::lower_basic_path},
+    context::inferred::lower::create_panic_call,
     into_wir::Errors,
     wir::{
-        WBlock, WExpr, WExprHighCall, WExprLowCall, WExprStruct, WIfCondition, WIndexedExpr,
-        WIndexedIdent, WMacroableStmt, WMckBinary, WNoIfPolarity, WStmt, WStmtAssign, WStmtIf,
-        YLowered, YTac,
+        WBlock, WExpr, WExprHighCall, WExprLowCall, WIfCondition, WIndexedExpr, WIndexedIdent,
+        WMacroableStmt, WMckBinary, WNoIfPolarity, WStmt, WStmtAssign, WStmtIf, YLowered, YTac,
     },
 };
 
@@ -70,10 +69,7 @@ impl super::FnLowerer<'_> {
             WExpr::Move(ident) => Ok(WExpr::Move(ident)),
             WExpr::Call(expr_call) => Ok(self.lower_call(expr_call)?),
             WExpr::Field(expr_field) => Ok(WExpr::Field(expr_field)),
-            WExpr::Struct(expr_struct) => Ok(WExpr::Struct(WExprStruct {
-                type_path: lower_basic_path(expr_struct.type_path),
-                fields: expr_struct.fields,
-            })),
+            WExpr::Struct(expr_struct) => Ok(WExpr::Struct(expr_struct)),
             WExpr::Reference(expr_reference) => Ok(WExpr::Reference(expr_reference)),
             WExpr::Lit(lit, neg) => Ok(WExpr::Lit(lit, neg)),
         }

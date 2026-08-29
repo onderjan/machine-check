@@ -77,11 +77,7 @@ impl super::WInferenceContext {
                             }
                         }
                         WExpr::Struct(expr_struct) => {
-                            let struct_ty = self.type_id(&Type::Path(TypePath {
-                                qself: None,
-                                path: Path::from(expr_struct.type_path.clone()),
-                            }))?;
-                            self.add_eq_constraint(left_ty, struct_ty);
+                            self.add_eq_constraint(left_ty, expr_struct.ty.clone());
                         }
                         WExpr::Reference(_wexpr_reference) => {
                             // TODO: process references

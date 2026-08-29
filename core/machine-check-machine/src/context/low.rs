@@ -11,7 +11,7 @@ use syn::{
     TypePath, TypeReference,
 };
 
-use crate::wir::{WDatatypeId, WDefinitions, WTypeId, YSsa};
+use crate::wir::{WDatatype, WDatatypeId, WDefinitions, WTypeId, YSsa};
 
 mod into_iir;
 
@@ -28,6 +28,23 @@ impl WLowContext {
 
     pub fn definitions(&self) -> &WDefinitions<YSsa> {
         &self.definitions
+    }
+
+    pub fn id_datatype(&self, id: WTypeId) -> &WDatatype {
+        let ty = self.id_type(id);
+        assert!(matches!(ty.reference, IrReference::None));
+        let IElementaryType::Struct(struct_id) = ty.inner else {
+            panic!("Definition type should be a struct");
+        };
+
+        let def_id = WDatatypeId::from_index(struct_id.0);
+
+        let (_name, datatype) = self
+            .definitions
+            .datatype_by_id(def_id)
+            .expect("Datatype should be found by id");
+
+        datatype
     }
 
     pub fn id_general_type(&self, id: WTypeId) -> IGeneralType {

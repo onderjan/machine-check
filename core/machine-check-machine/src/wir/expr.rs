@@ -4,13 +4,10 @@ use syn::{
     punctuated::Punctuated,
     token::{Brace, Bracket},
     Expr, ExprField, ExprIndex, ExprLit, ExprReference, ExprStruct, ExprUnary, FieldValue, Index,
-    Lit, Token, Type,
+    Lit, Token, Type, TypePath,
 };
 
-use crate::{
-    util::create_expr_ident,
-    wir::{WPartialPath, WTypeId},
-};
+use crate::{util::create_expr_ident, wir::WTypeId};
 
 use super::{IntoSyn, WIdent};
 
@@ -32,7 +29,7 @@ pub struct WExprField {
 
 #[derive(Clone, Debug, Hash)]
 pub struct WExprStruct {
-    pub type_path: WPartialPath,
+    pub ty: WTypeId,
     pub fields: Vec<(WIdent, WIdent)>,
 }
 
@@ -84,10 +81,18 @@ impl<CF: IntoSyn<Expr>> IntoSyn<Expr> for WExpr<CF> {
                     });
                 }
 
+                let Type::Path(TypePath {
+                    qself: None,
+                    path: struct_path,
+                }) = type_fn(expr.ty)
+                else {
+                    panic!("Struct expr type should be a path");
+                };
+
                 Expr::Struct(ExprStruct {
                     attrs: Vec::new(),
                     qself: None,
-                    path: expr.type_path.into(),
+                    path: struct_path,
                     brace_token: Brace::default(),
                     fields,
                     dot2_token: None,
@@ -188,7 +193,7 @@ impl<CF: IntoSyn<Expr> + Debug> Debug for WExpr<CF> {
             Self::Call(call) => call.fmt(f),
             Self::Field(field) => write!(f, "{:?}.{:?}", field.base, field.member),
             Self::Struct(s) => {
-                s.type_path.fmt(f)?;
+                s.ty.fmt(f)?;
                 let mut franz = f.debug_map();
                 for (field_name, field_value) in &s.fields {
                     franz.entry(field_name, field_value);

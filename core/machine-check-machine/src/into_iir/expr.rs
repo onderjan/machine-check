@@ -240,19 +240,7 @@ impl WExprStruct {
         ctx: &WLowContext,
         fn_data: &WFnData,
     ) -> Result<IExprStruct, Error> {
-        let base_type_span = self.type_path.wir_span();
-        let unresolved_struct_type = || {
-            Err(error(
-                String::from("Unresolved struct type"),
-                base_type_span,
-            ))
-        };
-
-        let base_path = self.type_path.clone().without_generics();
-
-        let Some(base_ty) = ctx.definitions().datatype(&base_path) else {
-            return unresolved_struct_type();
-        };
+        let base_ty = ctx.id_datatype(self.ty);
 
         let num_fields = base_ty.def.fields.len();
 
@@ -273,7 +261,10 @@ impl WExprStruct {
 
         for field in fields {
             let Some(field) = field else {
-                return Err(error(String::from("Missing struct field"), base_type_span));
+                return Err(error(
+                    String::from("Missing struct field"),
+                    WSpan::call_site(),
+                ));
             };
             result.push(field);
         }

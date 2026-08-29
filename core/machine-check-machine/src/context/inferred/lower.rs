@@ -13,7 +13,6 @@ use mck::{concr::ConcreteBitvector, misc::RBound};
 
 mod block;
 mod call;
-mod item;
 mod ty;
 
 pub fn lower_item_fn(
