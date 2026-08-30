@@ -5,7 +5,7 @@ use syn::{
 
 use crate::{
     context::{outer::attribute::AttributeDisallower, WOuterContext},
-    wir::{WFnArg, WFnSignature, WIdent, WItemFn, WPartialPath, WSpan, WSynBlock, YBuild},
+    wir::{WFnArg, WFnSignature, WIdent, WItemFn, WPath, WSpan, WSynBlock, YBuild},
     Error, ErrorType, Errors,
 };
 
@@ -13,7 +13,7 @@ impl WOuterContext {
     pub fn fold_impl_item_fn(
         &mut self,
         mut impl_item_fn: ImplItemFn,
-        self_ty: (&Type, &WPartialPath),
+        self_ty: (&Type, &WPath),
     ) -> Result<WItemFn<YBuild>, Errors> {
         if impl_item_fn.defaultness.is_some() {
             return Err(Errors::single(Error::unsupported_syn_construct(
@@ -54,7 +54,7 @@ impl WOuterContext {
 
     fn fold_signature(
         &mut self,
-        self_ty: Option<(&Type, &WPartialPath)>,
+        self_ty: Option<(&Type, &WPath)>,
         signature: Signature,
     ) -> Result<WFnSignature, Errors> {
         if signature.constness.is_some() {
@@ -122,7 +122,7 @@ impl WOuterContext {
 
     fn fold_fn_arg(
         &mut self,
-        self_ty: Option<(&Type, &WPartialPath)>,
+        self_ty: Option<(&Type, &WPath)>,
         fn_arg: FnArg,
     ) -> Result<WFnArg, Error> {
         let fn_arg = match &fn_arg {

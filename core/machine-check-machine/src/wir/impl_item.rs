@@ -7,7 +7,7 @@ use syn::{
 };
 use syn_path::path;
 
-use crate::wir::{WBlock, WItemFn, WPartialPath, WTypeId, WVisibility};
+use crate::wir::{WBlock, WItemFn, WPath, WTypeId, WVisibility};
 
 use super::{IntoTypedSyn, WIdent, YStage};
 
@@ -15,7 +15,7 @@ use super::{IntoTypedSyn, WIdent, YStage};
 pub struct WImplItemType {
     pub visibility: WVisibility,
     pub left_ident: WIdent,
-    pub right_path: WPartialPath,
+    pub right_path: WPath,
 }
 
 impl Debug for WImplItemType {

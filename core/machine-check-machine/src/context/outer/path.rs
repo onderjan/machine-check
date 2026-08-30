@@ -5,8 +5,8 @@ use syn::{
 use crate::{
     context::WOuterContext,
     wir::{
-        WIdent, WPartialPath, WPartialPathGenerics, WPartialPathSegment, WPartialType, WSpan,
-        WTypeId, WTypePath, WTypePathSegment,
+        WIdent, WPartialType, WPath, WPathGenerics, WPathSegment, WSpan, WTypeId, WTypePath,
+        WTypePathSegment,
     },
     Error, ErrorType,
 };
@@ -76,7 +76,7 @@ impl WOuterContext {
         })
     }
 
-    pub fn fold_partial_path(&mut self, path: Path) -> Result<WPartialPath, Error> {
+    pub fn fold_partial_path(&mut self, path: Path) -> Result<WPath, Error> {
         let leading_colon = path.leading_colon.map(|c| WSpan::from_syn(&c));
         let mut segments = Vec::new();
         for segment in path.segments.into_iter() {
@@ -100,13 +100,13 @@ impl WOuterContext {
                 }
             };
 
-            segments.push(WPartialPathSegment {
+            segments.push(WPathSegment {
                 ident: WIdent::from_syn_ident(segment.ident),
                 generics,
             })
         }
 
-        Ok(WPartialPath {
+        Ok(WPath {
             leading_colon,
             segments,
         })
@@ -115,7 +115,7 @@ impl WOuterContext {
     fn fold_partial_path_arguments(
         &mut self,
         generics: AngleBracketedGenericArguments,
-    ) -> Result<WPartialPathGenerics, Error> {
+    ) -> Result<WPathGenerics, Error> {
         let turbofish = generics
             .colon2_token
             .map(|turbofish| WSpan::from_syn(&turbofish));
@@ -164,7 +164,7 @@ impl WOuterContext {
 
             arguments.push(self.partial_type_id(arg_result));
         }
-        Ok(WPartialPathGenerics {
+        Ok(WPathGenerics {
             turbofish,
             arguments,
         })

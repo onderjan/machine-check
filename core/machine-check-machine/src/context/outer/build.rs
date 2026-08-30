@@ -5,7 +5,7 @@ use crate::{
     context::{WInferenceContext, WOuterContext},
     util::ident_creator::IdentCreator,
     wir::{
-        WFnArg, WIdent, WItemFn, WItemFnBody, WPartialPath, WSpan, WTacLocal, WTypeId, YBuild, YTac,
+        WFnArg, WIdent, WItemFn, WItemFnBody, WPath, WSpan, WTacLocal, WTypeId, YBuild, YTac,
     },
     Error, Errors,
 };
@@ -59,7 +59,7 @@ struct FunctionScope {
 
 struct FunctionFolder<'a> {
     ctx: &'a mut WOuterContext,
-    self_ty: Option<(&'a Type, &'a WPartialPath)>,
+    self_ty: Option<(&'a Type, &'a WPath)>,
     ident_creator: IdentCreator<()>,
     local_types: IndexMap<WIdent, WTypeId>,
     scopes: Vec<FunctionScope>,

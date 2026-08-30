@@ -8,7 +8,7 @@ use crate::{
     util::create_angle_bracketed_path_arguments,
     wir::{
         IntoTypedSyn, WExpr, WExprLowCall, WIdent, WItemFnBody, WItemImpl, WItemImplTrait,
-        WPartialPath, WSsaLocal, WStmt, WTypeId, YIfPolarity, YSsa, YStage,
+        WPath, WSsaLocal, WStmt, WTypeId, YIfPolarity, YSsa, YStage,
     },
 };
 
@@ -48,7 +48,7 @@ impl YIfPolarity for YAbstrIfPolarity {}
 
 #[derive(Clone, Debug, Hash)]
 pub struct WAbstrItemImplTrait {
-    pub machine_type: WPartialPath,
+    pub machine_type: WPath,
     pub trait_: WItemImplTrait,
 }
 

@@ -3,7 +3,7 @@ use syn::{punctuated::Punctuated, token::Paren, Expr, ExprCall, ExprLit, ExprPat
 
 use crate::{
     util::{create_expr_ident, create_expr_path, path_matches_global_names},
-    wir::{WPartialPath, WPartialPathSegment, WSpan, WTypeId},
+    wir::{WPath, WPathSegment, WSpan, WTypeId},
 };
 
 use super::{IntoTypedSyn, WIdent, WMckBinary, WMckUnary, WStdBinary, WStdUnary};
@@ -15,7 +15,7 @@ pub use {high::WExprHighCall, low::*};
 
 #[derive(Clone, Debug, Hash)]
 pub struct WCall {
-    pub fn_path: WPartialPath,
+    pub fn_path: WPath,
     pub args: Vec<WCallArg>,
 }
 
@@ -59,19 +59,19 @@ impl IntoTypedSyn<Expr> for WCall {
     }
 }
 
-fn construct_call_fn_path(fn_operand: String) -> WPartialPath {
+fn construct_call_fn_path(fn_operand: String) -> WPath {
     let span = WSpan::call_site();
     let without_leading = fn_operand
         .strip_prefix("::")
         .expect("Special function operand should have a leading prefix");
-    let segments: Vec<WPartialPathSegment> = without_leading
+    let segments: Vec<WPathSegment> = without_leading
         .split("::")
-        .map(|segment| WPartialPathSegment {
+        .map(|segment| WPathSegment {
             ident: WIdent::new(String::from(segment), span),
             generics: None,
         })
         .collect();
-    WPartialPath {
+    WPath {
         leading_colon: Some(span),
         segments,
     }

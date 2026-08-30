@@ -1,7 +1,3 @@
-mod stripped;
-
-pub use stripped::*;
-
 use proc_macro2::Span;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -13,90 +9,30 @@ use syn::{
 use crate::wir::{ident::WIdent, WSpan, WTypeId};
 
 #[derive(Clone, Hash, PartialEq, Eq)]
-pub struct WPartialPathGenerics {
+pub struct WPathGenerics {
     pub turbofish: Option<WSpan>,
     pub arguments: Vec<WTypeId>,
 }
 
 #[derive(Clone, Hash, PartialEq, Eq)]
-pub struct WPartialPathSegment {
+pub struct WPathSegment {
     pub ident: WIdent,
-    pub generics: Option<WPartialPathGenerics>,
+    pub generics: Option<WPathGenerics>,
 }
 
 #[derive(Clone, Hash, PartialEq, Eq)]
-pub struct WPartialPath {
+pub struct WPath {
     pub leading_colon: Option<WSpan>,
-    pub segments: Vec<WPartialPathSegment>,
+    pub segments: Vec<WPathSegment>,
 }
 
-/*
-impl WPartialPathArgument {
-    /*pub fn set_span(&mut self, new_span: WSpan) {
-        match self {
-            WPartialPathArgument::Type(ty) => {
-                ty.set_span(new_span);
-            }
-            WPartialPathArgument::Uint(_value, span) => *span = new_span,
-            WPartialPathArgument::Infer(span) => *span = new_span,
-        }
-    }
-
-    pub fn into_total(self) -> Result<WTotalPathArgument, ()> {
-        match self {
-            WPartialPathArgument::Type(ty) => Ok(WTotalPathArgument::Type(ty.try_into_total()?)),
-            WPartialPathArgument::Uint(num, span) => Ok(WTotalPathArgument::Uint(num, span)),
-            WPartialPathArgument::Infer(_) => Err(()),
-        }
-    }*/
-
-    fn into_syn(self) -> GenericArgument {
-        match self {
-            WPartialPathArgument::Type(ty) => GenericArgument::Type(ty.into_syn()),
-            WPartialPathArgument::Uint(value, span) => GenericArgument::Const(Expr::Lit(ExprLit {
-                attrs: Vec::new(),
-                lit: Lit::Int(LitInt::new(&value.to_string(), span.first())),
-            })),
-            WPartialPathArgument::Infer(span) => GenericArgument::Type(Type::Infer(TypeInfer {
-                underscore_token: Token![_](span.first()),
-            })),
-        }
-    }
+#[derive(Clone, Hash, PartialEq, Eq)]
+pub struct WStrippedPath {
+    pub leading_colon: Option<WSpan>,
+    pub segments: Vec<WIdent>,
 }
 
-impl Debug for WPartialPathArgument {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Type(ty) => Debug::fmt(&ty, f),
-            Self::Uint(num, _span) => write!(f, "{}", num),
-            Self::Infer(_span) => write!(f, "_"),
-        }
-    }
-}
-    */
-
-impl WPartialPathGenerics {
-    /*pub fn into_total(self) -> Result<WTotalPathGenerics, ()> {
-        let mut arguments = Vec::new();
-        for arg in self.arguments {
-            arguments.push(arg.into_total()?);
-        }
-
-        Ok(WTotalPathGenerics {
-            turbofish: self.turbofish,
-            arguments,
-        })
-    }
-
-    pub fn set_span(&mut self, span: WSpan) {
-        self.turbofish.map(|_| span);
-        for arg in &mut self.arguments {
-            arg.set_span(span);
-        }
-    }*/
-}
-
-impl Debug for WPartialPathSegment {
+impl Debug for WPathSegment {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         Debug::fmt(&self.ident, f)?;
         if let Some(generics) = &self.generics {
@@ -120,11 +56,11 @@ impl Debug for WPartialPathSegment {
     }
 }
 
-impl WPartialPath {
+impl WPath {
     pub fn from_ident(ident: WIdent) -> Self {
-        WPartialPath {
+        WPath {
             leading_colon: None,
-            segments: vec![WPartialPathSegment {
+            segments: vec![WPathSegment {
                 ident,
                 generics: None,
             }],
@@ -176,7 +112,7 @@ impl WPartialPath {
         }
     }
 
-    pub fn resolve_self(self, self_path: &WPartialPath) -> Self {
+    pub fn resolve_self(self, self_path: &WPath) -> Self {
         if self.leading_colon.is_some() {
             return self;
         }
@@ -196,36 +132,6 @@ impl WPartialPath {
             self
         }
     }
-
-    /*pub fn set_span(&mut self, span: WSpan) {
-        self.leading_colon.map(|_| span);
-        for segment in &mut self.segments {
-            segment.ident.set_span(span);
-            if let Some(generics) = &mut segment.generics {
-                generics.set_span(span);
-            }
-        }
-    }
-
-    pub fn try_into_total(self) -> Result<WTotalPath, ()> {
-        let mut segments = Vec::new();
-        for segment in self.segments {
-            let generics = if let Some(generics) = segment.generics {
-                Some(generics.into_total()?)
-            } else {
-                None
-            };
-
-            segments.push(WTotalPathSegment {
-                ident: segment.ident,
-                generics,
-            });
-        }
-        Ok(WTotalPath {
-            leading_colon: self.leading_colon,
-            segments,
-        })
-    }*/
 
     pub fn without_generics(self) -> WStrippedPath {
         WStrippedPath {
@@ -297,7 +203,7 @@ impl WPartialPath {
     }
 }
 
-impl Debug for WPartialPath {
+impl Debug for WPath {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let mut skip_leading = self.leading_colon.is_none();
         for segment in &self.segments {
@@ -307,6 +213,45 @@ impl Debug for WPartialPath {
                 write!(f, "::")?;
             }
             Debug::fmt(&segment, f)?;
+        }
+        Ok(())
+    }
+}
+
+impl WStrippedPath {
+    pub fn from_ident(ident: WIdent) -> Self {
+        Self {
+            leading_colon: None,
+            segments: vec![ident],
+        }
+    }
+
+    pub fn span(&self) -> WSpan {
+        if let Some(leading_colon) = self.leading_colon {
+            leading_colon
+        } else {
+            self.segments
+                .first()
+                .map(|first| first.span())
+                .unwrap_or(WSpan::call_site())
+        }
+    }
+}
+
+impl Debug for WStrippedPath {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        if self.leading_colon.is_some() {
+            f.write_str("::")?;
+        }
+
+        let mut first = true;
+        for ident in &self.segments {
+            if first {
+                first = false;
+            } else {
+                f.write_str("::")?;
+            }
+            Debug::fmt(&ident, f)?;
         }
         Ok(())
     }
