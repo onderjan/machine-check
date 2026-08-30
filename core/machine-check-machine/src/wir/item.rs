@@ -11,7 +11,7 @@ use syn::{
 };
 use syn_path::path;
 
-use crate::wir::{WFnSignature, WPartialPath, WSpan, WTotalPath, WTypeId};
+use crate::wir::{WFnSignature, WPartialPath, WSpan, WTypeId};
 
 use super::{IntoTypedSyn, WIdent, WImplItemType, YStage};
 
@@ -50,7 +50,7 @@ pub struct WField {
 
 #[derive(Clone, Debug, Hash)]
 pub struct WItemImpl<Y: YStage> {
-    pub self_ty: WTotalPath,
+    pub self_ty: WPartialPath,
     pub trait_: Option<Y::ItemImplTrait>,
     pub impl_item_fns: Vec<WItemFn<Y>>,
     pub impl_item_types: Vec<WImplItemType>,
@@ -99,7 +99,9 @@ impl IntoTypedSyn<ItemStruct> for WItemStruct {
 
         if !self.derives.is_empty() {
             let derive_tokens = Punctuated::<Path, Comma>::from_iter(
-                self.derives.into_iter().map(WPartialPath::into_syn),
+                self.derives
+                    .into_iter()
+                    .map(|path| path.into_typed_syn(type_fn)),
             )
             .into_token_stream();
 
@@ -170,7 +172,7 @@ where
             trait_: trait_path.map(|path| (None, path, Token![for](span))),
             self_ty: Box::new(Type::Path(TypePath {
                 qself: None,
-                path: self.self_ty.into_syn(),
+                path: self.self_ty.into_typed_syn(type_fn),
             })),
             brace_token: Brace::default(),
             items,

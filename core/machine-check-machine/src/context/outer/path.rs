@@ -1,22 +1,26 @@
-use syn::{AngleBracketedGenericArguments, Expr, GenericArgument, Lit, Path, PathArguments, Type};
+use syn::{
+    AngleBracketedGenericArguments, Expr, GenericArgument, Lit, Path, PathArguments, Type, TypePath,
+};
 
 use crate::{
     context::WOuterContext,
     wir::{
-        WIdent, WPartialPath, WPartialPathArgument, WPartialPathGenerics, WPartialPathSegment,
-        WPartialType, WSpan, WTotalType,
+        WIdent, WPartialPath, WPartialPathGenerics, WPartialPathSegment, WPartialType, WSpan,
+        WTypeId, WTypePath, WTypePathSegment,
     },
     Error, ErrorType,
 };
 
 impl WOuterContext {
-    pub fn fold_partial_type(ty: Type) -> Result<WPartialType, Error> {
+    pub fn fold_partial_type(&mut self, ty: Type) -> Result<WPartialType, Error> {
         let ty_span = WSpan::from_syn(&ty);
         match ty {
             Type::Path(type_path) => {
-                Self::fold_partial_path(type_path.path).map(WPartialType::Path)
+                let type_path = self.fold_type_path(type_path)?;
+                Ok(WPartialType::Path(type_path))
             }
             Type::Reference(type_reference) => {
+                let span = WSpan::from_syn(&type_reference);
                 if type_reference.lifetime.is_some() {
                     return Err(Error::unsupported_construct(
                         "Reference with lifetime",
@@ -29,26 +33,50 @@ impl WOuterContext {
                         ty_span,
                     ));
                 }
-                let inner = Self::fold_partial_type(*type_reference.elem)?;
-                Ok(WPartialType::Reference(Box::new(inner)))
+                let inner = self.fold_partial_type(*type_reference.elem)?;
+                let inner = self.partial_type_id(inner);
+                Ok(WPartialType::Reference(inner, span))
             }
             _ => Err(Error::unsupported_construct("Type", ty_span)),
         }
     }
 
-    pub fn fold_total_type(ty: Type) -> Result<WTotalType, Error> {
-        let ty = Self::fold_partial_type(ty)?;
-        let span = ty.span();
-        match ty.try_into_total() {
-            Ok(ty) => Ok(ty),
-            Err(()) => Err(Error::new(
-                ErrorType::IllegalConstruct(String::from("Interference not allowed here")),
-                span,
-            )),
+    pub fn fold_type_path(&mut self, type_path: TypePath) -> Result<WTypePath, Error> {
+        if let Some(qself) = type_path.qself {
+            return Err(Error::unsupported_construct(
+                "Qualified self",
+                WSpan::from_syn(&qself.ty),
+            ));
         }
+
+        let path = self.fold_partial_path(type_path.path)?;
+
+        let mut segments = Vec::new();
+        for segment in path.segments {
+            let generics = if let Some(generics) = segment.generics {
+                if generics.turbofish.is_some() {
+                    return Err(Error::new(
+                        ErrorType::IllegalConstruct(String::from("Turbofish in type")),
+                        segment.ident.span(),
+                    ));
+                }
+                Some(generics.arguments)
+            } else {
+                None
+            };
+            segments.push(WTypePathSegment {
+                ident: segment.ident,
+                generics,
+            });
+        }
+
+        Ok(WTypePath {
+            leading_colon: path.leading_colon,
+            segments,
+        })
     }
 
-    pub fn fold_partial_path(path: Path) -> Result<WPartialPath, Error> {
+    pub fn fold_partial_path(&mut self, path: Path) -> Result<WPartialPath, Error> {
         let leading_colon = path.leading_colon.map(|c| WSpan::from_syn(&c));
         let mut segments = Vec::new();
         for segment in path.segments.into_iter() {
@@ -62,7 +90,7 @@ impl WOuterContext {
             let generics = match segment.arguments {
                 PathArguments::None => None,
                 PathArguments::AngleBracketed(arguments) => {
-                    Some(Self::fold_partial_path_arguments(arguments)?)
+                    Some(self.fold_partial_path_arguments(arguments)?)
                 }
                 PathArguments::Parenthesized(parenthesized) => {
                     return Err(Error::unsupported_construct(
@@ -85,12 +113,13 @@ impl WOuterContext {
     }
 
     fn fold_partial_path_arguments(
+        &mut self,
         generics: AngleBracketedGenericArguments,
     ) -> Result<WPartialPathGenerics, Error> {
         let turbofish = generics
             .colon2_token
             .map(|turbofish| WSpan::from_syn(&turbofish));
-        let mut arguments: Vec<WPartialPathArgument> = Vec::new();
+        let mut arguments: Vec<WTypeId> = Vec::new();
         for argument in generics.args {
             let arg_span = WSpan::from_syn(&argument);
             let arg_result = match argument {
@@ -103,7 +132,8 @@ impl WOuterContext {
                                     arg_span,
                                 ));
                             };
-                            WPartialPathArgument::Uint(num, WSpan::from_syn(&lit_int))
+
+                            WPartialType::Number(num, arg_span)
                         }
                         _ => {
                             return Err(Error::unsupported_construct(
@@ -112,7 +142,7 @@ impl WOuterContext {
                             ))
                         }
                     },
-                    Expr::Infer(infer) => WPartialPathArgument::Infer(WSpan::from_syn(&infer)),
+                    Expr::Infer(infer) => WPartialType::Infer(WSpan::from_syn(&infer)),
                     _ => {
                         return Err(Error::unsupported_construct(
                             "Non-literal const generic argument",
@@ -121,12 +151,9 @@ impl WOuterContext {
                     }
                 },
                 GenericArgument::Type(Type::Infer(infer)) => {
-                    WPartialPathArgument::Infer(WSpan::from_syn(&infer))
+                    WPartialType::Infer(WSpan::from_syn(&infer))
                 }
-                GenericArgument::Type(ty) => {
-                    let ty = Self::fold_partial_type(ty)?;
-                    WPartialPathArgument::Type(ty)
-                }
+                GenericArgument::Type(ty) => self.fold_partial_type(ty)?,
                 _ => {
                     return Err(Error::unsupported_construct(
                         "Type of generic argument",
@@ -135,7 +162,7 @@ impl WOuterContext {
                 }
             };
 
-            arguments.push(arg_result);
+            arguments.push(self.partial_type_id(arg_result));
         }
         Ok(WPartialPathGenerics {
             turbofish,

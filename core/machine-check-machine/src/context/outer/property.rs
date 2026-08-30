@@ -22,7 +22,7 @@ impl WOuterContext {
         for (index, subproperty) in property.subproperties.into_iter().enumerate() {
             let subproperty_ident =
                 WIdent::new(format!("__mck_subproperty_{}", index), WSpan::call_site());
-            optional_params.insert(subproperty_ident, self.bool_type_id());
+            optional_params.insert(subproperty_ident, self.new_bool());
 
             let subproperty = match subproperty {
                 WExprSubproperty::Expr(subproperty_func) => {
@@ -35,7 +35,7 @@ impl WOuterContext {
                         signature: WFnSignature {
                             ident: subproperty_fn_ident,
                             inputs: vec![],
-                            output: self.bool_type_id(),
+                            output: self.new_bool(),
                         },
                         body: WSynBlock(Block {
                             brace_token: Default::default(),

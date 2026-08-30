@@ -5,8 +5,7 @@ use machine_check_common::ir_common::IrStdBinaryOp;
 use crate::{
     wir::{
         WBlock, WCall, WCallArg, WExpr, WExprHighCall, WIdent, WIndexedExpr, WIndexedIdent,
-        WMacroableStmt, WPartialPathArgument, WPartialPathGenerics, WPartialType, WTotalType,
-        WTypeId, YTac,
+        WMacroableStmt, WPartialType, WTypeId, YTac,
     },
     Error, ErrorType,
 };
@@ -56,8 +55,8 @@ impl super::WInferenceContext {
 
                             eprintln!("Field {:?}: base type {:?}", expr_field, base_ty);
 
-                            while let WPartialType::Reference(ty) = base_ty {
-                                base_ty = ty.as_ref();
+                            while let WPartialType::Reference(ty, _span) = base_ty {
+                                base_ty = &self.types[ty.index()];
                             }
 
                             if let WPartialType::Path(base_path) = base_ty {
@@ -135,7 +134,7 @@ impl super::WInferenceContext {
                         // constrain the inputs to be of the same type
                         self.add_eq_constraint(a_ty, b_ty);
                         // constrain the output to be a Boolean
-                        let bool_ty = self.total_type_id(WTotalType::new_bool());
+                        let bool_ty = self.new_bool();
                         self.add_eq_constraint(left_ty, bool_ty);
                     }
                     IrStdBinaryOp::BitAnd
@@ -182,22 +181,21 @@ impl super::WInferenceContext {
                 let mut width = None;
                 if let Some(generics) = &segments[1].generics {
                     if generics.arguments.len() == 1 {
-                        if let WPartialPathArgument::Uint(width_arg, _span) = generics.arguments[0]
-                        {
-                            width = Some(width_arg)
+                        let arg = &generics.arguments[0];
+                        if let WPartialType::Number(num, _span) = self.types[arg.index()] {
+                            width = Some(num)
                         }
                     }
                 }
-                let ty = if is_bitvector {
-                    WTotalType::new_bitvector(width)
+                let bitvector_ty = if is_bitvector {
+                    self.new_bitvector(width)
                 } else if is_unsigned {
-                    WTotalType::new_unsigned(width)
+                    self.new_unsigned(width)
                 } else {
-                    WTotalType::new_signed(width)
+                    self.new_signed(width)
                 };
 
                 // constrain the output to be a bitvector of the given width
-                let bitvector_ty = self.total_type_id(ty);
                 self.add_eq_constraint(left_ty.clone(), bitvector_ty);
 
                 return Ok(());
@@ -210,8 +208,9 @@ impl super::WInferenceContext {
                 let mut width = None;
                 if let Some(generics) = &segments[1].generics {
                     if generics.arguments.len() == 1 {
-                        if let WPartialPathArgument::Uint(width_arg, span) = generics.arguments[0] {
-                            width = Some((width_arg, span))
+                        let arg = &generics.arguments[0];
+                        if let WPartialType::Number(num, span) = self.types[arg.index()] {
+                            width = Some((num, span))
                         }
                     }
                 }
@@ -245,10 +244,9 @@ impl super::WInferenceContext {
                             let mut path = path.clone();
 
                             path.segments[1].generics = if let Some((width_arg, span)) = width {
-                                Some(WPartialPathGenerics {
-                                    turbofish: None,
-                                    arguments: vec![WPartialPathArgument::Uint(width_arg, span)],
-                                })
+                                let width_ty =
+                                    self.partial_type_id(WPartialType::Number(width_arg, span));
+                                Some(vec![width_ty])
                             } else {
                                 None
                             };
@@ -259,12 +257,7 @@ impl super::WInferenceContext {
                             self.add_eq_constraint(left_ty.clone(), type_id);
                         }
                     }
-                    WPartialType::Reference(_reference) => {
-                        // todo: ext reference
-                    }
-                    WPartialType::Infer(_) => {
-                        // todo: infer reference
-                    }
+                    _ => todo!("Non-path ext"),
                 }
 
                 return Ok(());
@@ -291,12 +284,10 @@ impl super::WInferenceContext {
 
                 if let Some(generics) = &segments[2].generics {
                     if generics.arguments.len() == 1 {
-                        if let WPartialPathArgument::Type(into_ty) = &generics.arguments[0] {
-                            // add constraint for the left type
-                            let into_ty = self.partial_type_id(into_ty.clone());
-                            eprintln!("Adding Into constraint: {:?} == {:?}", left_ty, into_ty);
-                            self.add_eq_constraint(left_ty, into_ty);
-                        }
+                        // add constraint for the left type
+                        let into_ty = generics.arguments[0].clone();
+                        eprintln!("Adding Into constraint: {:?} == {:?}", left_ty, into_ty);
+                        self.add_eq_constraint(left_ty, into_ty);
                     }
                 }
 

@@ -4,7 +4,7 @@ use syn::{ImplItem, Item, ItemImpl, Token, Type, TypePath};
 
 use crate::wir::{
     IntoTypedSyn, WIdent, WImplItemType, WItemFn, WItemImplTrait, WItemStruct, WStrippedPath,
-    WTotalPath, WTypeId, YStage,
+    WTypeId, YStage,
 };
 
 #[derive(Debug, Clone, Copy, Hash)]
@@ -87,7 +87,7 @@ impl<Y: YStage> WDefinitions<Y> {
         );
     }
 
-    pub fn add_fn(&mut self, _fn_path: WTotalPath, def: WItemFn<Y>) -> WFnId {
+    pub fn add_fn(&mut self, _fn_path: WStrippedPath, def: WItemFn<Y>) -> WFnId {
         // TODO: add fn path
         let fn_id = WFnId(self.functions.len());
         self.functions.push(def);
@@ -147,7 +147,8 @@ impl<Y: YStage> WDefinitions<Y> {
 
     pub fn into_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Vec<Item> {
         let mut items = Vec::new();
-        for (datatype_path, datatype) in self.datatypes {
+        for (_datatype_path, datatype) in self.datatypes {
+            let ident = datatype.def.ident.clone();
             items.push(Item::Struct(datatype.def.into_typed_syn(type_fn)));
             for (impl_trait, datatype_impl) in datatype.impls {
                 let mut impl_items = Vec::new();
@@ -170,7 +171,7 @@ impl<Y: YStage> WDefinitions<Y> {
 
                 let self_ty = Box::new(Type::Path(TypePath {
                     qself: None,
-                    path: datatype_path.clone().into_total().into_syn(),
+                    path: ident.clone().into_path().into_typed_syn(type_fn),
                 }));
 
                 items.push(Item::Impl(ItemImpl {

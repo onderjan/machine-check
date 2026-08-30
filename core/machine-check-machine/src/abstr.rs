@@ -1,14 +1,14 @@
 mod item_impl;
 mod item_struct;
 
-use syn::{GenericArgument, ImplItem, Item, Path, Type};
+use syn::{GenericArgument, ImplItem, Item, Path, Type, TypePath};
 
 use crate::{
     context::WLowContext,
-    util::{create_angle_bracketed_path_arguments, create_type_path},
+    util::create_angle_bracketed_path_arguments,
     wir::{
         IntoTypedSyn, WExpr, WExprLowCall, WIdent, WItemFnBody, WItemImpl, WItemImplTrait,
-        WSsaLocal, WStmt, WTotalPath, WTypeId, YIfPolarity, YSsa, YStage,
+        WPartialPath, WSsaLocal, WStmt, WTypeId, YIfPolarity, YSsa, YStage,
     },
 };
 
@@ -48,7 +48,7 @@ impl YIfPolarity for YAbstrIfPolarity {}
 
 #[derive(Clone, Debug, Hash)]
 pub struct WAbstrItemImplTrait {
-    pub machine_type: WTotalPath,
+    pub machine_type: WPartialPath,
     pub trait_: WItemImplTrait,
 }
 
@@ -57,9 +57,10 @@ impl IntoTypedSyn<Path> for WAbstrItemImplTrait {
         let mut trait_path = self.trait_.into_typed_syn(type_fn);
         trait_path.segments.last_mut().unwrap().arguments = create_angle_bracketed_path_arguments(
             false,
-            vec![GenericArgument::Type(create_type_path(
-                self.machine_type.clone().into_syn(),
-            ))],
+            vec![GenericArgument::Type(Type::Path(TypePath {
+                qself: None,
+                path: self.machine_type.clone().into_typed_syn(type_fn),
+            }))],
             self.machine_type.span().first(),
         );
         trait_path
@@ -74,7 +75,7 @@ pub(crate) fn create_abstract_items(ctx: &WLowContext) -> Vec<Item> {
 
     let mut concrete_impls = Vec::new();
 
-    for (datatype_path, datatype) in ctx.definitions().datatypes() {
+    for (_datatype_path, datatype) in ctx.definitions().datatypes() {
         let (item_struct, other_impls) = process_item_struct(datatype.def.clone(), ctx);
 
         for (trait_, datatype_impl) in &datatype.impls {
@@ -90,7 +91,7 @@ pub(crate) fn create_abstract_items(ctx: &WLowContext) -> Vec<Item> {
             }
 
             let item_impl: WItemImpl<YSsa> = WItemImpl {
-                self_ty: datatype_path.clone().into_total(),
+                self_ty: datatype.def.ident.clone().into_path(),
                 trait_: trait_.clone(),
                 impl_item_fns,
                 impl_item_types,

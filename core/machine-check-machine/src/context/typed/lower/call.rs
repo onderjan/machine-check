@@ -8,7 +8,7 @@ use syn::Lit;
 use crate::{
     wir::{
         WCall, WCallArg, WExpr, WExprHighCall, WExprLowCall, WIdent, WMckBinary, WMckExt, WMckNew,
-        WMckUnary, WPartialPathArgument, WStdBinary, WStdUnary, WTotalType,
+        WMckUnary, WStdBinary, WStdUnary, WTotalType,
     },
     Error, ErrorType,
 };
@@ -35,9 +35,9 @@ impl super::FnLowerer<'_> {
                 if generics.arguments.len() == 1 {
                     if let WCallArg::Literal(Lit::Int(lit_int)) = &call.args[0] {
                         if let Ok(value) = lit_int.base10_parse() {
-                            if let WPartialPathArgument::Uint(width, _span) = &generics.arguments[0]
-                            {
-                                let bound = RBound::new(*width);
+                            let arg = generics.arguments[0].clone();
+                            if let WTotalType::Number(width, _span) = self.ctx.wir_type(arg) {
+                                let bound = RBound::new(width);
                                 let bitvector = ConcreteBitvector::new(value, bound);
                                 return Ok(WExpr::Call(WExprLowCall::MckNew(WMckNew::Bitvector(
                                     bitvector,
@@ -81,7 +81,7 @@ impl super::FnLowerer<'_> {
                             signed = Some(true);
                         }
                     }
-                    WTotalType::Reference(_wtype) => todo!("Reference ext type"),
+                    _ => todo!("Non-path ext type"),
                 }
                 let Some(signed) = signed else {
                     panic!("Signedness not estabilished for extension");
@@ -89,10 +89,11 @@ impl super::FnLowerer<'_> {
 
                 if let Some(generics) = &call.fn_path.segments[1].generics {
                     if generics.arguments.len() == 1 {
-                        if let WPartialPathArgument::Uint(width, _span) = &generics.arguments[0] {
+                        let arg = generics.arguments[0].clone();
+                        if let WTotalType::Number(width, _span) = self.ctx.wir_type(arg) {
                             return Ok(WExpr::Call(WExprLowCall::MckExt(WMckExt {
                                 signed,
-                                width: *width,
+                                width,
                                 from: inner.clone(),
                             })));
                         }
@@ -244,24 +245,28 @@ impl super::FnLowerer<'_> {
             return None;
         };
         let ty = self.ctx.wir_type(ty.clone());
-        type_signedness(ty)
+        self.type_signedness(ty)
     }
-}
 
-fn type_signedness(ty: WTotalType) -> Option<Signedness> {
-    match ty {
-        WTotalType::Path(path) => {
-            if path.matches_absolute(&["machine_check", "Unsigned"]) {
-                return Some(Signedness::Unsigned);
+    fn type_signedness(&self, ty: WTotalType) -> Option<Signedness> {
+        match ty {
+            WTotalType::Path(path) => {
+                if path.matches_absolute(&["machine_check", "Unsigned"]) {
+                    return Some(Signedness::Unsigned);
+                }
+                if path.matches_absolute(&["machine_check", "Signed"]) {
+                    return Some(Signedness::Signed);
+                }
+                if path.matches_absolute(&["machine_check", "Bitvector"]) {
+                    return Some(Signedness::None);
+                }
+                None
             }
-            if path.matches_absolute(&["machine_check", "Signed"]) {
-                return Some(Signedness::Signed);
+            WTotalType::Reference(inner, _span) => {
+                let inner = self.ctx.wir_type(inner);
+                self.type_signedness(inner)
             }
-            if path.matches_absolute(&["machine_check", "Bitvector"]) {
-                return Some(Signedness::None);
-            }
-            None
+            WTotalType::Number(_num, _span) => return None,
         }
-        WTotalType::Reference(inner) => type_signedness(*inner),
     }
 }

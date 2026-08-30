@@ -1,4 +1,4 @@
-use crate::wir::{WIdent, WSpan, WTotalPath, WTotalPathSegment};
+use crate::wir::{WIdent, WSpan};
 use std::fmt::Debug;
 
 #[derive(Clone, Hash, PartialEq, Eq)]
@@ -8,7 +8,7 @@ pub struct WStrippedPath {
 }
 
 impl WStrippedPath {
-    pub fn into_total(self) -> WTotalPath {
+    /*pub fn into_total(self) -> WTotalPath {
         WTotalPath {
             leading_colon: self.leading_colon,
             segments: self
@@ -19,6 +19,13 @@ impl WStrippedPath {
                     generics: None,
                 })
                 .collect(),
+        }
+    }*/
+
+    pub fn from_ident(ident: WIdent) -> Self {
+        Self {
+            leading_colon: None,
+            segments: vec![ident],
         }
     }
 

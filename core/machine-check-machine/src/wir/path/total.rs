@@ -1,4 +1,4 @@
-use proc_macro2::Span;
+/*use proc_macro2::Span;
 use std::fmt::Debug;
 use std::hash::Hash;
 use syn::{punctuated::Punctuated, Path, PathArguments, PathSegment, Token};
@@ -262,3 +262,4 @@ impl Debug for WTotalPath {
         Ok(())
     }
 }
+*/

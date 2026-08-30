@@ -2,42 +2,33 @@ use proc_macro2::Span;
 use std::fmt::Debug;
 use std::hash::Hash;
 use syn::{
-    punctuated::Punctuated, AngleBracketedGenericArguments, Expr, ExprLit, GenericArgument, Lit,
-    LitInt, Path, PathArguments, PathSegment, Token, Type, TypeInfer,
+    punctuated::Punctuated, AngleBracketedGenericArguments, GenericArgument, Path, PathArguments,
+    PathSegment, Token, Type,
 };
 
-use crate::wir::{
-    ident::WIdent, WPartialType, WSpan, WStrippedPath, WTotalPath, WTotalPathArgument,
-    WTotalPathGenerics, WTotalPathSegment,
-};
+use crate::wir::{ident::WIdent, WSpan, WStrippedPath, WTypeId};
 
-#[derive(Clone, Hash)]
-pub enum WPartialPathArgument {
-    Type(WPartialType),
-    Uint(u32, WSpan),
-    Infer(WSpan),
+#[derive(Clone, Hash, PartialEq, Eq)]
+pub struct WPartialPathGenerics {
+    pub turbofish: Option<WSpan>,
+    pub arguments: Vec<WTypeId>,
 }
 
-#[derive(Clone, Hash)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct WPartialPathSegment {
     pub ident: WIdent,
     pub generics: Option<WPartialPathGenerics>,
 }
 
-#[derive(Clone, Hash)]
-pub struct WPartialPathGenerics {
-    pub turbofish: Option<WSpan>,
-    pub arguments: Vec<WPartialPathArgument>,
-}
-
-#[derive(Clone, Hash)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct WPartialPath {
     pub leading_colon: Option<WSpan>,
     pub segments: Vec<WPartialPathSegment>,
 }
 
+/*
 impl WPartialPathArgument {
-    pub fn set_span(&mut self, new_span: WSpan) {
+    /*pub fn set_span(&mut self, new_span: WSpan) {
         match self {
             WPartialPathArgument::Type(ty) => {
                 ty.set_span(new_span);
@@ -53,7 +44,7 @@ impl WPartialPathArgument {
             WPartialPathArgument::Uint(num, span) => Ok(WTotalPathArgument::Uint(num, span)),
             WPartialPathArgument::Infer(_) => Err(()),
         }
-    }
+    }*/
 
     fn into_syn(self) -> GenericArgument {
         match self {
@@ -78,9 +69,10 @@ impl Debug for WPartialPathArgument {
         }
     }
 }
+    */
 
 impl WPartialPathGenerics {
-    pub fn into_total(self) -> Result<WTotalPathGenerics, ()> {
+    /*pub fn into_total(self) -> Result<WTotalPathGenerics, ()> {
         let mut arguments = Vec::new();
         for arg in self.arguments {
             arguments.push(arg.into_total()?);
@@ -97,7 +89,7 @@ impl WPartialPathGenerics {
         for arg in &mut self.arguments {
             arg.set_span(span);
         }
-    }
+    }*/
 }
 
 impl Debug for WPartialPathSegment {
@@ -125,7 +117,17 @@ impl Debug for WPartialPathSegment {
 }
 
 impl WPartialPath {
-    pub fn into_syn(self) -> Path {
+    pub fn from_ident(ident: WIdent) -> Self {
+        WPartialPath {
+            leading_colon: None,
+            segments: vec![WPartialPathSegment {
+                ident,
+                generics: None,
+            }],
+        }
+    }
+
+    pub fn into_typed_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> Path {
         let leading_span = if let Some(leading_colon) = self.leading_colon {
             leading_colon.first()
         } else {
@@ -151,7 +153,7 @@ impl WPartialPath {
                             generics
                                 .arguments
                                 .into_iter()
-                                .map(WPartialPathArgument::into_syn),
+                                .map(|arg| GenericArgument::Type(type_fn(arg))),
                         );
                         PathArguments::AngleBracketed(AngleBracketedGenericArguments {
                             colon2_token,
@@ -170,7 +172,7 @@ impl WPartialPath {
         }
     }
 
-    pub fn resolve_self(self, self_path: &WTotalPath) -> Self {
+    pub fn resolve_self(self, self_path: &WPartialPath) -> Self {
         if self.leading_colon.is_some() {
             return self;
         }
@@ -180,9 +182,9 @@ impl WPartialPath {
         };
 
         if first_segment.ident.name() == "Self" && first_segment.generics.is_none() {
-            let span = first_segment.ident.span();
-            let mut result = self_path.clone().into_partial();
-            result.set_span(span);
+            //let span = first_segment.ident.span();
+            let mut result = self_path.clone();
+            //result.set_span(span);
             result.segments.extend(self.segments.into_iter().skip(1));
 
             result
@@ -191,7 +193,7 @@ impl WPartialPath {
         }
     }
 
-    pub fn set_span(&mut self, span: WSpan) {
+    /*pub fn set_span(&mut self, span: WSpan) {
         self.leading_colon.map(|_| span);
         for segment in &mut self.segments {
             segment.ident.set_span(span);
@@ -219,7 +221,7 @@ impl WPartialPath {
             leading_colon: self.leading_colon,
             segments,
         })
-    }
+    }*/
 
     pub fn without_generics(self) -> WStrippedPath {
         WStrippedPath {

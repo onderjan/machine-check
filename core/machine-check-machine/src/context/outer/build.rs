@@ -2,10 +2,10 @@ use indexmap::IndexMap;
 use syn::{Expr, Type};
 
 use crate::{
-    context::{WOuterContext, WInferenceContext},
+    context::{WInferenceContext, WOuterContext},
     util::ident_creator::IdentCreator,
     wir::{
-        WFnArg, WIdent, WItemFn, WItemFnBody, WSpan, WTacLocal, WTotalPath, WTypeId, YBuild, YTac,
+        WFnArg, WIdent, WItemFn, WItemFnBody, WPartialPath, WSpan, WTacLocal, WTypeId, YBuild, YTac,
     },
     Error, Errors,
 };
@@ -23,7 +23,15 @@ impl WOuterContext {
             .clone()
             .map_functions(|func| self.build_function(func, optional_params.clone()))?;
 
-        Ok(WInferenceContext::new(definitions, self.types))
+        let boolean_type_id = self.new_bool();
+        let panic_type_id = self.new_bitvector(Some(32));
+
+        Ok(WInferenceContext::new(
+            definitions,
+            self.types,
+            boolean_type_id,
+            panic_type_id,
+        ))
     }
 
     fn build_function(
@@ -51,7 +59,7 @@ struct FunctionScope {
 
 struct FunctionFolder<'a> {
     ctx: &'a mut WOuterContext,
-    self_ty: Option<(&'a Type, &'a WTotalPath)>,
+    self_ty: Option<(&'a Type, &'a WPartialPath)>,
     ident_creator: IdentCreator<()>,
     local_types: IndexMap<WIdent, WTypeId>,
     scopes: Vec<FunctionScope>,
@@ -135,7 +143,7 @@ impl FunctionFolder<'_> {
             ));
         }
 
-        let path = WOuterContext::fold_partial_path(expr_path.path)?;
+        let path = self.ctx.fold_partial_path(expr_path.path)?;
         let mut segments_iter = path.segments.into_iter();
         if path.leading_colon.is_none() {
             if let Some(first) = segments_iter.next() {

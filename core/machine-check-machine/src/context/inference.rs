@@ -9,8 +9,8 @@ use union_find::{QuickUnionUf, UnionBySize, UnionFind};
 use crate::{
     context::WTypedContext,
     wir::{
-        WDefinitions, WPartialPath, WPartialPathArgument, WPartialPathGenerics,
-        WPartialPathSegment, WPartialType, WTotalType, WTypeId, YTac,
+        WDefinitions, WIdent, WPartialType, WSpan, WTotalType, WTypeId, WTypePath,
+        WTypePathSegment, YTac,
     },
     Error, ErrorType,
 };
@@ -22,14 +22,24 @@ pub struct WInferenceContext {
     definitions: WDefinitions<YTac>,
     types: Vec<WPartialType>,
     eq_constraints: QuickUnionUf<UnionBySize>,
+
+    boolean_type_id: WTypeId,
+    panic_type_id: WTypeId,
 }
 
 impl WInferenceContext {
-    pub fn new(definitions: WDefinitions<YTac>, types: Vec<WPartialType>) -> Self {
+    pub fn new(
+        definitions: WDefinitions<YTac>,
+        types: Vec<WPartialType>,
+        boolean_type_id: WTypeId,
+        panic_type_id: WTypeId,
+    ) -> Self {
         Self {
             definitions,
             types,
             eq_constraints: QuickUnionUf::new(0),
+            boolean_type_id,
+            panic_type_id,
         }
     }
 
@@ -80,7 +90,7 @@ impl WInferenceContext {
             let root = self.eq_constraints.find(i);
 
             let next = if let Some(previous) = united.get(&root) {
-                join_types(previous, current)?
+                self.join_type(&current, previous)?
             } else {
                 current
             };
@@ -115,9 +125,6 @@ impl WInferenceContext {
     }
 
     pub fn into_total(mut self) -> Result<WTypedContext, Error> {
-        let boolean_type_id = self.total_type_id(WTotalType::new_bool());
-        let panic_type_id = self.total_type_id(WTotalType::new_bitvector(Some(32)));
-
         let mut types = Vec::new();
         for ty in self.types {
             let span = ty.span();
@@ -130,84 +137,117 @@ impl WInferenceContext {
         Ok(WTypedContext::new(
             self.definitions,
             types,
-            boolean_type_id,
-            panic_type_id,
+            self.boolean_type_id,
+            self.panic_type_id,
         ))
     }
-}
 
-fn join_types(previous: &WPartialType, current: WPartialType) -> Result<WPartialType, Error> {
-    eprintln!("Joining types {:?} and {:?}", previous, current);
-    let span = current.span();
-    Ok(match (previous, current) {
-        (WPartialType::Infer(_), current) => current,
-        (previous, WPartialType::Infer(_)) => previous.clone(),
-        (WPartialType::Path(lhs), WPartialType::Path(rhs)) => {
-            if lhs.leading_colon.is_some() != rhs.leading_colon.is_some()
-                || lhs.segments.len() != rhs.segments.len()
-            {
-                return Err(Error::new(ErrorType::InferenceFailure, span));
-            }
-            let mut segments = Vec::new();
-            for (lhs, rhs) in lhs.segments.iter().zip(rhs.segments) {
-                if lhs.ident != rhs.ident {
+    fn join_type(&mut self, lhs: &WPartialType, rhs: &WPartialType) -> Result<WPartialType, Error> {
+        let span = lhs.span();
+        match (lhs, rhs) {
+            (WPartialType::Infer(_), ty) | (ty, WPartialType::Infer(_)) => Ok(ty.clone()),
+            (WPartialType::Path(lhs), WPartialType::Path(rhs)) => {
+                let span = lhs.clone().without_generics().span();
+                if lhs.leading_colon.is_some() != rhs.leading_colon.is_some()
+                    || lhs.segments.len() != rhs.segments.len()
+                {
                     return Err(Error::new(ErrorType::InferenceFailure, span));
                 }
-                let generics = match (&lhs.generics, rhs.generics) {
-                    (None, None) => None,
-                    (None, Some(rhs)) => Some(rhs),
-                    (Some(lhs), None) => Some(lhs.clone()),
-                    (Some(lhs), Some(rhs)) => {
-                        if lhs.turbofish.is_some() != rhs.turbofish.is_some() {
-                            return Err(Error::new(ErrorType::InferenceFailure, span));
-                        }
 
-                        let mut arguments = Vec::new();
-                        for (lhs, rhs) in lhs.arguments.iter().zip(rhs.arguments) {
-                            let arg = match (lhs, rhs) {
-                                (WPartialPathArgument::Infer(_), rhs) => rhs,
-                                (lhs, WPartialPathArgument::Infer(_)) => lhs.clone(),
-                                (
-                                    WPartialPathArgument::Uint(lhs_num, _lhs_span),
-                                    WPartialPathArgument::Uint(rhs_num, rhs_span),
-                                ) => {
-                                    if *lhs_num != rhs_num {
-                                        return Err(Error::new(ErrorType::InferenceFailure, span));
-                                    }
-                                    WPartialPathArgument::Uint(rhs_num, rhs_span)
-                                }
-                                (
-                                    WPartialPathArgument::Type(lhs),
-                                    WPartialPathArgument::Type(rhs),
-                                ) => WPartialPathArgument::Type(join_types(lhs, rhs)?),
-                                _ => {
-                                    return Err(Error::new(ErrorType::InferenceFailure, span));
-                                }
-                            };
-                            arguments.push(arg);
-                        }
-                        Some(WPartialPathGenerics {
-                            turbofish: rhs.turbofish,
-                            arguments,
-                        })
+                let mut segments = Vec::new();
+
+                for (lhs, rhs) in lhs.segments.iter().zip(rhs.segments.iter()) {
+                    if lhs.ident != rhs.ident {
+                        return Err(Error::new(ErrorType::InferenceFailure, span));
                     }
-                };
-                segments.push(WPartialPathSegment {
-                    ident: rhs.ident,
-                    generics,
+
+                    let generics = match (&lhs.generics, &rhs.generics) {
+                        (None, None) => None,
+                        (Some(generics), None) | (None, Some(generics)) => Some(generics.clone()),
+                        (Some(lhs), Some(rhs)) => {
+                            if lhs.len() != rhs.len() {
+                                return Err(Error::new(ErrorType::InferenceFailure, span));
+                            }
+                            // do not go into the types
+                            Some(lhs.clone())
+                        }
+                    };
+
+                    segments.push(WTypePathSegment {
+                        ident: lhs.ident.clone(),
+                        generics,
+                    });
+                }
+
+                let result = WPartialType::Path(WTypePath {
+                    leading_colon: lhs.leading_colon,
+                    segments,
                 });
+
+                Ok(result)
             }
-            WPartialType::Path(WPartialPath {
-                leading_colon: rhs.leading_colon,
-                segments,
-            })
+            (WPartialType::Reference(lhs, _), WPartialType::Reference(rhs, _)) => {
+                /*let lhs = self.types[lhs.index()].clone();
+                let rhs = self.types[rhs.index()].clone();
+                let joined = self.join_type(&lhs, &rhs);*/
+                Ok(WPartialType::Reference(lhs.clone(), span))
+            }
+            (WPartialType::Number(lhs, span), WPartialType::Number(rhs, _)) => {
+                if lhs != rhs {
+                    return Err(Error::new(ErrorType::InferenceFailure, *span));
+                }
+                Ok(WPartialType::Number(*lhs, *span))
+            }
+            _ => {
+                return Err(Error::new(ErrorType::InferenceFailure, span));
+            }
         }
-        (WPartialType::Reference(lhs), WPartialType::Reference(rhs)) => {
-            let joined_inner = join_types(lhs, *rhs)?;
-            WPartialType::Reference(Box::new(joined_inner))
-        }
-        (_previous, _current) => {
-            return Err(Error::new(ErrorType::InferenceFailure, span));
-        }
-    })
+    }
+
+    pub fn new_bitvector(&mut self, width: Option<u32>) -> WTypeId {
+        self.new_bitvector_like("Bitvector", width)
+    }
+
+    pub fn new_unsigned(&mut self, width: Option<u32>) -> WTypeId {
+        self.new_bitvector_like("Unsigned", width)
+    }
+
+    pub fn new_signed(&mut self, width: Option<u32>) -> WTypeId {
+        self.new_bitvector_like("Signed", width)
+    }
+
+    fn new_bitvector_like(&mut self, name: &str, width: Option<u32>) -> WTypeId {
+        //let arg = WPartialPathArgument::Uint(width, WSpan::call_site());
+        let generics = if let Some(width) = width {
+            vec![self.partial_type_id(WPartialType::Number(width, WSpan::call_site()))]
+        } else {
+            vec![]
+        };
+        let ty = WPartialType::Path(WTypePath {
+            leading_colon: Some(WSpan::call_site()),
+            segments: vec![
+                WTypePathSegment {
+                    ident: WIdent::new(String::from("machine_check"), WSpan::call_site()),
+                    generics: None,
+                },
+                WTypePathSegment {
+                    ident: WIdent::new(String::from(name), WSpan::call_site()),
+                    generics: Some(generics),
+                },
+            ],
+        });
+
+        self.partial_type_id(ty)
+    }
+
+    pub fn new_bool(&mut self) -> WTypeId {
+        let ty = WPartialType::Path(WTypePath {
+            leading_colon: None,
+            segments: vec![WTypePathSegment {
+                ident: WIdent::new(String::from("bool"), WSpan::call_site()),
+                generics: None,
+            }],
+        });
+        self.partial_type_id(ty)
+    }
 }

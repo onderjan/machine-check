@@ -1,15 +1,12 @@
 use std::fmt::Debug;
-use syn::Type;
 
-use crate::wir::{
-    WIdent, WPartialType, WSpan, WTotalPath, WTotalPathArgument, WTotalPathGenerics,
-    WTotalPathSegment,
-};
+use crate::wir::{WPartialType, WSpan, WTypeId, WTypePath};
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub enum WTotalType {
-    Path(WTotalPath),
-    Reference(Box<WTotalType>),
+    Path(WTypePath),
+    Reference(WTypeId, WSpan),
+    Number(u32, WSpan),
 }
 
 impl WTotalType {
@@ -22,18 +19,20 @@ impl WTotalType {
                     WSpan::call_site()
                 }
             }
-            WTotalType::Reference(inner) => inner.span(),
+            WTotalType::Reference(_inner, span) => *span,
+            WTotalType::Number(_num, span) => *span,
         }
     }
 
     pub fn into_partial(self) -> WPartialType {
         match self {
-            WTotalType::Path(path) => WPartialType::Path(path.into_partial()),
-            WTotalType::Reference(ty) => WPartialType::Reference(Box::new(ty.into_partial())),
+            WTotalType::Path(path) => WPartialType::Path(path),
+            WTotalType::Reference(type_id, span) => WPartialType::Reference(type_id, span),
+            WTotalType::Number(num, span) => WPartialType::Number(num, span),
         }
     }
 
-    pub fn into_syn(self) -> Type {
+    /*pub fn into_syn(self) -> Type {
         self.into_partial().into_syn()
     }
 
@@ -77,17 +76,18 @@ impl WTotalType {
                 generics: None,
             }],
         })
-    }
+    }*/
 }
 
 impl Debug for WTotalType {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::Path(path) => Debug::fmt(&path, f),
-            Self::Reference(inner) => {
+            Self::Reference(type_id, _span) => {
                 write!(f, "&")?;
-                Debug::fmt(inner.as_ref(), f)
+                Debug::fmt(&type_id, f)
             }
+            WTotalType::Number(num, _span) => Debug::fmt(&num, f),
         }
     }
 }

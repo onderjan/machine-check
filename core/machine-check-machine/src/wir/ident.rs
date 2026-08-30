@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 use syn::{punctuated::Punctuated, Expr, ExprPath, Ident, Path, PathArguments, PathSegment, Type};
 
-use crate::wir::{IntoTypedSyn, WSpan, WTotalPath, WTypeId};
+use crate::wir::{IntoTypedSyn, WPartialPath, WSpan, WStrippedPath, WTypeId};
 
 #[derive(Clone)]
 pub struct WIdent {
@@ -39,8 +39,12 @@ impl WIdent {
         }
     }
 
-    pub fn into_path(self) -> WTotalPath {
-        WTotalPath::from_ident(self)
+    pub fn into_path(self) -> WPartialPath {
+        WPartialPath::from_ident(self)
+    }
+
+    pub fn into_stripped_path(self) -> WStrippedPath {
+        WStrippedPath::from_ident(self)
     }
 
     pub fn to_syn(&self) -> Ident {

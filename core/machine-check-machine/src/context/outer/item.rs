@@ -53,7 +53,7 @@ impl WOuterContext {
                         };
 
                         for parsed_path in parsed {
-                            derives.push(Self::fold_partial_path(parsed_path)?);
+                            derives.push(self.fold_partial_path(parsed_path)?);
                         }
                         allowed = true;
                     } else if meta.path.is_ident("allow") {
@@ -182,14 +182,7 @@ impl WOuterContext {
         let mut errors = Vec::new();
 
         let self_ty = match *item.self_ty.clone() {
-            Type::Path(type_path) => Self::fold_partial_path(type_path.path.clone())?
-                .try_into_total()
-                .map_err(|_| {
-                    Errors::single(Error::unsupported_syn_construct(
-                        "Incompletely specified path",
-                        &type_path,
-                    ))
-                })?,
+            Type::Path(type_path) => self.fold_partial_path(type_path.path.clone())?,
             _ => {
                 return Err(Errors::single(Error::unsupported_syn_construct(
                     "Non-path self type",
@@ -202,7 +195,7 @@ impl WOuterContext {
             let impl_item_span = WSpan::from_syn(&impl_item);
             let err_msg = match impl_item {
                 ImplItem::Type(impl_item) => {
-                    impl_item_types.push(Self::fold_impl_item_type(impl_item));
+                    impl_item_types.push(self.fold_impl_item_type(impl_item));
                     None
                 }
                 ImplItem::Fn(impl_item) => {
@@ -232,7 +225,7 @@ impl WOuterContext {
         })
     }
 
-    pub fn fold_impl_item_type(impl_item: ImplItemType) -> Result<WImplItemType, Error> {
+    pub fn fold_impl_item_type(&mut self, impl_item: ImplItemType) -> Result<WImplItemType, Error> {
         let visibility = Self::fold_visibility(impl_item.vis)?;
 
         if impl_item.generics != Generics::default() {
@@ -251,7 +244,7 @@ impl WOuterContext {
         Ok(WImplItemType {
             visibility,
             left_ident: WIdent::from_syn_ident(impl_item.ident),
-            right_path: Self::fold_partial_path(ty.path)?,
+            right_path: self.fold_partial_path(ty.path)?,
         })
     }
 

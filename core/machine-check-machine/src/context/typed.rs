@@ -6,8 +6,7 @@ use crate::{
         WLowContext,
     },
     wir::{
-        WDefinitions, WIdent, WItemFn, WTotalPath, WTotalPathArgument, WTotalPathGenerics,
-        WTotalPathSegment, WTotalType, WTypeId, YSsa, YTac,
+        WDefinitions, WIdent, WItemFn, WTotalType, WTypeId, WTypePath, WTypePathSegment, YSsa, YTac,
     },
     Errors,
 };
@@ -18,7 +17,7 @@ mod lower;
 #[derive(Debug)]
 pub struct WTypedContext {
     definitions: WDefinitions<YTac>,
-    types: Vec<WTotalType>,
+    types: Vec<crate::wir::WTotalType>,
     boolean_type_id: WTypeId,
     panic_type_id: WTypeId,
 }
@@ -83,26 +82,23 @@ impl WTypedContext {
     }
 
     fn new_phi_arg_id(&mut self, inner: WTypeId) -> WTypeId {
-        let inner = self.types[inner.index()].clone();
-        let span = inner.span();
+        let inner_ty = self.types[inner.index()].clone();
+        let span = inner_ty.span();
 
-        let ty = WTotalType::Path(WTotalPath {
+        let ty = WTotalType::Path(WTypePath {
             leading_colon: Some(span),
             segments: vec![
-                WTotalPathSegment {
+                WTypePathSegment {
                     ident: WIdent::new(String::from("mck"), span),
                     generics: None,
                 },
-                WTotalPathSegment {
+                WTypePathSegment {
                     ident: WIdent::new(String::from("forward"), span),
                     generics: None,
                 },
-                WTotalPathSegment {
+                WTypePathSegment {
                     ident: WIdent::new(String::from("PhiArg"), span),
-                    generics: Some(WTotalPathGenerics {
-                        turbofish: Some(span),
-                        arguments: vec![WTotalPathArgument::Type(inner)],
-                    }),
+                    generics: Some(vec![inner]),
                 },
             ],
         });

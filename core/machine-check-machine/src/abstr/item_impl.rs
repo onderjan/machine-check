@@ -4,14 +4,14 @@ use crate::{
     abstr::{WAbstrItemImplTrait, YAbstr, YAbstrIfPolarity},
     wir::{
         WBlock, WExpr, WExprLowCall, WFnSignature, WIdent, WIfCondition, WItemFn, WItemFnBody,
-        WItemImpl, WItemImplTrait, WSpan, WSsaLocal, WStmt, WStmtAssign, WStmtIf, WTotalPath,
-        WTotalPathSegment, YSsa,
+        WItemImpl, WItemImplTrait, WPartialPath, WPartialPathSegment, WPartialType, WSpan,
+        WSsaLocal, WStmt, WStmtAssign, WStmtIf, YSsa,
     },
 };
 
 mod used_open;
 
-pub fn preprocess_item_impl(item_impl: &WItemImpl<YSsa>) -> Option<WTotalPath> {
+pub fn preprocess_item_impl(item_impl: &WItemImpl<YSsa>) -> Option<WPartialPath> {
     let Some(WItemImplTrait::Machine(_)) = item_impl.trait_ else {
         return None;
     };
@@ -20,7 +20,7 @@ pub fn preprocess_item_impl(item_impl: &WItemImpl<YSsa>) -> Option<WTotalPath> {
     let span = WSpan::call_site();
     ty.segments.insert(
         0,
-        WTotalPathSegment {
+        WPartialPathSegment {
             ident: WIdent::new(String::from("super"), span),
             generics: None,
         },
@@ -31,7 +31,7 @@ pub fn preprocess_item_impl(item_impl: &WItemImpl<YSsa>) -> Option<WTotalPath> {
 
 pub fn process_item_impl(
     item_impl: WItemImpl<YSsa>,
-    machine_types: &[WTotalPath],
+    machine_types: &[WPartialPath],
 ) -> Vec<WItemImpl<YAbstr>> {
     let mut impl_item_fns = Vec::new();
     for impl_item_fn in item_impl.impl_item_fns {

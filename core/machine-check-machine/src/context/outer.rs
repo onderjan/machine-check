@@ -13,7 +13,7 @@ use syn::{Item, Type};
 use crate::{
     wir::{
         WDefinitions, WFnId, WIdent, WItemFn, WItemImpl, WItemStruct, WPartialType, WSpan,
-        WStrippedPath, WTotalPath, WTotalPathSegment, WTotalType, WTypeId, YBuild,
+        WStrippedPath, WTypeId, WTypePath, WTypePathSegment, YBuild,
     },
     Error, ErrorType, Errors,
 };
@@ -34,11 +34,8 @@ impl WOuterContext {
 
     pub fn add_fn(&mut self, item_fn: WItemFn<YBuild>) -> WFnId {
         let fn_name = item_fn.signature.ident.clone();
-        self.definitions.add_fn(fn_name.into_path(), item_fn)
-    }
-
-    pub fn total_type_id(&mut self, ty: WTotalType) -> WTypeId {
-        self.partial_type_id(ty.into_partial())
+        self.definitions
+            .add_fn(fn_name.into_path().without_generics(), item_fn)
     }
 
     fn partial_type_id(&mut self, ty: WPartialType) -> WTypeId {
@@ -48,24 +45,61 @@ impl WOuterContext {
     }
 
     fn total_syn_type_id(&mut self, ty: Type) -> Result<WTypeId, Error> {
-        let ty = Self::fold_total_type(ty)?;
-        Ok(self.partial_type_id(ty.into_partial()))
-    }
-
-    fn partial_syn_type_id(&mut self, ty: Type) -> Result<WTypeId, Error> {
-        let ty = Self::fold_partial_type(ty)?;
+        // TODO: ensure total
+        let ty = self.fold_partial_type(ty)?;
         Ok(self.partial_type_id(ty))
     }
 
-    pub fn bool_type_id(&mut self) -> WTypeId {
-        let ty = WTotalType::Path(WTotalPath {
+    fn partial_syn_type_id(&mut self, ty: Type) -> Result<WTypeId, Error> {
+        let ty = self.fold_partial_type(ty)?;
+        Ok(self.partial_type_id(ty))
+    }
+
+    pub fn new_bitvector(&mut self, width: Option<u32>) -> WTypeId {
+        self.new_bitvector_like("Bitvector", width)
+    }
+
+    pub fn new_unsigned(&mut self, width: Option<u32>) -> WTypeId {
+        self.new_bitvector_like("Unsigned", width)
+    }
+
+    pub fn new_signed(&mut self, width: Option<u32>) -> WTypeId {
+        self.new_bitvector_like("Signed", width)
+    }
+
+    fn new_bitvector_like(&mut self, name: &str, width: Option<u32>) -> WTypeId {
+        //let arg = WPartialPathArgument::Uint(width, WSpan::call_site());
+        let generics = if let Some(width) = width {
+            vec![self.partial_type_id(WPartialType::Number(width, WSpan::call_site()))]
+        } else {
+            vec![]
+        };
+        let ty = WPartialType::Path(WTypePath {
+            leading_colon: Some(WSpan::call_site()),
+            segments: vec![
+                WTypePathSegment {
+                    ident: WIdent::new(String::from("machine_check"), WSpan::call_site()),
+                    generics: None,
+                },
+                WTypePathSegment {
+                    ident: WIdent::new(String::from(name), WSpan::call_site()),
+                    generics: Some(generics),
+                },
+            ],
+        });
+
+        self.partial_type_id(ty)
+    }
+
+    pub fn new_bool(&mut self) -> WTypeId {
+        let ty = WPartialType::Path(WTypePath {
             leading_colon: None,
-            segments: vec![WTotalPathSegment {
+            segments: vec![WTypePathSegment {
                 ident: WIdent::new(String::from("bool"), WSpan::call_site()),
                 generics: None,
             }],
         });
-        self.partial_type_id(ty.into_partial())
+        self.partial_type_id(ty)
     }
 
     fn wildcard_id(&mut self, span: WSpan) -> WTypeId {
@@ -92,8 +126,7 @@ impl WOuterContext {
 
         match item {
             Item::Struct(item) => {
-                let path = WTotalPath::from_ident(WIdent::from_syn_ident(item.ident.clone()))
-                    .without_generics();
+                let path = WIdent::from_syn_ident(item.ident.clone()).into_stripped_path();
                 match self.fold_item_struct(item) {
                     Ok(item_struct) => {
                         self.add_struct(path, item_struct);

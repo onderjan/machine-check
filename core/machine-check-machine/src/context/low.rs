@@ -135,13 +135,18 @@ impl WLowContext {
                 Type::Path(TypePath { qself: None, path })
             }
             IElementaryType::Struct(struct_id) => {
-                let Some((path, _datatype)) = self
+                let Some((_path, datatype)) = self
                     .definitions
                     .datatype_by_id(WDatatypeId::from_index(struct_id.0))
                 else {
                     todo!("Not a struct");
                 };
-                let path: Path = path.clone().into_total().into_syn();
+                let path: Path = datatype
+                    .def
+                    .ident
+                    .clone()
+                    .into_path()
+                    .into_typed_syn(&|type_id| self.id_syn_type(type_id));
                 Type::Path(TypePath { qself: None, path })
             }
         };
