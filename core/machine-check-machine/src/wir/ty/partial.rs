@@ -1,8 +1,4 @@
 use std::fmt::{Debug, Write};
-use syn::{
-    punctuated::Punctuated, AngleBracketedGenericArguments, Expr, ExprLit, GenericArgument, Lit,
-    LitInt, Path, PathArguments, PathSegment, Token, Type, TypeInfer, TypePath, TypeReference,
-};
 
 use crate::wir::{WIdent, WSpan, WStrippedPath, WTotalType, WTypeId};
 
@@ -26,7 +22,7 @@ pub enum WPartialType {
     Number(u32, WSpan),
 }
 
-impl WTypePathSegment {
+/*impl WTypePathSegment {
     fn into_typed_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> PathSegment {
         let ident = self.ident.to_syn();
         let span = ident.span();
@@ -48,10 +44,10 @@ impl WTypePathSegment {
 
         PathSegment { ident, arguments }
     }
-}
+} */
 
 impl WTypePath {
-    fn into_typed_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> TypePath {
+    /*fn into_typed_syn(self, type_fn: &impl Fn(WTypeId) -> Type) -> TypePath {
         let leading_colon = self.leading_colon.map(|c| Token![::](c.first()));
         let segments = Punctuated::from_iter(
             self.segments
@@ -65,7 +61,7 @@ impl WTypePath {
         };
 
         TypePath { qself: None, path }
-    }
+    }*/
 
     pub fn without_generics(self) -> WStrippedPath {
         WStrippedPath {
@@ -159,7 +155,7 @@ impl WPartialType {
         }
     }
 
-    pub fn into_typed_syn_argument(self, type_fn: &impl Fn(WTypeId) -> Type) -> GenericArgument {
+    /*pub fn into_typed_syn_argument(self, type_fn: &impl Fn(WTypeId) -> Type) -> GenericArgument {
         match self {
             WPartialType::Path(type_path) => {
                 let type_path = type_path.into_typed_syn(type_fn);
@@ -189,7 +185,7 @@ impl WPartialType {
             GenericArgument::Type(ty) => ty,
             _ => panic!("Cannot convert sort into syn type"),
         }
-    }
+    }*/
 }
 
 impl Debug for WTypePathSegment {

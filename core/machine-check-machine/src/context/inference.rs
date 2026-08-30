@@ -8,10 +8,7 @@ use union_find::{QuickUnionUf, UnionBySize, UnionFind};
 
 use crate::{
     context::WTypedContext,
-    wir::{
-        WDefinitions, WIdent, WPartialType, WSpan, WTotalType, WTypeId, WTypePath,
-        WTypePathSegment, YTac,
-    },
+    wir::{WDefinitions, WIdent, WPartialType, WSpan, WTypeId, WTypePath, WTypePathSegment, YTac},
     Error, ErrorType,
 };
 
@@ -41,10 +38,6 @@ impl WInferenceContext {
             boolean_type_id,
             panic_type_id,
         }
-    }
-
-    fn total_type_id(&mut self, ty: WTotalType) -> WTypeId {
-        self.partial_type_id(ty.into_partial())
     }
 
     fn partial_type_id(&mut self, ty: WPartialType) -> WTypeId {
@@ -124,7 +117,7 @@ impl WInferenceContext {
         self.into_total()
     }
 
-    pub fn into_total(mut self) -> Result<WTypedContext, Error> {
+    pub fn into_total(self) -> Result<WTypedContext, Error> {
         let mut types = Vec::new();
         for ty in self.types {
             let span = ty.span();
@@ -186,7 +179,7 @@ impl WInferenceContext {
 
                 Ok(result)
             }
-            (WPartialType::Reference(lhs, _), WPartialType::Reference(rhs, _)) => {
+            (WPartialType::Reference(lhs, _), WPartialType::Reference(_rhs, _)) => {
                 /*let lhs = self.types[lhs.index()].clone();
                 let rhs = self.types[rhs.index()].clone();
                 let joined = self.join_type(&lhs, &rhs);*/
@@ -198,9 +191,7 @@ impl WInferenceContext {
                 }
                 Ok(WPartialType::Number(*lhs, *span))
             }
-            _ => {
-                return Err(Error::new(ErrorType::InferenceFailure, span));
-            }
+            _ => Err(Error::new(ErrorType::InferenceFailure, span)),
         }
     }
 

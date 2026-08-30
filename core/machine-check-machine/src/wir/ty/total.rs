@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::wir::{WPartialType, WSpan, WTypeId, WTypePath};
+use crate::wir::{WSpan, WTypeId, WTypePath};
 
 #[derive(Clone, Hash, PartialEq, Eq)]
 pub enum WTotalType {
@@ -24,13 +24,13 @@ impl WTotalType {
         }
     }
 
-    pub fn into_partial(self) -> WPartialType {
+    /*pub fn into_partial(self) -> WPartialType {
         match self {
             WTotalType::Path(path) => WPartialType::Path(path),
             WTotalType::Reference(type_id, span) => WPartialType::Reference(type_id, span),
             WTotalType::Number(num, span) => WPartialType::Number(num, span),
         }
-    }
+    }*/
 
     /*pub fn into_syn(self) -> Type {
         self.into_partial().into_syn()

@@ -4,8 +4,8 @@ use crate::{
     abstr::{WAbstrItemImplTrait, YAbstr, YAbstrIfPolarity},
     wir::{
         WBlock, WExpr, WExprLowCall, WFnSignature, WIdent, WIfCondition, WItemFn, WItemFnBody,
-        WItemImpl, WItemImplTrait, WPartialPath, WPartialPathSegment, WPartialType, WSpan,
-        WSsaLocal, WStmt, WStmtAssign, WStmtIf, YSsa,
+        WItemImpl, WItemImplTrait, WPartialPath, WPartialPathSegment, WSpan, WSsaLocal, WStmt,
+        WStmtAssign, WStmtIf, YSsa,
     },
 };
 

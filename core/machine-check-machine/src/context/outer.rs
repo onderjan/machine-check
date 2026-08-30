@@ -59,14 +59,6 @@ impl WOuterContext {
         self.new_bitvector_like("Bitvector", width)
     }
 
-    pub fn new_unsigned(&mut self, width: Option<u32>) -> WTypeId {
-        self.new_bitvector_like("Unsigned", width)
-    }
-
-    pub fn new_signed(&mut self, width: Option<u32>) -> WTypeId {
-        self.new_bitvector_like("Signed", width)
-    }
-
     fn new_bitvector_like(&mut self, name: &str, width: Option<u32>) -> WTypeId {
         //let arg = WPartialPathArgument::Uint(width, WSpan::call_site());
         let generics = if let Some(width) = width {

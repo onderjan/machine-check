@@ -77,8 +77,8 @@ impl WTypedContext {
                 inner.reference = IrReference::Immutable;
                 return Ok(IGeneralType::Normal(inner));
             }
-            WTotalType::Number(num, wspan) => {
-                // add something
+            WTotalType::Number(_num, _wspan) => {
+                // add something unused
                 return Ok(IGeneralType::Normal(IType {
                     reference: IrReference::None,
                     inner: IElementaryType::Boolean,

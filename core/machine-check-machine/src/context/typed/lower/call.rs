@@ -266,7 +266,7 @@ impl super::FnLowerer<'_> {
                 let inner = self.ctx.wir_type(inner);
                 self.type_signedness(inner)
             }
-            WTotalType::Number(_num, _span) => return None,
+            WTotalType::Number(_num, _span) => None,
         }
     }
 }
