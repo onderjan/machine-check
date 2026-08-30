@@ -5,19 +5,19 @@ use syn::{
 use crate::{
     context::WOuterContext,
     wir::{
-        WIdent, WPartialType, WPath, WPathGenerics, WPathSegment, WSpan, WTypeId, WTypePath,
-        WTypePathSegment,
+        WIdent, WInferenceType, WPath, WPathGenerics, WPathSegment, WSpan, WType, WTypeId,
+        WTypePath, WTypePathSegment,
     },
     Error, ErrorType,
 };
 
 impl WOuterContext {
-    pub fn fold_partial_type(&mut self, ty: Type) -> Result<WPartialType, Error> {
+    pub fn fold_partial_type(&mut self, ty: Type) -> Result<WInferenceType, Error> {
         let ty_span = WSpan::from_syn(&ty);
         match ty {
             Type::Path(type_path) => {
                 let type_path = self.fold_type_path(type_path)?;
-                Ok(WPartialType::Path(type_path))
+                Ok(WInferenceType::Inferred(WType::Path(type_path)))
             }
             Type::Reference(type_reference) => {
                 let span = WSpan::from_syn(&type_reference);
@@ -35,7 +35,7 @@ impl WOuterContext {
                 }
                 let inner = self.fold_partial_type(*type_reference.elem)?;
                 let inner = self.partial_type_id(inner);
-                Ok(WPartialType::Reference(inner, span))
+                Ok(WInferenceType::Inferred(WType::Reference(inner, span)))
             }
             _ => Err(Error::unsupported_construct("Type", ty_span)),
         }
@@ -133,7 +133,7 @@ impl WOuterContext {
                                 ));
                             };
 
-                            WPartialType::Number(num, arg_span)
+                            WInferenceType::Inferred(WType::Number(num, arg_span))
                         }
                         _ => {
                             return Err(Error::unsupported_construct(
@@ -142,7 +142,7 @@ impl WOuterContext {
                             ))
                         }
                     },
-                    Expr::Infer(infer) => WPartialType::Infer(WSpan::from_syn(&infer)),
+                    Expr::Infer(infer) => WInferenceType::Infer(WSpan::from_syn(&infer)),
                     _ => {
                         return Err(Error::unsupported_construct(
                             "Non-literal const generic argument",
@@ -151,7 +151,7 @@ impl WOuterContext {
                     }
                 },
                 GenericArgument::Type(Type::Infer(infer)) => {
-                    WPartialType::Infer(WSpan::from_syn(&infer))
+                    WInferenceType::Infer(WSpan::from_syn(&infer))
                 }
                 GenericArgument::Type(ty) => self.fold_partial_type(ty)?,
                 _ => {

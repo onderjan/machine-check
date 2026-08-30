@@ -7,21 +7,21 @@ use machine_check_common::{
 };
 
 use super::WTypedContext;
-use crate::{wir::WTotalType, Error};
+use crate::{wir::WType, Error};
 
 impl WTypedContext {
-    pub fn lower_type(&self, ty: WTotalType) -> Result<IGeneralType, Error> {
+    pub fn lower_type(&self, ty: WType) -> Result<IGeneralType, Error> {
         let span = ty.span();
         eprintln!("Lowering type {:?}", ty);
         match ty {
-            WTotalType::Path(path) => {
+            WType::Path(path) => {
                 if path.matches_absolute(&["machine_check", "Bitvector"])
                     || path.matches_absolute(&["machine_check", "Unsigned"])
                     || path.matches_absolute(&["machine_check", "Signed"])
                 {
                     if let Some(generics) = &path.segments[1].generics {
                         if generics.len() == 1 {
-                            if let WTotalType::Number(width, _span) =
+                            if let WType::Number(width, _span) =
                                 self.wir_type(generics[0].clone())
                             {
                                 return Ok(IGeneralType::Normal(IType {
@@ -67,7 +67,7 @@ impl WTypedContext {
                     }));
                 }
             }
-            WTotalType::Reference(inner, _span) => {
+            WType::Reference(inner, _span) => {
                 let inner = self.wir_type(inner);
                 let inner = self.lower_type(inner)?;
                 let mut inner = match inner {
@@ -77,7 +77,7 @@ impl WTypedContext {
                 inner.reference = IrReference::Immutable;
                 return Ok(IGeneralType::Normal(inner));
             }
-            WTotalType::Number(_num, _wspan) => {
+            WType::Number(_num, _wspan) => {
                 // add something unused
                 return Ok(IGeneralType::Normal(IType {
                     reference: IrReference::None,

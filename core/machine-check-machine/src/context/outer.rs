@@ -12,8 +12,8 @@ use syn::{Item, Type};
 
 use crate::{
     wir::{
-        WDefinitions, WFnId, WIdent, WItemFn, WItemImpl, WItemStruct, WPartialType, WSpan,
-        WStrippedPath, WTypeId, WTypePath, WTypePathSegment, YBuild,
+        WDefinitions, WFnId, WIdent, WInferenceType, WItemFn, WItemImpl, WItemStruct, WSpan,
+        WStrippedPath, WType, WTypeId, WTypePath, WTypePathSegment, YBuild,
     },
     Error, ErrorType, Errors,
 };
@@ -21,7 +21,7 @@ use crate::{
 #[derive(Debug)]
 pub struct WOuterContext {
     definitions: WDefinitions<YBuild>,
-    types: Vec<WPartialType>,
+    types: Vec<WInferenceType>,
 }
 
 impl WOuterContext {
@@ -38,7 +38,11 @@ impl WOuterContext {
             .add_fn(fn_name.into_path().without_generics(), item_fn)
     }
 
-    fn partial_type_id(&mut self, ty: WPartialType) -> WTypeId {
+    fn known_type_id(&mut self, ty: WType) -> WTypeId {
+        self.partial_type_id(WInferenceType::Inferred(ty))
+    }
+
+    fn partial_type_id(&mut self, ty: WInferenceType) -> WTypeId {
         let id = WTypeId::from_index(self.types.len());
         self.types.push(ty);
         id
@@ -62,11 +66,14 @@ impl WOuterContext {
     fn new_bitvector_like(&mut self, name: &str, width: Option<u32>) -> WTypeId {
         //let arg = WPartialPathArgument::Uint(width, WSpan::call_site());
         let generics = if let Some(width) = width {
-            vec![self.partial_type_id(WPartialType::Number(width, WSpan::call_site()))]
+            vec![self.partial_type_id(WInferenceType::Inferred(WType::Number(
+                width,
+                WSpan::call_site(),
+            )))]
         } else {
             vec![]
         };
-        let ty = WPartialType::Path(WTypePath {
+        let ty = WInferenceType::Inferred(WType::Path(WTypePath {
             leading_colon: Some(WSpan::call_site()),
             segments: vec![
                 WTypePathSegment {
@@ -78,24 +85,24 @@ impl WOuterContext {
                     generics: Some(generics),
                 },
             ],
-        });
+        }));
 
         self.partial_type_id(ty)
     }
 
     pub fn new_bool(&mut self) -> WTypeId {
-        let ty = WPartialType::Path(WTypePath {
+        let ty = WInferenceType::Inferred(WType::Path(WTypePath {
             leading_colon: None,
             segments: vec![WTypePathSegment {
                 ident: WIdent::new(String::from("bool"), WSpan::call_site()),
                 generics: None,
             }],
-        });
+        }));
         self.partial_type_id(ty)
     }
 
     fn wildcard_id(&mut self, span: WSpan) -> WTypeId {
-        self.partial_type_id(WPartialType::Infer(span))
+        self.partial_type_id(WInferenceType::Infer(span))
     }
 
     pub fn add_syn_items(&mut self, items: Vec<Item>) -> Result<(), Errors> {

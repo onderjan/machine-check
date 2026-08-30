@@ -5,9 +5,7 @@ use crate::{
         typed::{convert::convert_item_fn, lower::lower_item_fn},
         WLowContext,
     },
-    wir::{
-        WDefinitions, WIdent, WItemFn, WTotalType, WTypeId, WTypePath, WTypePathSegment, YSsa, YTac,
-    },
+    wir::{WDefinitions, WIdent, WItemFn, WType, WTypeId, WTypePath, WTypePathSegment, YSsa, YTac},
     Errors,
 };
 
@@ -17,7 +15,7 @@ mod lower;
 #[derive(Debug)]
 pub struct WTypedContext {
     definitions: WDefinitions<YTac>,
-    types: Vec<crate::wir::WTotalType>,
+    types: Vec<crate::wir::WType>,
     boolean_type_id: WTypeId,
     panic_type_id: WTypeId,
 }
@@ -25,7 +23,7 @@ pub struct WTypedContext {
 impl WTypedContext {
     pub(super) fn new(
         definitions: WDefinitions<YTac>,
-        types: Vec<WTotalType>,
+        types: Vec<WType>,
         boolean_type_id: WTypeId,
         panic_type_id: WTypeId,
     ) -> Self {
@@ -45,7 +43,7 @@ impl WTypedContext {
         self.panic_type_id.clone()
     }
 
-    pub fn wir_type(&self, id: WTypeId) -> WTotalType {
+    pub fn wir_type(&self, id: WTypeId) -> WType {
         self.types[id.index()].clone()
     }
 
@@ -75,7 +73,7 @@ impl WTypedContext {
         convert_item_fn(self, item_fn)
     }
 
-    fn new_type_id(&mut self, ty: WTotalType) -> WTypeId {
+    fn new_type_id(&mut self, ty: WType) -> WTypeId {
         let type_id = WTypeId::from_index(self.types.len());
         self.types.push(ty);
         type_id
@@ -85,7 +83,7 @@ impl WTypedContext {
         let inner_ty = self.types[inner.index()].clone();
         let span = inner_ty.span();
 
-        let ty = WTotalType::Path(WTypePath {
+        let ty = WType::Path(WTypePath {
             leading_colon: Some(span),
             segments: vec![
                 WTypePathSegment {

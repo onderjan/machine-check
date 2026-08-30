@@ -5,7 +5,7 @@ use machine_check_common::ir_common::IrStdBinaryOp;
 use crate::{
     wir::{
         WBlock, WCall, WCallArg, WExpr, WExprHighCall, WIdent, WIndexedExpr, WIndexedIdent,
-        WMacroableStmt, WPartialType, WTypeId, YTac,
+        WInferenceType, WMacroableStmt, WType, WTypeId, YTac,
     },
     Error, ErrorType,
 };
@@ -55,11 +55,13 @@ impl super::WInferenceContext {
 
                             eprintln!("Field {:?}: base type {:?}", expr_field, base_ty);
 
-                            while let WPartialType::Reference(ty, _span) = base_ty {
+                            while let WInferenceType::Inferred(WType::Reference(ty, _span)) =
+                                base_ty
+                            {
                                 base_ty = &self.types[ty.index()];
                             }
 
-                            if let WPartialType::Path(base_path) = base_ty {
+                            if let WInferenceType::Inferred(WType::Path(base_path)) = base_ty {
                                 eprintln!("Field {:?}: base path {:?}", expr_field, base_path);
                                 let base_path = base_path.clone().without_generics();
                                 let base_def = self.definitions.datatype(&base_path);
@@ -182,7 +184,9 @@ impl super::WInferenceContext {
                 if let Some(generics) = &segments[1].generics {
                     if generics.arguments.len() == 1 {
                         let arg = &generics.arguments[0];
-                        if let WPartialType::Number(num, _span) = self.types[arg.index()] {
+                        if let WInferenceType::Inferred(WType::Number(num, _span)) =
+                            self.types[arg.index()]
+                        {
                             width = Some(num)
                         }
                     }
@@ -209,7 +213,9 @@ impl super::WInferenceContext {
                 if let Some(generics) = &segments[1].generics {
                     if generics.arguments.len() == 1 {
                         let arg = &generics.arguments[0];
-                        if let WPartialType::Number(num, span) = self.types[arg.index()] {
+                        if let WInferenceType::Inferred(WType::Number(num, span)) =
+                            self.types[arg.index()]
+                        {
                             width = Some((num, span))
                         }
                     }
@@ -235,7 +241,7 @@ impl super::WInferenceContext {
 
                 eprintln!("Should add ext constraints, right type: {:?}", right_ty);
                 match right_ty {
-                    WPartialType::Path(path) => {
+                    WInferenceType::Inferred(WType::Path(path)) => {
                         if path.matches_absolute(&["machine_check", "Bitvector"])
                             || path.matches_absolute(&["machine_check", "Signed"])
                             || path.matches_absolute(&["machine_check", "Unsigned"])
@@ -244,15 +250,14 @@ impl super::WInferenceContext {
                             let mut path = path.clone();
 
                             path.segments[1].generics = if let Some((width_arg, span)) = width {
-                                let width_ty =
-                                    self.partial_type_id(WPartialType::Number(width_arg, span));
+                                let width_ty = self.known_type_id(WType::Number(width_arg, span));
                                 Some(vec![width_ty])
                             } else {
                                 None
                             };
 
-                            let ty = WPartialType::Path(path);
-                            let type_id = self.partial_type_id(ty);
+                            let ty = WType::Path(path);
+                            let type_id = self.known_type_id(ty);
 
                             self.add_eq_constraint(left_ty.clone(), type_id);
                         }
