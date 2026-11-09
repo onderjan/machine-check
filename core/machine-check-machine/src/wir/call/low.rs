@@ -11,7 +11,7 @@ use crate::wir::{IntoTypedSyn, WTypeId};
 
 use super::{WCall, WIdent, WMckBinary, WMckUnary};
 
-#[derive(Clone, Hash, Debug)]
+#[derive(Clone, Hash, Debug, PartialEq, Eq)]
 pub enum WExprLowCall {
     Call(WCall),
     MckUnary(WMckUnary),
@@ -27,26 +27,26 @@ pub enum WExprLowCall {
     PhiNotTaken,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Hash, Debug, PartialEq, Eq)]
 pub struct WPhi {
     pub condition: WIdent,
     pub then_ident: WIdent,
     pub else_ident: WIdent,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Hash, Debug, PartialEq, Eq)]
 pub struct WPhiTaken {
     pub ident: WIdent,
     pub condition: WIdent,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Hash, Debug, PartialEq, Eq)]
 pub enum WMckNew {
     Bitvector(mck::concr::ConcreteBitvector<mck::misc::RBound>),
     //BitvectorArray(IrTypeArray, WIdent),
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Hash, Debug, PartialEq, Eq)]
 pub struct WMckExt {
     pub signed: bool,
     pub width: u32,

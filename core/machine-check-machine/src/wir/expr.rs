@@ -11,7 +11,7 @@ use crate::{util::create_expr_ident, wir::WTypeId};
 
 use super::{IntoTypedSyn, WIdent};
 
-#[derive(Clone, Hash)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub enum WExpr<CF: IntoTypedSyn<Expr>> {
     Move(WIdent),
     Call(CF),
@@ -21,37 +21,37 @@ pub enum WExpr<CF: IntoTypedSyn<Expr>> {
     Lit(Lit, bool),
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct WExprField {
     pub base: WIdent,
     pub member: WIdent,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct WExprStruct {
     pub ty: WTypeId,
     pub fields: Vec<(WIdent, WIdent)>,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum WExprReference {
     Ident(WIdent),
     Field(WExprField),
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum WIndexedExpr<CF: IntoTypedSyn<Expr>> {
     Indexed(WArrayBaseExpr, WIdent),
     NonIndexed(WExpr<CF>),
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum WArrayBaseExpr {
     Ident(WIdent),
     Field(WExprField),
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum WIndexedIdent {
     Indexed(WIdent, WIdent),
     NonIndexed(WIdent),

@@ -7,8 +7,8 @@ use crate::{
     context::WLowContext,
     util::create_angle_bracketed_path_arguments,
     wir::{
-        IntoTypedSyn, WExpr, WExprLowCall, WIdent, WItemFnBody, WItemImpl, WItemImplTrait,
-        WPath, WSsaLocal, WStmt, WTypeId, YIfPolarity, YSsa, YStage,
+        IntoTypedSyn, WExpr, WExprLowCall, WIdent, WItemFnBody, WItemImpl, WItemImplTrait, WPath,
+        WSsaLocal, WStmt, WTypeId, YIfPolarity, YSsa, YStage,
     },
 };
 
@@ -17,7 +17,7 @@ use self::{
     item_struct::process_item_struct,
 };
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct YAbstr;
 
 impl YStage for YAbstr {
@@ -31,7 +31,7 @@ impl YStage for YAbstr {
     type IfPolarity = YAbstrIfPolarity;
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct YAbstrIfPolarity(pub bool);
 
 impl IntoTypedSyn<Path> for YAbstrIfPolarity {

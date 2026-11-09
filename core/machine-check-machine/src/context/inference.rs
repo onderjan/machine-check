@@ -9,19 +9,25 @@ use union_find::{QuickUnionUf, UnionBySize, UnionFind};
 use crate::{
     context::WTypedContext,
     wir::{
-        WDefinitions, WIdent, WInferenceType, WSpan, WType, WTypeId, WTypePath, WTypePathSegment,
-        YTac,
+        WDefinitions, WIdent, WInferenceType, WSpan, WStmtAssign, WType, WTypeId, WTypePath,
+        WTypePathSegment, YTac,
     },
     Error, ErrorType,
 };
 
 mod constraints;
 
+#[derive(Debug, PartialEq, Eq)]
+enum WConstraint {
+    Assign(WStmtAssign<YTac>),
+}
+
 #[derive(Debug)]
 pub struct WInferenceContext {
     definitions: WDefinitions<YTac>,
     types: Vec<WInferenceType>,
     eq_constraints: QuickUnionUf<UnionBySize>,
+    noneq_constraints: Vec<WConstraint>,
 
     boolean_type_id: WTypeId,
     panic_type_id: WTypeId,
@@ -38,6 +44,7 @@ impl WInferenceContext {
             definitions,
             types,
             eq_constraints: QuickUnionUf::new(0),
+            noneq_constraints: Vec::new(),
             boolean_type_id,
             panic_type_id,
         }
@@ -62,6 +69,11 @@ impl WInferenceContext {
         self.eq_constraints.union(a.index(), b.index());
     }
 
+    fn add_assignment_constraint(&mut self, stmt: &WStmtAssign<YTac>) {
+        self.noneq_constraints
+            .push(WConstraint::Assign(stmt.clone()));
+    }
+
     pub fn infer(mut self) -> Result<WTypedContext, Error> {
         for item_fn in self.definitions.functions().clone() {
             let mut types = BTreeMap::new();
@@ -76,12 +88,53 @@ impl WInferenceContext {
                     .iter()
                     .map(|local| (local.ident.clone(), local.ty.clone())),
             );
-            self.add_block_constraints(&types, &item_fn.body.block)?;
+            self.resolve_block_constraints(&types, &item_fn.body.block)?;
         }
-        self.unify()
+
+        const MAX_ITERATIONS: u32 = 256;
+
+        let mut i = 0;
+        loop {
+            i += 1;
+
+            if i >= MAX_ITERATIONS {
+                panic!("Too many inference iterations");
+            }
+
+            eprintln!("Inference iteration #{i}");
+
+            self.unify()?;
+
+            eprintln!(
+                "Unified, resolving non-equality constraints: {:?}",
+                self.noneq_constraints
+            );
+
+            let noneq_constraints = std::mem::take(&mut self.noneq_constraints);
+
+            for constraint in &noneq_constraints {
+                match constraint {
+                    WConstraint::Assign(assign) => {
+                        self.add_assignment_constraint(assign);
+                    }
+                }
+            }
+
+            eprintln!(
+                "Resolved non-equality constraints: {:?}",
+                self.noneq_constraints
+            );
+
+            if self.noneq_constraints == noneq_constraints {
+                eprintln!("Inference fixpoint reached");
+                break;
+            }
+        }
+
+        self.into_total()
     }
 
-    fn unify(mut self) -> Result<WTypedContext, Error> {
+    fn unify(&mut self) -> Result<(), Error> {
         eprintln!("Unifying {:?}", self);
         let mut united = IndexMap::new();
 
@@ -121,7 +174,7 @@ impl WInferenceContext {
             );
         }
 
-        self.into_total()
+        Ok(())
     }
 
     pub fn into_total(self) -> Result<WTypedContext, Error> {

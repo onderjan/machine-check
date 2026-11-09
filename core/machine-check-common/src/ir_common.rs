@@ -71,7 +71,7 @@ pub enum IrMckBinaryOp {
     Sle,
 }
 
-#[derive(Clone, Debug, Hash, strum::EnumString, strum::Display)]
+#[derive(Clone, Debug, Hash, strum::EnumString, strum::Display, PartialEq, Eq)]
 pub enum IrStdUnaryOp {
     #[strum(to_string = "::std::ops::Not::not")]
     Not,
@@ -79,7 +79,7 @@ pub enum IrStdUnaryOp {
     Neg,
 }
 
-#[derive(Clone, Debug, Hash, strum::EnumString, strum::Display)]
+#[derive(Clone, Debug, Hash, strum::EnumString, strum::Display, PartialEq, Eq)]
 pub enum IrStdBinaryOp {
     // bitwise
     #[strum(to_string = "::std::ops::BitAnd::bitand")]

@@ -7,20 +7,20 @@ use crate::wir::{
     WItemFnBody, WItemImplTrait, WMacroableStmt, WSsaLocal, WStmt, WSynBlock, WTacLocal, WTypeId,
 };
 
-pub trait YStage: Clone {
+pub trait YStage: Clone + PartialEq + Eq {
     type Local: IntoTypedSyn<Local> + Clone + Debug + Hash;
     type ItemImplTrait: IntoTypedSyn<Path> + Clone + Debug + Hash;
 
     type FnBody: IntoTypedSyn<Block> + Clone + Debug + Hash;
-    type Stmt: IntoTypedSyn<Stmt> + Clone + Debug + Hash;
-    type AssignLeft: IntoTypedSyn<Expr> + Clone + Debug + Hash;
-    type AssignRight: IntoTypedSyn<Expr> + Clone + Debug + Hash;
-    type IfPolarity: YIfPolarity;
+    type Stmt: IntoTypedSyn<Stmt> + Clone + Debug + Hash + PartialEq + Eq;
+    type AssignLeft: IntoTypedSyn<Expr> + Clone + Debug + Hash + PartialEq + Eq;
+    type AssignRight: IntoTypedSyn<Expr> + Clone + Debug + Hash + PartialEq + Eq;
+    type IfPolarity: YIfPolarity + PartialEq + Eq;
 }
 
 pub trait YIfPolarity: IntoTypedSyn<Path> + Clone + Debug + Hash {}
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct YBuild;
 
 impl YStage for YBuild {
@@ -34,7 +34,7 @@ impl YStage for YBuild {
     type IfPolarity = WNoIfPolarity;
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct YTac;
 
 impl YStage for YTac {
@@ -48,7 +48,7 @@ impl YStage for YTac {
     type IfPolarity = WNoIfPolarity;
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct YLowered;
 
 impl YStage for YLowered {
@@ -76,7 +76,7 @@ impl YStage for YSsa {
     type IfPolarity = WNoIfPolarity;
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct WNoIfPolarity;
 
 impl IntoTypedSyn<Path> for WNoIfPolarity {

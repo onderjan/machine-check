@@ -13,13 +13,13 @@ mod low;
 
 pub use {high::WExprHighCall, low::*};
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct WCall {
     pub fn_path: WPath,
     pub args: Vec<WCallArg>,
 }
 
-#[derive(Clone, Hash)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub enum WCallArg {
     Ident(WIdent),
     Literal(Lit),

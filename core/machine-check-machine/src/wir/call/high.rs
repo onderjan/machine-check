@@ -5,7 +5,7 @@ use crate::wir::{call::construct_call_fn_path, WCall, WCallArg, WTypeId};
 
 use super::{IntoTypedSyn, WStdBinary, WStdUnary};
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum WExprHighCall {
     Call(WCall),
     StdUnary(WStdUnary),

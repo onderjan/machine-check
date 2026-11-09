@@ -18,50 +18,50 @@ use super::{IntoTypedSyn, WIdent, YIfPolarity};
 #[derive(Clone, Hash, Debug)]
 pub struct WSynBlock(pub Block);
 
-#[derive(Clone, Hash)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct WBlock<Y: YStage> {
     pub stmts: Vec<Y::Stmt>,
 }
 
-#[derive(Clone, Hash)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub enum WMacroableStmt<Y: YStage> {
     Assign(WStmtAssign<Y>),
     If(WStmtIf<Y>),
     PanicMacro(WStmtPanicMacro),
 }
 
-#[derive(Clone, Hash)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub enum WStmt<Y: YStage> {
     Assign(WStmtAssign<Y>),
     If(WStmtIf<Y>),
 }
 
-#[derive(Clone, Hash)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct WStmtAssign<Y: YStage> {
     pub left: Y::AssignLeft,
     pub right: Y::AssignRight,
 }
 
-#[derive(Clone, Hash)]
+#[derive(Clone, Hash, PartialEq, Eq)]
 pub struct WStmtIf<Y: YStage> {
     pub condition: WIfCondition<Y::IfPolarity>,
     pub then_block: WBlock<Y>,
     pub else_block: WBlock<Y>,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct WIfCondition<P: YIfPolarity> {
     pub polarity: P,
     pub ident: WIdent,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub struct WStmtPanicMacro {
     pub kind: WPanicMacroKind,
     pub msg: String,
 }
 
-#[derive(Clone, Debug, Hash)]
+#[derive(Clone, Debug, Hash, PartialEq, Eq)]
 pub enum WPanicMacroKind {
     Panic,
     Unimplemented,
