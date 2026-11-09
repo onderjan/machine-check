@@ -17,17 +17,22 @@ use crate::{
 
 mod constraints;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Clone)]
 enum WConstraint {
     Assign(WStmtAssign<YTac>),
+}
+
+#[derive(Debug, Clone)]
+pub struct WFunctionConstraints {
+    eq: QuickUnionUf<UnionBySize>,
+    noneq: Vec<WConstraint>,
 }
 
 #[derive(Debug)]
 pub struct WInferenceContext {
     definitions: WDefinitions<YTac>,
     types: Vec<WInferenceType>,
-    eq_constraints: QuickUnionUf<UnionBySize>,
-    noneq_constraints: Vec<WConstraint>,
+    fn_constraints: Vec<WFunctionConstraints>,
 
     boolean_type_id: WTypeId,
     panic_type_id: WTypeId,
@@ -40,11 +45,17 @@ impl WInferenceContext {
         boolean_type_id: WTypeId,
         panic_type_id: WTypeId,
     ) -> Self {
+        let fn_constraints = vec![
+            WFunctionConstraints {
+                eq: QuickUnionUf::new(0),
+                noneq: Vec::new()
+            };
+            definitions.functions().len()
+        ];
         Self {
             definitions,
             types,
-            eq_constraints: QuickUnionUf::new(0),
-            noneq_constraints: Vec::new(),
+            fn_constraints,
             boolean_type_id,
             panic_type_id,
         }
@@ -60,36 +71,45 @@ impl WInferenceContext {
         id
     }
 
-    fn add_eq_constraint(&mut self, a: WTypeId, b: WTypeId) {
+    fn add_eq_constraint(&mut self, fn_index: usize, a: WTypeId, b: WTypeId) {
+        let constraints = &mut self.fn_constraints[fn_index];
         let max = a.index().max(b.index());
-        while max >= self.eq_constraints.size() {
-            self.eq_constraints.insert(UnionBySize::default());
+        while max >= constraints.eq.size() {
+            constraints.eq.insert(UnionBySize::default());
         }
 
-        self.eq_constraints.union(a.index(), b.index());
+        constraints.eq.union(a.index(), b.index());
     }
 
-    fn add_assignment_constraint(&mut self, stmt: &WStmtAssign<YTac>) {
-        self.noneq_constraints
-            .push(WConstraint::Assign(stmt.clone()));
+    fn add_assignment_constraint(&mut self, fn_index: usize, stmt: &WStmtAssign<YTac>) {
+        let constraints = &mut self.fn_constraints[fn_index];
+        constraints.noneq.push(WConstraint::Assign(stmt.clone()));
     }
 
     pub fn infer(mut self) -> Result<WTypedContext, Error> {
-        for item_fn in self.definitions.functions().clone() {
-            let mut types = BTreeMap::new();
-
-            for arg in &item_fn.signature.inputs {
-                types.insert(arg.ident.clone(), arg.ty.clone());
-            }
-            types.extend(
-                item_fn
-                    .body
-                    .locals
-                    .iter()
-                    .map(|local| (local.ident.clone(), local.ty.clone())),
-            );
-            self.resolve_block_constraints(&types, &item_fn.body.block)?;
+        for fn_index in 0..self.definitions.functions().len() {
+            self.infer_fn(fn_index)?;
         }
+
+        self.into_total()
+    }
+
+    pub fn infer_fn(&mut self, fn_index: usize) -> Result<(), Error> {
+        let item_fn = &self.definitions.functions()[fn_index];
+
+        let mut types = BTreeMap::new();
+
+        for arg in &item_fn.signature.inputs {
+            types.insert(arg.ident.clone(), arg.ty.clone());
+        }
+        types.extend(
+            item_fn
+                .body
+                .locals
+                .iter()
+                .map(|local| (local.ident.clone(), local.ty.clone())),
+        );
+        self.resolve_block_constraints(fn_index, &types, &item_fn.body.block.clone())?;
 
         const MAX_ITERATIONS: u32 = 256;
 
@@ -103,47 +123,53 @@ impl WInferenceContext {
 
             eprintln!("Inference iteration #{i}");
 
-            self.unify()?;
+            self.unify_fn(fn_index)?;
+
+            let noneq_constraints = std::mem::take(&mut self.fn_constraints[fn_index].noneq);
 
             eprintln!(
                 "Unified, resolving non-equality constraints: {:?}",
-                self.noneq_constraints
+                noneq_constraints
             );
-
-            let noneq_constraints = std::mem::take(&mut self.noneq_constraints);
 
             for constraint in &noneq_constraints {
                 match constraint {
                     WConstraint::Assign(assign) => {
-                        self.add_assignment_constraint(assign);
+                        self.resolve_assignment_constraint(fn_index, &types, assign)?;
                     }
                 }
             }
 
+            let new_noneq_constraints = &self.fn_constraints[fn_index].noneq;
+
             eprintln!(
                 "Resolved non-equality constraints: {:?}",
-                self.noneq_constraints
+                new_noneq_constraints
             );
 
-            if self.noneq_constraints == noneq_constraints {
+            if new_noneq_constraints == &noneq_constraints {
                 eprintln!("Inference fixpoint reached");
-                break;
+                return Ok(());
             }
         }
-
-        self.into_total()
     }
 
-    fn unify(&mut self) -> Result<(), Error> {
-        eprintln!("Unifying {:?}", self);
+    fn unify_fn(&mut self, fn_index: usize) -> Result<(), Error> {
+        let constraints = &mut self.fn_constraints[fn_index].eq;
+        eprintln!("Unifying {:?}", constraints);
+
+        while self.types.len() >= constraints.size() {
+            constraints.insert(UnionBySize::default());
+        }
+
         let mut united = IndexMap::new();
 
         for i in 0..self.types.len() {
             let current = self.types[i].clone();
-            let root = self.eq_constraints.find(i);
+            let root = constraints.find(i);
 
             let next = if let Some(previous) = united.get(&root) {
-                self.join_type(&current, previous)?
+                join_type(&current, previous)?
             } else {
                 current
             };
@@ -154,7 +180,7 @@ impl WInferenceContext {
         let mut eq_classes = BTreeMap::<usize, BTreeSet<usize>>::new();
 
         for i in 0..self.types.len() {
-            let root = self.eq_constraints.find(i);
+            let root = constraints.find(i);
             let resolved = united
                 .get(&root)
                 .expect("Equality class root should have type");
@@ -163,7 +189,7 @@ impl WInferenceContext {
         }
 
         for i in 0..self.types.len() {
-            let root = self.eq_constraints.find(i);
+            let root = constraints.find(i);
 
             eprintln!(
                 "Type @{}: {:?} (root {}, equality class {:?})",
@@ -193,75 +219,6 @@ impl WInferenceContext {
             self.boolean_type_id,
             self.panic_type_id,
         ))
-    }
-
-    fn join_type(
-        &mut self,
-        lhs: &WInferenceType,
-        rhs: &WInferenceType,
-    ) -> Result<WInferenceType, Error> {
-        let span = lhs.span();
-        match (lhs, rhs) {
-            (WInferenceType::Infer(_), ty) | (ty, WInferenceType::Infer(_)) => Ok(ty.clone()),
-            (WInferenceType::Inferred(lhs), WInferenceType::Inferred(rhs)) => {
-                let result = match (lhs, rhs) {
-                    (WType::Path(lhs), WType::Path(rhs)) => {
-                        let span = lhs.clone().without_generics().span();
-                        if lhs.leading_colon.is_some() != rhs.leading_colon.is_some()
-                            || lhs.segments.len() != rhs.segments.len()
-                        {
-                            return Err(Error::new(ErrorType::InferenceFailure, span));
-                        }
-
-                        let mut segments = Vec::new();
-
-                        for (lhs, rhs) in lhs.segments.iter().zip(rhs.segments.iter()) {
-                            if lhs.ident != rhs.ident {
-                                return Err(Error::new(ErrorType::InferenceFailure, span));
-                            }
-
-                            let generics = match (&lhs.generics, &rhs.generics) {
-                                (None, None) => None,
-                                (Some(generics), None) | (None, Some(generics)) => {
-                                    Some(generics.clone())
-                                }
-                                (Some(lhs), Some(rhs)) => {
-                                    if lhs.len() != rhs.len() {
-                                        return Err(Error::new(ErrorType::InferenceFailure, span));
-                                    }
-                                    // do not go into the types
-                                    Some(lhs.clone())
-                                }
-                            };
-
-                            segments.push(WTypePathSegment {
-                                ident: lhs.ident.clone(),
-                                generics,
-                            });
-                        }
-
-                        WType::Path(WTypePath {
-                            leading_colon: lhs.leading_colon,
-                            segments,
-                        })
-                    }
-                    (WType::Reference(lhs, _), WType::Reference(_rhs, _)) => {
-                        /*let lhs = self.types[lhs.index()].clone();
-                        let rhs = self.types[rhs.index()].clone();
-                        let joined = self.join_type(&lhs, &rhs);*/
-                        WType::Reference(lhs.clone(), span)
-                    }
-                    (WType::Number(lhs, span), WType::Number(rhs, _)) => {
-                        if lhs != rhs {
-                            return Err(Error::new(ErrorType::InferenceFailure, *span));
-                        }
-                        WType::Number(*lhs, *span)
-                    }
-                    _ => return Err(Error::new(ErrorType::InferenceFailure, span)),
-                };
-                Ok(WInferenceType::Inferred(result))
-            }
-        }
     }
 
     pub fn new_bitvector(&mut self, width: Option<u32>) -> WTypeId {
@@ -309,5 +266,70 @@ impl WInferenceContext {
             }],
         });
         self.known_type_id(ty)
+    }
+}
+
+fn join_type(lhs: &WInferenceType, rhs: &WInferenceType) -> Result<WInferenceType, Error> {
+    let span = lhs.span();
+    match (lhs, rhs) {
+        (WInferenceType::Infer(_), ty) | (ty, WInferenceType::Infer(_)) => Ok(ty.clone()),
+        (WInferenceType::Inferred(lhs), WInferenceType::Inferred(rhs)) => {
+            let result = match (lhs, rhs) {
+                (WType::Path(lhs), WType::Path(rhs)) => {
+                    let span = lhs.clone().without_generics().span();
+                    if lhs.leading_colon.is_some() != rhs.leading_colon.is_some()
+                        || lhs.segments.len() != rhs.segments.len()
+                    {
+                        return Err(Error::new(ErrorType::InferenceFailure, span));
+                    }
+
+                    let mut segments = Vec::new();
+
+                    for (lhs, rhs) in lhs.segments.iter().zip(rhs.segments.iter()) {
+                        if lhs.ident != rhs.ident {
+                            return Err(Error::new(ErrorType::InferenceFailure, span));
+                        }
+
+                        let generics = match (&lhs.generics, &rhs.generics) {
+                            (None, None) => None,
+                            (Some(generics), None) | (None, Some(generics)) => {
+                                Some(generics.clone())
+                            }
+                            (Some(lhs), Some(rhs)) => {
+                                if lhs.len() != rhs.len() {
+                                    return Err(Error::new(ErrorType::InferenceFailure, span));
+                                }
+                                // do not go into the types
+                                Some(lhs.clone())
+                            }
+                        };
+
+                        segments.push(WTypePathSegment {
+                            ident: lhs.ident.clone(),
+                            generics,
+                        });
+                    }
+
+                    WType::Path(WTypePath {
+                        leading_colon: lhs.leading_colon,
+                        segments,
+                    })
+                }
+                (WType::Reference(lhs, _), WType::Reference(_rhs, _)) => {
+                    /*let lhs = self.types[lhs.index()].clone();
+                    let rhs = self.types[rhs.index()].clone();
+                    let joined = self.join_type(&lhs, &rhs);*/
+                    WType::Reference(lhs.clone(), span)
+                }
+                (WType::Number(lhs, span), WType::Number(rhs, _)) => {
+                    if lhs != rhs {
+                        return Err(Error::new(ErrorType::InferenceFailure, *span));
+                    }
+                    WType::Number(*lhs, *span)
+                }
+                _ => return Err(Error::new(ErrorType::InferenceFailure, span)),
+            };
+            Ok(WInferenceType::Inferred(result))
+        }
     }
 }

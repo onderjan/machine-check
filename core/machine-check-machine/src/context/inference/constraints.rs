@@ -13,6 +13,7 @@ use crate::{
 impl super::WInferenceContext {
     pub(super) fn resolve_block_constraints(
         &mut self,
+        fn_index: usize,
         types: &BTreeMap<WIdent, WTypeId>,
         block: &WBlock<YTac>,
     ) -> Result<(), Error> {
@@ -22,12 +23,12 @@ impl super::WInferenceContext {
 
             match stmt {
                 WMacroableStmt::Assign(assign) => {
-                    self.resolve_assignment_constraint(types, assign)?;
+                    self.resolve_assignment_constraint(fn_index, types, assign)?;
                 }
                 WMacroableStmt::If(stmt_if) => {
                     eprintln!("Should add constraints for if {:#?}", stmt_if);
-                    self.resolve_block_constraints(types, &stmt_if.then_block)?;
-                    self.resolve_block_constraints(types, &stmt_if.else_block)?;
+                    self.resolve_block_constraints(fn_index, types, &stmt_if.then_block)?;
+                    self.resolve_block_constraints(fn_index, types, &stmt_if.else_block)?;
                 }
                 WMacroableStmt::PanicMacro(_stmt_panic_macro) => {
                     // panic macro returns a never type
@@ -38,11 +39,13 @@ impl super::WInferenceContext {
         Ok(())
     }
 
-    fn resolve_assignment_constraint(
+    pub fn resolve_assignment_constraint(
         &mut self,
+        fn_index: usize,
         types: &BTreeMap<WIdent, WTypeId>,
         assign: &WStmtAssign<YTac>,
     ) -> Result<(), Error> {
+        eprintln!("Resolving assignment constraint: {:?}", assign);
         let left = match &assign.left {
             WIndexedIdent::Indexed(_wident, _wident1) => {
                 todo!("Constraints for indexed left")
@@ -65,11 +68,11 @@ impl super::WInferenceContext {
         match right {
             WExpr::Move(right) => {
                 let right_ty = get_type(types, right)?;
-                self.add_eq_constraint(left_ty, right_ty);
+                self.add_eq_constraint(fn_index, left_ty, right_ty);
                 return Ok(());
             }
             WExpr::Call(call) => {
-                if self.resolve_call_constraint(types, left_ty, call)? {
+                if self.resolve_call_constraint(fn_index, types, left_ty, call)? {
                     return Ok(());
                 }
             }
@@ -93,14 +96,14 @@ impl super::WInferenceContext {
                         if let Some(field) = base_def.def.fields.get(&expr_field.member) {
                             // TODO: dereference
                             eprintln!("Member type: {:?}", field);
-                            self.add_eq_constraint(left_ty.clone(), field.ty.clone());
+                            self.add_eq_constraint(fn_index, left_ty.clone(), field.ty.clone());
                             return Ok(());
                         }
                     }
                 }
             }
             WExpr::Struct(expr_struct) => {
-                self.add_eq_constraint(left_ty, expr_struct.ty.clone());
+                self.add_eq_constraint(fn_index, left_ty, expr_struct.ty.clone());
                 return Ok(());
             }
             WExpr::Reference(_wexpr_reference) => {
@@ -119,23 +122,26 @@ impl super::WInferenceContext {
         }
 
         // assignment constraint not resolved, add it
-        self.add_assignment_constraint(assign);
+        self.add_assignment_constraint(fn_index, assign);
         Ok(())
     }
 
     fn resolve_call_constraint(
         &mut self,
+        fn_index: usize,
         types: &BTreeMap<WIdent, WTypeId>,
         left_ty: WTypeId,
         call: &WExprHighCall,
     ) -> Result<bool, Error> {
         eprintln!("Call");
         match call {
-            WExprHighCall::Call(call) => self.resolve_normal_call_constraint(types, left_ty, call),
+            WExprHighCall::Call(call) => {
+                self.resolve_normal_call_constraint(fn_index, types, left_ty, call)
+            }
             WExprHighCall::StdUnary(unary) => {
                 // both not and neg return the same type as the operand
                 let operand_ty = get_type(types, &unary.operand)?;
-                self.add_eq_constraint(left_ty, operand_ty);
+                self.add_eq_constraint(fn_index, left_ty, operand_ty);
                 Ok(true)
             }
             WExprHighCall::StdBinary(binary) => {
@@ -150,10 +156,10 @@ impl super::WInferenceContext {
                     | IrStdBinaryOp::Gt
                     | IrStdBinaryOp::Ge => {
                         // constrain the inputs to be of the same type
-                        self.add_eq_constraint(a_ty, b_ty);
+                        self.add_eq_constraint(fn_index, a_ty, b_ty);
                         // constrain the output to be a Boolean
                         let bool_ty = self.new_bool();
-                        self.add_eq_constraint(left_ty, bool_ty);
+                        self.add_eq_constraint(fn_index, left_ty, bool_ty);
                     }
                     IrStdBinaryOp::BitAnd
                     | IrStdBinaryOp::BitOr
@@ -166,8 +172,8 @@ impl super::WInferenceContext {
                     | IrStdBinaryOp::Div
                     | IrStdBinaryOp::Rem => {
                         // constrain both inputs to output
-                        self.add_eq_constraint(left_ty.clone(), a_ty);
-                        self.add_eq_constraint(left_ty, b_ty);
+                        self.add_eq_constraint(fn_index, left_ty.clone(), a_ty);
+                        self.add_eq_constraint(fn_index, left_ty, b_ty);
                     }
                 }
                 Ok(true)
@@ -177,6 +183,7 @@ impl super::WInferenceContext {
 
     fn resolve_normal_call_constraint(
         &mut self,
+        fn_index: usize,
         types: &BTreeMap<WIdent, WTypeId>,
         left_ty: WTypeId,
         call: &WCall,
@@ -216,7 +223,7 @@ impl super::WInferenceContext {
                 };
 
                 // constrain the output to be a bitvector of the given width
-                self.add_eq_constraint(left_ty.clone(), bitvector_ty);
+                self.add_eq_constraint(fn_index, left_ty.clone(), bitvector_ty);
                 return Ok(true);
             }
 
@@ -274,12 +281,16 @@ impl super::WInferenceContext {
                             let ty = WType::Path(path);
                             let type_id = self.known_type_id(ty);
 
-                            self.add_eq_constraint(left_ty.clone(), type_id);
+                            self.add_eq_constraint(fn_index, left_ty.clone(), type_id);
                         }
                         return Ok(true);
                     }
                     _ => {
                         // non-path ext
+                        eprintln!(
+                            "Non-path ext right type {:?} from ident {:?}",
+                            right_ty, ident
+                        );
                     }
                 }
 
@@ -310,7 +321,7 @@ impl super::WInferenceContext {
                         // add constraint for the left type
                         let into_ty = generics.arguments[0].clone();
                         eprintln!("Adding Into constraint: {:?} == {:?}", left_ty, into_ty);
-                        self.add_eq_constraint(left_ty, into_ty);
+                        self.add_eq_constraint(fn_index, left_ty, into_ty);
                     }
                 }
 
@@ -353,7 +364,7 @@ impl super::WInferenceContext {
             }
 
             for (type_a, type_b) in constraints {
-                self.add_eq_constraint(type_a, type_b);
+                self.add_eq_constraint(fn_index, type_a, type_b);
             }
 
             Ok(true)
