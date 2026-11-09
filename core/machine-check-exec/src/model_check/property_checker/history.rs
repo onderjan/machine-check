@@ -21,12 +21,7 @@ impl FixedPointHistory {
             time_values
         );
         // clear the entries at or after this time for this state
-        loop {
-            let Some((entry_time, _)) = time_values.last_key_value() else {
-                // nothing in the map, break
-                break;
-            };
-
+        while let Some((entry_time, _)) = time_values.last_key_value() {
             let entry_time = *entry_time;
 
             if entry_time < time_instant {

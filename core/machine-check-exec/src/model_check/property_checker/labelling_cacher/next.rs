@@ -144,7 +144,7 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
             }
         }
 
-        successor_sorter.sort_by(|(a_key, _), (b_key, _)| a_key.cmp(b_key));
+        successor_sorter.sort_by_key(|(a_key, _)| *a_key);
 
         // the first successor is the wanted one
 
