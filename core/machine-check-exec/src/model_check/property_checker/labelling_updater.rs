@@ -58,7 +58,7 @@ impl<'a, M: FullMachine> LabellingUpdater<'a, M> {
         Ok(computer)
     }
 
-    fn getter(&self) -> LabellingCacher<M> {
+    fn getter(&self) -> LabellingCacher<'_, M> {
         LabellingCacher::new(
             self.property_checker,
             self.machine,

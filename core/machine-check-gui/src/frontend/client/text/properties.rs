@@ -25,7 +25,7 @@ struct PropertiesDisplayer<'a> {
 }
 
 impl PropertiesDisplayer<'_> {
-    fn new(view: &View) -> PropertiesDisplayer {
+    fn new(view: &View) -> PropertiesDisplayer<'_> {
         let properties_element = get_element_by_id("properties").dyn_into().unwrap();
         PropertiesDisplayer {
             view,

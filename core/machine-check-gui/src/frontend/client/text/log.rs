@@ -23,7 +23,7 @@ struct LogDisplayer<'a> {
 }
 
 impl LogDisplayer<'_> {
-    fn new(view: &View) -> LogDisplayer {
+    fn new(view: &View) -> LogDisplayer<'_> {
         let log_wrapper_element = get_element_by_id("log_wrapper");
         let log_body_element = get_element_by_id("log").first_element_child().unwrap();
         let log_body_element = log_body_element.dyn_into().unwrap();

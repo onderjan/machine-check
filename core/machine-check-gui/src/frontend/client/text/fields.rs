@@ -21,7 +21,7 @@ struct FieldDisplayer<'a> {
 }
 
 impl FieldDisplayer<'_> {
-    fn new(view: &View) -> FieldDisplayer {
+    fn new(view: &View) -> FieldDisplayer<'_> {
         let state_fields = get_element_by_id("state_fields");
         let state_fields = state_fields.dyn_into().unwrap();
         FieldDisplayer { view, state_fields }
