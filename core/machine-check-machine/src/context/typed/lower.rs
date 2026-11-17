@@ -3,10 +3,11 @@ use machine_check_common::iir::ty::IGeneralType;
 
 use super::WTypedContext;
 use crate::{
+    context::{typed::convert::convert_item_fn, WLowContext},
     util::ident_creator::IdentCreator,
     wir::{
         WExpr, WExprLowCall, WExprStruct, WFnSignature, WIdent, WItemFn, WItemFnBody, WMckNew,
-        WStmt, WStmtAssign, WTacLocal, WTypeId, YLowered, YTac,
+        WStmt, WStmtAssign, WTacLocal, WType, WTypeId, YLowered, YSsa, YTac,
     },
     Errors,
 };
@@ -16,10 +17,63 @@ mod block;
 mod call;
 mod ty;
 
-pub fn lower_item_fn(
-    ctx: &mut WTypedContext,
+#[derive(Debug)]
+struct LoweredType {
+    high: WType,
+    low_index: usize,
+}
+
+impl WTypedContext {
+    pub fn lower(mut self) -> Result<WLowContext, Errors> {
+        let mut types = Vec::new();
+        let mut type_map = IndexMap::new();
+        for (index, ty) in self.types.iter().enumerate() {
+            let lowered = self.lower_type(ty.clone())?;
+            eprintln!("Lowered type to: {:?}", lowered);
+            type_map.insert(
+                WTypeId::from_index(index),
+                LoweredType {
+                    high: ty.clone(),
+                    low_index: types.len(),
+                },
+            );
+            types.push(lowered);
+        }
+
+        let definitions = self
+            .definitions
+            .clone()
+            .map_functions(|func| self.lower_function(func, &mut types, &type_map))?;
+
+        Ok(WLowContext::new(definitions, types))
+    }
+
+    fn lower_function(
+        &mut self,
+        item_fn: WItemFn<YTac>,
+        types: &mut Vec<IGeneralType>,
+        type_map: &IndexMap<WTypeId, LoweredType>,
+    ) -> Result<WItemFn<YSsa>, Errors> {
+        eprintln!("Lowering fn: {:#?}", item_fn);
+        eprintln!("Types before lowering: {:#?}", types);
+        let item_fn = lower_item_fn(
+            item_fn,
+            types,
+            type_map,
+            self.boolean_type_id(),
+            self.panic_type_id(),
+        )?;
+        eprintln!("Types after lowering: {:#?}", types);
+        convert_item_fn(self, item_fn)
+    }
+}
+
+fn lower_item_fn(
     impl_item: WItemFn<YTac>,
     types: &mut Vec<IGeneralType>,
+    type_map: &IndexMap<WTypeId, LoweredType>,
+    boolean_ty: WTypeId,
+    panic_ty: WTypeId,
 ) -> Result<WItemFn<YLowered>, Errors> {
     let signature = WFnSignature {
         ident: impl_item.signature.ident,
@@ -38,7 +92,6 @@ pub fn lower_item_fn(
     let panic_ident = WIdent::new(String::from("__mck_panic"), span);
     let zero_bitvec_ident = WIdent::new(String::from("__mck_paniczbv"), span);
 
-    let panic_ty = ctx.panic_type_id();
     locals.push(WTacLocal {
         ident: panic_ident.clone(),
         ty: panic_ty.clone(),
@@ -61,13 +114,14 @@ pub fn lower_item_fn(
     ];
 
     let mut fn_lowerer = FnLowerer {
-        ctx,
-        ir_types: types,
+        types,
+        type_map,
         local_types,
         next_panic_num: 0,
         ident_creator: IdentCreator::new(String::from("panic")),
         panic_ident: panic_ident.clone(),
         zero_bitvec_ident,
+        boolean_ty,
     };
 
     let mut block = fn_lowerer.lower_block(impl_item.body.block)?;
@@ -81,7 +135,7 @@ pub fn lower_item_fn(
 
     // convert to panic result
 
-    /*let IGeneralType::Normal(output_type) = types[signature.output.index()].clone() else {
+    let IGeneralType::Normal(output_type) = types[signature.output.index()].clone() else {
         panic!("Expected normal function output type");
     };
     let output_type = IGeneralType::PanicResult(output_type);
@@ -112,9 +166,7 @@ pub fn lower_item_fn(
         ident: signature.ident,
         inputs: signature.inputs,
         output,
-    };*/
-
-    let result_ident = impl_item.body.result;
+    };
 
     Ok(WItemFn {
         visibility: impl_item.visibility,
@@ -128,8 +180,8 @@ pub fn lower_item_fn(
 }
 
 struct FnLowerer<'a> {
-    ctx: &'a mut WTypedContext,
-    ir_types: &'a mut Vec<IGeneralType>,
+    types: &'a mut Vec<IGeneralType>,
+    type_map: &'a IndexMap<WTypeId, LoweredType>,
     local_types: IndexMap<WIdent, WTypeId>,
     // TODO: just use a str for panics
     next_panic_num: u32,
@@ -138,6 +190,7 @@ struct FnLowerer<'a> {
     ident_creator: IdentCreator<WTypeId>,
     panic_ident: WIdent,
     zero_bitvec_ident: WIdent,
+    boolean_ty: WTypeId,
 }
 
 fn create_panic_call(val: u64) -> WExpr<WExprLowCall> {

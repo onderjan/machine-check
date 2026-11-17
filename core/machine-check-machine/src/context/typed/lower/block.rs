@@ -83,7 +83,7 @@ impl super::FnLowerer<'_> {
         // assign to the panic variable if it is currently zero
         let panic_is_zero_ident = self
             .ident_creator
-            .create_temporary_ident(span, self.ctx.boolean_type_id());
+            .create_temporary_ident(span, self.boolean_ty.clone());
 
         let panic_is_zero_call = WExprLowCall::MckBinary(WMckBinary {
             op: IrMckBinaryOp::Eq,

@@ -8,7 +8,7 @@ use syn::Lit;
 use crate::{
     wir::{
         WCall, WCallArg, WExpr, WExprHighCall, WExprLowCall, WIdent, WMckBinary, WMckExt, WMckNew,
-        WMckUnary, WStdBinary, WStdUnary, WType,
+        WMckUnary, WStdBinary, WStdUnary, WType, WTypeId,
     },
     Error, ErrorType,
 };
@@ -20,6 +20,14 @@ impl super::FnLowerer<'_> {
             WExprHighCall::StdUnary(call) => WExprLowCall::MckUnary(self.lower_unary(call)),
             WExprHighCall::StdBinary(call) => WExprLowCall::MckBinary(self.lower_binary(call)?),
         }))
+    }
+
+    fn wir_type(&self, id: WTypeId) -> &WType {
+        &self
+            .type_map
+            .get(&id)
+            .expect("WIR type should be present")
+            .high
     }
 
     fn lower_normal_call(&self, call: WCall) -> Result<WExpr<WExprLowCall>, Error> {
@@ -36,8 +44,8 @@ impl super::FnLowerer<'_> {
                     if let WCallArg::Literal(Lit::Int(lit_int)) = &call.args[0] {
                         if let Ok(value) = lit_int.base10_parse() {
                             let arg = generics.arguments[0].clone();
-                            if let WType::Number(width, _span) = self.ctx.wir_type(arg) {
-                                let bound = RBound::new(width);
+                            if let WType::Number(width, _span) = self.wir_type(arg) {
+                                let bound = RBound::new(*width);
                                 let bitvector = ConcreteBitvector::new(value, bound);
                                 return Ok(WExpr::Call(WExprLowCall::MckNew(WMckNew::Bitvector(
                                     bitvector,
@@ -71,7 +79,7 @@ impl super::FnLowerer<'_> {
                     .local_types
                     .get(inner)
                     .expect("Ext arg should have local type");
-                let inner_ty = self.ctx.wir_type(inner_ty.clone());
+                let inner_ty = self.wir_type(inner_ty.clone());
                 let mut signed = None;
                 match inner_ty {
                     WType::Path(path) => {
@@ -90,10 +98,10 @@ impl super::FnLowerer<'_> {
                 if let Some(generics) = &call.fn_path.segments[1].generics {
                     if generics.arguments.len() == 1 {
                         let arg = generics.arguments[0].clone();
-                        if let WType::Number(width, _span) = self.ctx.wir_type(arg) {
+                        if let WType::Number(width, _span) = self.wir_type(arg) {
                             return Ok(WExpr::Call(WExprLowCall::MckExt(WMckExt {
                                 signed,
-                                width,
+                                width: *width,
                                 from: inner.clone(),
                             })));
                         }
@@ -108,7 +116,8 @@ impl super::FnLowerer<'_> {
 
         let without_generics = call.fn_path.clone().without_generics();
 
-        if self
+        // TODO: signature error
+        /*if self
             .ctx
             .definitions()
             .function_by_path(without_generics)
@@ -118,7 +127,7 @@ impl super::FnLowerer<'_> {
                 "Call should be in signatures due to constraints: {:?}",
                 call
             );
-        }
+        }*/
 
         // must be a correct call due to the constraints placed
         Ok(WExpr::Call(WExprLowCall::Call(call)))
@@ -244,11 +253,11 @@ impl super::FnLowerer<'_> {
             // type is not in local ident types, do not determine signedness
             return None;
         };
-        let ty = self.ctx.wir_type(ty.clone());
+        let ty = self.wir_type(ty.clone());
         self.type_signedness(ty)
     }
 
-    fn type_signedness(&self, ty: WType) -> Option<Signedness> {
+    fn type_signedness(&self, ty: &WType) -> Option<Signedness> {
         match ty {
             WType::Path(path) => {
                 if path.matches_absolute(&["machine_check", "Unsigned"]) {
@@ -263,7 +272,7 @@ impl super::FnLowerer<'_> {
                 None
             }
             WType::Reference(inner, _span) => {
-                let inner = self.ctx.wir_type(inner);
+                let inner = self.wir_type(inner.clone());
                 self.type_signedness(inner)
             }
             WType::Number(_num, _span) => None,
