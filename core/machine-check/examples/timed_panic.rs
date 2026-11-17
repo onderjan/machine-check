@@ -37,8 +37,7 @@ mod machine_module {
         type State = State;
         type Param = Param;
 
-        #[allow(unused_variables)]
-        fn init(&self, input: &Input, _param: &Param) -> State {
+        fn init(&self, _input: &Input, _param: &Param) -> State {
             State {
                 counter: Unsigned::<3>::new(0),
                 value: Unsigned::<2>::new(0),
