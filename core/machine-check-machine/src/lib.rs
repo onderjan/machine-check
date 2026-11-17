@@ -48,31 +48,26 @@ pub fn process_module(mut module: ItemMod) -> Result<ItemMod, Errors> {
 }
 
 pub fn inherent_property() -> IProperty {
-    todo!("Inherent property");
-    /*let mut globals = BTreeMap::new();
+    let mut ctx = WOuterContext::new();
 
-        let mut ctx = WInferenceContext::new();
-        let panic_type_id = ctx
-            .type_id(&bitvector_type(Some(32)).into())
-            .expect("Panic type should be inserted into context");
+    let property_macros = PropertyMacros::empty();
 
-        globals.insert(
-            WIdent::new(String::from("__panic"), Span::call_site()),
-            panic_type_id,
-        );
+    let mut global_basic_types = IndexMap::new();
 
-        let expr = parse_quote!(AG![__panic == 0]);
+    let panic_type_id = ctx.new_bitvector(Some(32));
 
-        let (ctx, property, _panic_messages) =
-            into_wir::create_property_description(ctx, expr, &globals, &PropertyMacros::empty())
-                .expect("Inherent property should be created");
+    global_basic_types.insert(
+        WIdent::new(String::from("__panic"), WSpan::call_site()),
+        panic_type_id,
+    );
 
-    //println!("Abstract description: {:?}", description);
+    let expr = parse_quote!(AG![__panic == ::machine_check::Bitvector::<32>::new(0)]);
 
+    let property = context::create_property(ctx, expr, &global_basic_types, &property_macros)
+        .expect("Inherent property should be created");
     property
-        .into_iir(&ctx)
+        .into_iir()
         .expect("Inherent property should not produce an error")
-        */
 }
 
 pub fn process_property<M: FullMachine, D>(
