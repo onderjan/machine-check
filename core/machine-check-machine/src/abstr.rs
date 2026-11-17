@@ -71,7 +71,7 @@ pub(crate) fn create_abstract_items(ctx: &WLowContext) -> Vec<Item> {
     let mut machine_types = Vec::new();
     let mut items = Vec::new();
 
-    let type_fn = |type_id| ctx.id_syn_type(type_id);
+    let type_fn = |type_id| ctx.id_syn_type(type_id, "abstr");
 
     let mut concrete_impls = Vec::new();
 

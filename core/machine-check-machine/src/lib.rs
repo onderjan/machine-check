@@ -173,7 +173,7 @@ fn process_items(items: &mut Vec<Item>) -> Result<(), Errors> {
         eprintln!("Writing machine files to directory {:?}", out_dir);
         std::fs::write(
             out_dir.join("description.rs"),
-            unparse(ctx.clone().into_syn()),
+            unparse(ctx.clone().into_syn("concr")),
         )
         .expect("SSA machine file should be writable");
     }

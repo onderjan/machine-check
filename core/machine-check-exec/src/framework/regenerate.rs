@@ -106,9 +106,7 @@ impl<M: FullMachine> super::Framework<M> {
 
                     // TODO: apply decay and trackers canonisation without conversion to/from runtime
 
-                    // TODO: bring PanicResult back
-                    let mut next_result = next_state.to_runtime();
-                    //let mut next_result = next_state.result.to_runtime();
+                    let mut next_result = next_state.result.to_runtime();
 
                     // apply decay
                     step_precision.force_decay(&mut next_result);
@@ -116,9 +114,7 @@ impl<M: FullMachine> super::Framework<M> {
                     // make trackers canonical
                     next_result.canonicise_trackers();
 
-                    next_state = AbstrState::<M>::from_runtime(&next_result);
-
-                    let next_panic_state = AbstrPanicState::<M>::without_panic(next_state);
+                    let next_panic_state = todo!("next state");
 
                     // add the step to the state space
                     self.work_state.num_generated_transitions += 1;

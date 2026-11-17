@@ -58,7 +58,7 @@ pub fn from_runtime_fn(item_struct: &WItemStruct, ctx: &WLowContext) -> ImplItem
                 field
                     .ty
                     .clone()
-                    .into_typed_syn(&|type_id| ctx.id_syn_type(type_id)),
+                    .into_typed_syn(&|type_id| ctx.id_syn_type(type_id, "abstr")),
             ),
         ));
         assign_stmts.push(create_assign(

@@ -35,10 +35,8 @@ fn phi_fn(s: &WItemStruct, ctx: &WLowContext) -> ImplItemFn {
     for (index, (field_name, field)) in s.fields.iter().enumerate() {
         // assign our field to a temporary as calls can only take ident arguments
         let self_field_expr = create_expr_field_named(create_self(), field_name.to_syn());
-        let other_field_expr = create_expr_field_named(
-            create_expr_ident(other_ident.clone()),
-            field_name.to_syn(),
-        );
+        let other_field_expr =
+            create_expr_field_named(create_expr_ident(other_ident.clone()), field_name.to_syn());
         let self_field_temp_ident = create_ident(&format!("__mck_phi_self_{}", index));
         local_stmts.push(create_let_bare(
             self_field_temp_ident.clone(),
@@ -46,7 +44,7 @@ fn phi_fn(s: &WItemStruct, ctx: &WLowContext) -> ImplItemFn {
                 field
                     .ty
                     .clone()
-                    .into_typed_syn(&|type_id| ctx.id_syn_type(type_id)),
+                    .into_typed_syn(&|type_id| ctx.id_syn_type(type_id, "abstr")),
             ),
         ));
         assign_stmts.push(create_assign(
@@ -63,7 +61,7 @@ fn phi_fn(s: &WItemStruct, ctx: &WLowContext) -> ImplItemFn {
                 field
                     .ty
                     .clone()
-                    .into_typed_syn(&|type_id| ctx.id_syn_type(type_id)),
+                    .into_typed_syn(&|type_id| ctx.id_syn_type(type_id, "abstr")),
             ),
         ));
         assign_stmts.push(create_assign(
@@ -88,7 +86,7 @@ fn phi_fn(s: &WItemStruct, ctx: &WLowContext) -> ImplItemFn {
                 field
                     .ty
                     .clone()
-                    .into_typed_syn(&|type_id| ctx.id_syn_type(type_id)),
+                    .into_typed_syn(&|type_id| ctx.id_syn_type(type_id, "abstr")),
             ),
         ));
         assign_stmts.push(create_assign(

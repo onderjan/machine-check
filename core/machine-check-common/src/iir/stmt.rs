@@ -170,6 +170,7 @@ fn ensure_abstract_general_type(context: &IContext, value: &AbstractValue, ty: &
     match ty {
         IGeneralType::Normal(ty) => ensure_abstract_type(context, value, ty),
         IGeneralType::PhiArg(ty) => ensure_abstract_type(context, value, ty),
+        IGeneralType::PanicResult(ty) => ensure_abstract_type(context, value, ty),
     }
 }
 

@@ -67,14 +67,23 @@ impl WLowContext {
         let result = self.id_general_type(id);
         match result {
             IGeneralType::Normal(ty) => ty,
-            _ => panic!("Expected normal IIR type, got {:?}", result),
+            _ => {
+                panic!("Expected normal IIR type, got {:?}", result)
+            }
         }
     }
 
-    pub fn id_syn_type(&self, id: WTypeId) -> Type {
-        let (is_phi_arg, itype) = match self.id_general_type(id) {
-            IGeneralType::Normal(itype) => (false, itype),
-            IGeneralType::PhiArg(itype) => (true, itype),
+    pub fn id_syn_type(&self, id: WTypeId, submodule: &str) -> Type {
+        enum Outer {
+            None,
+            PhiArg,
+            PanicResult,
+        }
+
+        let (outer, itype) = match self.id_general_type(id) {
+            IGeneralType::Normal(itype) => (Outer::None, itype),
+            IGeneralType::PhiArg(itype) => (Outer::PhiArg, itype),
+            IGeneralType::PanicResult(itype) => (Outer::PanicResult, itype),
         };
 
         let span = Span::call_site();
@@ -146,7 +155,7 @@ impl WLowContext {
                     .ident
                     .clone()
                     .into_path()
-                    .into_typed_syn(&|type_id| self.id_syn_type(type_id));
+                    .into_typed_syn(&|type_id| self.id_syn_type(type_id, submodule));
                 Type::Path(TypePath { qself: None, path })
             }
         };
@@ -161,35 +170,68 @@ impl WLowContext {
             IrReference::None => result,
         };
 
-        if is_phi_arg {
-            let phi_arg_path = Path {
-                leading_colon: Some(Token![::](span)),
-                segments: Punctuated::from_iter([
-                    PathSegment {
-                        ident: Ident::new("mck", span),
-                        arguments: PathArguments::None,
-                    },
-                    PathSegment {
-                        ident: Ident::new("forward", span),
-                        arguments: PathArguments::None,
-                    },
-                    PathSegment {
-                        ident: Ident::new("PhiArg", span),
-                        arguments: PathArguments::AngleBracketed(AngleBracketedGenericArguments {
-                            colon2_token: None,
-                            lt_token: Token![<](span),
-                            args: Punctuated::from_iter([GenericArgument::Type(result)]),
-                            gt_token: Token![>](span),
-                        }),
-                    },
-                ]),
-            };
-            Type::Path(TypePath {
-                qself: None,
-                path: phi_arg_path,
-            })
-        } else {
-            result
+        match outer {
+            Outer::None => result,
+            Outer::PhiArg => {
+                let phi_arg_path = Path {
+                    leading_colon: Some(Token![::](span)),
+                    segments: Punctuated::from_iter([
+                        PathSegment {
+                            ident: Ident::new("mck", span),
+                            arguments: PathArguments::None,
+                        },
+                        PathSegment {
+                            ident: Ident::new("forward", span),
+                            arguments: PathArguments::None,
+                        },
+                        PathSegment {
+                            ident: Ident::new("PhiArg", span),
+                            arguments: PathArguments::AngleBracketed(
+                                AngleBracketedGenericArguments {
+                                    colon2_token: None,
+                                    lt_token: Token![<](span),
+                                    args: Punctuated::from_iter([GenericArgument::Type(result)]),
+                                    gt_token: Token![>](span),
+                                },
+                            ),
+                        },
+                    ]),
+                };
+                Type::Path(TypePath {
+                    qself: None,
+                    path: phi_arg_path,
+                })
+            }
+            Outer::PanicResult => {
+                let phi_arg_path = Path {
+                    leading_colon: Some(Token![::](span)),
+                    segments: Punctuated::from_iter([
+                        PathSegment {
+                            ident: Ident::new("mck", span),
+                            arguments: PathArguments::None,
+                        },
+                        PathSegment {
+                            ident: Ident::new(submodule, span),
+                            arguments: PathArguments::None,
+                        },
+                        PathSegment {
+                            ident: Ident::new("PanicResult", span),
+                            arguments: PathArguments::AngleBracketed(
+                                AngleBracketedGenericArguments {
+                                    colon2_token: None,
+                                    lt_token: Token![<](span),
+                                    args: Punctuated::from_iter([GenericArgument::Type(result)]),
+                                    gt_token: Token![>](span),
+                                },
+                            ),
+                        },
+                    ]),
+                };
+                Type::Path(TypePath {
+                    qself: None,
+                    path: phi_arg_path,
+                })
+            }
         }
     }
 
@@ -204,15 +246,10 @@ impl WLowContext {
         result.inner
     }
 
-    pub fn into_syn(self) -> Vec<Item> {
+    pub fn into_syn(self, submodule: &str) -> Vec<Item> {
         self.definitions
             .clone()
-            .into_syn(&|type_id: WTypeId| -> Type {
-                eprintln!("Into syn type id {:?}", type_id);
-                let ty = self.id_syn_type(type_id);
-                eprintln!("Type: {:?}", ty);
-                ty
-            })
+            .into_syn(&|type_id: WTypeId| -> Type { self.id_syn_type(type_id, submodule) })
     }
 
     pub fn into_iir(self) -> Result<IDescription, Error> {

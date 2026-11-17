@@ -137,6 +137,12 @@ impl WExprField {
                     base_var_info.ty
                 )
             }
+            IGeneralType::PanicResult(_) => {
+                panic!(
+                    "Field variable type {:?} should be not be panic result",
+                    base_var_info.ty
+                )
+            }
         };
 
         let member_span = self.member.span();
@@ -163,6 +169,35 @@ impl WExprStruct {
         ctx: &WLowContext,
         fn_data: &WFnData,
     ) -> Result<IExprStruct, Error> {
+        let general_type = ctx.id_general_type(self.ty.clone());
+        if let IGeneralType::PanicResult(_ty) = general_type {
+            // TODO: resolve this normally
+            let mut result = None;
+            let mut panic = None;
+
+            for (field_key, field_value) in self.fields {
+                let field_var = from_variable_map(field_value, fn_data)?;
+                match field_key.name() {
+                    "panic" => {
+                        panic = Some(field_var);
+                    }
+                    "result" => {
+                        result = Some(field_var);
+                    }
+                    _ => {
+                        panic!("Unexpected panic result field {:?}", field_key);
+                    }
+                }
+            }
+
+            let panic = panic.expect("Expected panic field in panic result");
+            let result = result.expect("Expected result field in panic result");
+
+            return Ok(IExprStruct {
+                fields: vec![panic, result],
+            });
+        }
+
         let base_ty = ctx.id_datatype(self.ty);
 
         let num_fields = base_ty.def.fields.len();

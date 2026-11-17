@@ -1,5 +1,7 @@
 use std::fmt::Debug;
 
+use machine_check_common::iir::ty::IGeneralType;
+
 use crate::{
     context::{
         typed::{convert::convert_item_fn, lower::lower_item_fn},
@@ -52,24 +54,30 @@ impl WTypedContext {
     }
 
     pub fn lower(mut self) -> Result<WLowContext, Errors> {
-        let definitions = self
-            .definitions
-            .clone()
-            .map_functions(|func| self.lower_function(func))?;
-
         let mut types = Vec::new();
-
         for ty in &self.types {
             let lowered = self.lower_type(ty.clone())?;
             eprintln!("Lowered type to: {:?}", lowered);
             types.push(lowered);
         }
 
+        let definitions = self
+            .definitions
+            .clone()
+            .map_functions(|func| self.lower_function(func, &mut types))?;
+
         Ok(WLowContext::new(definitions, types))
     }
 
-    fn lower_function(&mut self, item_fn: WItemFn<YTac>) -> Result<WItemFn<YSsa>, Errors> {
-        let item_fn = lower_item_fn(self, item_fn)?;
+    fn lower_function(
+        &mut self,
+        item_fn: WItemFn<YTac>,
+        types: &mut Vec<IGeneralType>,
+    ) -> Result<WItemFn<YSsa>, Errors> {
+        eprintln!("Lowering fn: {:#?}", item_fn);
+        eprintln!("Types before lowering: {:#?}", types);
+        let item_fn = lower_item_fn(self, item_fn, types)?;
+        eprintln!("Types after lowering: {:#?}", types);
         convert_item_fn(self, item_fn)
     }
 

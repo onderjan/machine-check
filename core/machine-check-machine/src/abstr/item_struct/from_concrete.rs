@@ -41,7 +41,7 @@ pub fn from_concrete_fn(
         }) = field
             .ty
             .clone()
-            .into_typed_syn(&|type_id| ctx.id_syn_type(type_id))
+            .into_typed_syn(&|type_id| ctx.id_syn_type(type_id, "abstr"))
         else {
             panic!("Field type should be a path");
         };
@@ -77,7 +77,7 @@ pub fn from_concrete_fn(
                 field
                     .ty
                     .clone()
-                    .into_typed_syn(&|type_id| ctx.id_syn_type(type_id)),
+                    .into_typed_syn(&|type_id| ctx.id_syn_type(type_id, "abstr")),
             ),
         ));
         assign_stmts.push(create_assign(

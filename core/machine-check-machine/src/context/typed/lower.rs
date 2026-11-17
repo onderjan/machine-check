@@ -1,11 +1,12 @@
 use indexmap::IndexMap;
+use machine_check_common::iir::ty::IGeneralType;
 
 use super::WTypedContext;
 use crate::{
     util::ident_creator::IdentCreator,
     wir::{
-        WExpr, WExprLowCall, WFnSignature, WIdent, WItemFn, WItemFnBody, WMckNew, WStmt,
-        WStmtAssign, WTacLocal, WTypeId, YLowered, YTac,
+        WExpr, WExprLowCall, WExprStruct, WFnSignature, WIdent, WItemFn, WItemFnBody, WMckNew,
+        WStmt, WStmtAssign, WTacLocal, WTypeId, YLowered, YTac,
     },
     Errors,
 };
@@ -18,6 +19,7 @@ mod ty;
 pub fn lower_item_fn(
     ctx: &mut WTypedContext,
     impl_item: WItemFn<YTac>,
+    types: &mut Vec<IGeneralType>,
 ) -> Result<WItemFn<YLowered>, Errors> {
     let signature = WFnSignature {
         ident: impl_item.signature.ident,
@@ -60,10 +62,11 @@ pub fn lower_item_fn(
 
     let mut fn_lowerer = FnLowerer {
         ctx,
+        ir_types: types,
         local_types,
         next_panic_num: 0,
         ident_creator: IdentCreator::new(String::from("panic")),
-        panic_ident,
+        panic_ident: panic_ident.clone(),
         zero_bitvec_ident,
     };
 
@@ -76,19 +79,57 @@ pub fn lower_item_fn(
     stmts.append(&mut block.stmts);
     block.stmts = stmts;
 
+    // convert to panic result
+
+    /*let IGeneralType::Normal(output_type) = types[signature.output.index()].clone() else {
+        panic!("Expected normal function output type");
+    };
+    let output_type = IGeneralType::PanicResult(output_type);
+    let output = WTypeId::from_index(types.len());
+    types.push(output_type);
+
+    let result_ident = WIdent::new(String::from("__mck_result"), span);
+    let panic_field = WIdent::new(String::from("panic"), span);
+    let result_field = WIdent::new(String::from("result"), span);
+
+    locals.push(WTacLocal {
+        ident: result_ident.clone(),
+        ty: output.clone(),
+    });
+
+    block.stmts.push(WStmt::Assign(WStmtAssign {
+        left: result_ident.clone(),
+        right: WExpr::Struct(WExprStruct {
+            ty: output.clone(),
+            fields: vec![
+                (panic_field, panic_ident),
+                (result_field, impl_item.body.result),
+            ],
+        }),
+    }));
+
+    let signature = WFnSignature {
+        ident: signature.ident,
+        inputs: signature.inputs,
+        output,
+    };*/
+
+    let result_ident = impl_item.body.result;
+
     Ok(WItemFn {
         visibility: impl_item.visibility,
         signature,
         body: WItemFnBody {
             locals,
             block,
-            result: impl_item.body.result,
+            result: result_ident,
         },
     })
 }
 
 struct FnLowerer<'a> {
     ctx: &'a mut WTypedContext,
+    ir_types: &'a mut Vec<IGeneralType>,
     local_types: IndexMap<WIdent, WTypeId>,
     // TODO: just use a str for panics
     next_panic_num: u32,

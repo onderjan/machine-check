@@ -25,6 +25,7 @@ pub struct IType {
 pub enum IGeneralType {
     Normal(IType),
     PhiArg(IType),
+    PanicResult(IType),
 }
 
 impl Debug for IElementaryType {
@@ -57,6 +58,7 @@ impl Debug for IGeneralType {
         match self {
             Self::Normal(inner) => write!(f, "{:?}", inner),
             Self::PhiArg(inner) => write!(f, "::mck::PhiArg<{:?}>", inner),
+            Self::PanicResult(inner) => write!(f, "::mck::PanicResult<{:?}>", inner),
         }
     }
 }
