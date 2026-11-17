@@ -170,7 +170,27 @@ fn ensure_abstract_general_type(context: &IContext, value: &AbstractValue, ty: &
     match ty {
         IGeneralType::Normal(ty) => ensure_abstract_type(context, value, ty),
         IGeneralType::PhiArg(ty) => ensure_abstract_type(context, value, ty),
-        IGeneralType::PanicResult(ty) => ensure_abstract_type(context, value, ty),
+        IGeneralType::PanicResult(ty) => {
+            // should be the panic bitvector first, then the desired type
+
+            let AbstractValue::Struct(fields) = value else {
+                panic!("Expected struct type of panic result");
+            };
+
+            if fields.len() != 2 {
+                panic!("Expected panic result to be a 2-field struct");
+            }
+
+            let AbstractValue::Bitvector(panic_result) = fields[0] else {
+                panic!("Expected panic type to be bitvector");
+            };
+
+            if panic_result.bound().width() != 32 {
+                panic!("Expected panic bitvector to have 32 bits");
+            }
+
+            ensure_abstract_type(context, &fields[1], ty)
+        }
     }
 }
 

@@ -88,6 +88,19 @@ impl AbstractValue {
         fields
     }
 
+    pub fn expect_panic_result(&self) -> (&RBitvector, &AbstractValue) {
+        let result = self.expect_struct();
+
+        if result.len() != 2 {
+            panic!("The function result should be a 2-tuple");
+        }
+
+        let panic = result[0].expect_bitvector();
+        let value = &result[1];
+
+        (panic, value)
+    }
+
     pub fn uext(&self, new_width: u32) -> Self {
         let bitvector = *self.expect_bitvector();
         let extended = BExt::uext(bitvector, RBound::new(new_width));

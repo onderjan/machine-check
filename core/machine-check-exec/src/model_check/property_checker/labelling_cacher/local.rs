@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use machine_check_common::iir::context::IContext;
 use machine_check_common::iir::path::{IIdent, ISpan};
-use mck::abstr::{Abstr, AbstractValue};
+use mck::abstr::{Abstr, AbstractValue, BitvectorDomain};
 
 use machine_check_common::iir::property::{ISubproperty, ISubpropertyFunc};
 use machine_check_common::{ExecError, ParamValuation, StateId, ThreeValued};
@@ -131,15 +131,11 @@ impl<M: FullMachine> LabellingCacher<'_, M> {
 
         let input_values = func.globals_to_input_values(&globals);
 
-        let result = func.call(&IContext::empty(), input_values);
+        let panic_result = func.call(&IContext::empty(), input_values);
+        let (panic, result) = panic_result.expect_panic_result();
 
-        /*
         // TODO: raise an error on nonzero panic result
-        assert!(panic
-            .expect_bitvector()
-            .concrete_value()
-            .is_some_and(|v| v.is_zero()));
-        */
+        assert!(panic.concrete_value().is_some_and(|v| v.is_zero()));
 
         let AbstractValue::Boolean(result) = result else {
             panic!("Result should be abstract Boolean");

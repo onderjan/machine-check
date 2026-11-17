@@ -11,7 +11,7 @@ use machine_check_common::{
     ExecError, NodeId, ParamValuation, StateId,
 };
 use mck::{
-    abstr::{Abstr, AbstractValue},
+    abstr::{Abstr, AbstractValue, BitvectorDomain},
     concr::FullMachine,
 };
 
@@ -202,15 +202,11 @@ impl<M: FullMachine> NonincrementalChecker<'_, M> {
 
         let input_values = func.globals_to_input_values(&globals);
 
-        let result = func.call(&IContext::empty(), input_values);
+        let panic_result = func.call(&IContext::empty(), input_values);
+        let (panic, result) = panic_result.expect_panic_result();
 
-        /*
         // TODO: raise an error on nonzero panic result
-        assert!(panic
-            .expect_bitvector()
-            .concrete_value()
-            .is_some_and(|v| v.is_zero()));
-        */
+        assert!(panic.concrete_value().is_some_and(|v| v.is_zero()));
 
         let AbstractValue::Boolean(result) = result else {
             panic!("Result should be abstract Boolean");
