@@ -21,8 +21,7 @@ impl WTypedContext {
                 {
                     if let Some(generics) = &path.segments[1].generics {
                         if generics.len() == 1 {
-                            if let WType::Number(width, _span) =
-                                self.wir_type(generics[0].clone())
+                            if let WType::Number(width, _span) = self.wir_type(generics[0].clone())
                             {
                                 return Ok(IGeneralType::Normal(IType {
                                     reference: IrReference::None,
@@ -46,6 +45,23 @@ impl WTypedContext {
                                 ),
                             };
                             return Ok(IGeneralType::PhiArg(inner));
+                        }
+                    }
+                }
+
+                if path.matches_absolute(&["mck", "concr", "PanicResult"]) {
+                    if let Some(generics) = &path.segments[2].generics {
+                        if generics.len() == 1 {
+                            let inner = self.wir_type(generics[0].clone());
+                            let inner = self.lower_type(inner.clone())?;
+                            let inner = match inner {
+                                IGeneralType::Normal(ty) => ty,
+                                _ => panic!(
+                                    "Expected normal type as panic result lowered, got {:?}",
+                                    inner
+                                ),
+                            };
+                            return Ok(IGeneralType::PanicResult(inner));
                         }
                     }
                 }

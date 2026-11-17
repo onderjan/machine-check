@@ -62,12 +62,12 @@ impl<Y: YStage> WDefinitions<Y> {
 
     pub fn map_functions<Z: YStage, E>(
         self,
-        mut map_fn: impl FnMut(WItemFn<Y>) -> Result<WItemFn<Z>, E>,
+        mut map_fn: impl FnMut(usize, WItemFn<Y>) -> Result<WItemFn<Z>, E>,
     ) -> Result<WDefinitions<Z>, E> {
         let mut functions = Vec::new();
 
-        for item_fn in self.functions {
-            let item_fn = map_fn(item_fn)?;
+        for (index, item_fn) in self.functions.into_iter().enumerate() {
+            let item_fn = map_fn(index, item_fn)?;
             functions.push(item_fn);
         }
 

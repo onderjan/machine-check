@@ -27,11 +27,16 @@ mod property;
 #[derive(Debug, Clone)]
 pub struct WLowContext {
     definitions: WDefinitions<YSsa>,
-    types: Vec<IGeneralType>,
+    types: Vec<WLoweredType>,
+}
+
+#[derive(Debug, Clone)]
+pub(super) struct WLoweredType {
+    pub(super) low: IGeneralType,
 }
 
 impl WLowContext {
-    pub(super) fn new(definitions: WDefinitions<YSsa>, types: Vec<IGeneralType>) -> Self {
+    pub(super) fn new(definitions: WDefinitions<YSsa>, types: Vec<WLoweredType>) -> Self {
         Self { definitions, types }
     }
 
@@ -60,6 +65,7 @@ impl WLowContext {
         self.types
             .get(id.index())
             .expect("Type id should be present")
+            .low
             .clone()
     }
 

@@ -8,66 +8,65 @@ use crate::wir::{
 };
 use crate::{Error, ErrorType, Errors};
 
-pub fn convert_item_fn(
-    ctx: &mut WTypedContext,
-    item_fn: WItemFn<YLowered>,
-) -> Result<WItemFn<YSsa>, Errors> {
-    let (item_fn, nonlocal_idents) = process_fn(ctx, item_fn, &BTreeMap::new())?;
-    let mut errors = Vec::new();
-    for nonlocal_ident in nonlocal_idents {
-        errors.push(Error::new(
-            ErrorType::UndefinedVariable(nonlocal_ident.name().to_string()),
-            nonlocal_ident.span(),
-        ));
-    }
-    Errors::iter_to_result(errors)?;
+impl WTypedContext {
+    pub fn convert_item_fn(&mut self, item_fn: WItemFn<YLowered>) -> Result<WItemFn<YSsa>, Errors> {
+        let (item_fn, nonlocal_idents) = self.process_fn(item_fn, &BTreeMap::new())?;
+        let mut errors = Vec::new();
+        for nonlocal_ident in nonlocal_idents {
+            errors.push(Error::new(
+                ErrorType::UndefinedVariable(nonlocal_ident.name().to_string()),
+                nonlocal_ident.span(),
+            ));
+        }
+        Errors::iter_to_result(errors)?;
 
-    Ok(item_fn)
-}
-
-fn process_fn(
-    ctx: &mut WTypedContext,
-    item_fn: WItemFn<YLowered>,
-    global_rewrites: &BTreeMap<WIdent, WIdent>,
-) -> Result<(WItemFn<YSsa>, BTreeSet<WIdent>), Errors> {
-    // initialise local idents
-    let mut local_ident_counters = BTreeMap::new();
-
-    for local in &item_fn.body.locals {
-        local_ident_counters.insert(
-            local.ident.clone(),
-            Counter {
-                present: BTreeSet::new(),
-                next: 0,
-                ty: local.ty.clone(),
-            },
-        );
+        Ok(item_fn)
     }
 
-    let arg_idents = item_fn
-        .signature
-        .inputs
-        .iter()
-        .map(|arg| arg.ident.clone())
-        .collect();
+    fn process_fn(
+        &mut self,
+        item_fn: WItemFn<YLowered>,
+        global_rewrites: &BTreeMap<WIdent, WIdent>,
+    ) -> Result<(WItemFn<YSsa>, BTreeSet<WIdent>), Errors> {
+        // initialise local idents
+        let mut local_ident_counters = BTreeMap::new();
 
-    // visit
-    let mut local_visitor = LocalVisitor {
-        ctx,
-        global_rewrites,
-        arg_idents,
-        local_ident_counters,
-        nonlocal_idents: BTreeSet::new(),
-        errors: Vec::new(),
-        temps: BTreeMap::new(),
-        branch_counter: 0,
-    };
-    let item_fn = local_visitor.process(item_fn)?;
-    Ok((item_fn, local_visitor.nonlocal_idents))
+        for local in &item_fn.body.locals {
+            local_ident_counters.insert(
+                local.ident.clone(),
+                Counter {
+                    present: BTreeSet::new(),
+                    next: 0,
+                    ty: local.ty.clone(),
+                },
+            );
+        }
+
+        let arg_idents = item_fn
+            .signature
+            .inputs
+            .iter()
+            .map(|arg| arg.ident.clone())
+            .collect();
+
+        // visit
+        let mut local_visitor = LocalVisitor {
+            ctx: self,
+            global_rewrites,
+            arg_idents,
+            local_ident_counters,
+            nonlocal_idents: BTreeSet::new(),
+            errors: Vec::new(),
+            temps: BTreeMap::new(),
+            branch_counter: 0,
+        };
+        let item_fn = local_visitor.process(item_fn)?;
+        Ok((item_fn, local_visitor.nonlocal_idents))
+    }
 }
 
 struct LocalVisitor<'a> {
-    pub ctx: &'a mut WTypedContext,
+    ctx: &'a mut WTypedContext,
     pub global_rewrites: &'a BTreeMap<WIdent, WIdent>,
     pub arg_idents: BTreeSet<WIdent>,
     pub branch_counter: u32,

@@ -4,9 +4,7 @@ use syn::{Expr, Type};
 use crate::{
     context::{WInferenceContext, WOuterContext},
     util::ident_creator::IdentCreator,
-    wir::{
-        WFnArg, WIdent, WItemFn, WItemFnBody, WPath, WSpan, WTacLocal, WTypeId, YBuild, YTac,
-    },
+    wir::{WFnArg, WIdent, WItemFn, WItemFnBody, WPath, WSpan, WTacLocal, WTypeId, YBuild, YTac},
     Error, Errors,
 };
 
@@ -21,7 +19,7 @@ impl WOuterContext {
         let definitions = self
             .definitions
             .clone()
-            .map_functions(|func| self.build_function(func, optional_params.clone()))?;
+            .map_functions(|_, func| self.build_function(func, optional_params.clone()))?;
 
         let boolean_type_id = self.new_bool();
         let panic_type_id = self.new_bitvector(Some(32));

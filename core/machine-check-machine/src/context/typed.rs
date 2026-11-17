@@ -73,4 +73,28 @@ impl WTypedContext {
         });
         self.new_type_id(ty)
     }
+
+    fn new_panic_result_id(&mut self, inner: WTypeId) -> WTypeId {
+        let inner_ty = self.types[inner.index()].clone();
+        let span = inner_ty.span();
+
+        let ty = WType::Path(WTypePath {
+            leading_colon: Some(span),
+            segments: vec![
+                WTypePathSegment {
+                    ident: WIdent::new(String::from("mck"), span),
+                    generics: None,
+                },
+                WTypePathSegment {
+                    ident: WIdent::new(String::from("concr"), span),
+                    generics: None,
+                },
+                WTypePathSegment {
+                    ident: WIdent::new(String::from("PanicResult"), span),
+                    generics: Some(vec![inner]),
+                },
+            ],
+        });
+        self.new_type_id(ty)
+    }
 }
